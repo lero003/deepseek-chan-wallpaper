@@ -38,13 +38,15 @@
 
 ## ドラフトDMGとGitHub
 
-- 非公開リポジトリ `lero003/deepseek-chan-wallpaper` へソースを同期し、**下書きリリース** `fighters-mvp4-draft` にDMG・ZIP・SHA256SUMSを添付。下書きのまま維持し、公開・可視性変更・Pagesは行わない。
+- 非公開リポジトリ `lero003/deepseek-chan-wallpaper` へソースを同期（`f30501b`）。**下書きリリース** `fighters-mvp4-draft` にDMG・ZIP・SHA256SUMSを添付。下書き・prereleaseのまま維持し、公開・可視性変更・Pages・タグpushは行わない。
+- 未認証でのリポジトリAPIは404、`gh release list` はDraft表示、`git ls-remote --tags` にリリースタグなしを確認。ドラフト資産を再ダウンロードし、DMG/ZIPのSHA-256がローカルと一致することを確認。
+- リリース: <https://github.com/lero003/deepseek-chan-wallpaper/releases>（下書きは権限者のみ）。
 - DMGは読み取り専用マウントで署名検証、DMG内アプリの自己テスト、コピー後の単体起動まで確認。arm64・macOS 14以降、アドホック署名・未公証。
 - 取得・起動・他のMacでの試用手順は[ドラフトDMGの試用](dmg-draft.md)を参照。素材の権利・公開許諾は未確認のため再配布しない。
 
 ## Git・権利・配布
 
-- Privateの `lero003/deepseek-chan-wallpaper`、最後の同期は `48404d3`。以前のWeb／Mac実装と今回のFightersはローカル変更。追加commit／push・Public化・Pagesは行っていない。
+- Privateの `lero003/deepseek-chan-wallpaper`。今回 `3389716`（機能）と `f30501b`（リリースノート）をmainへpush済み。Public化・Pages・追加の公開リリースは行っていない。下書きリリースは非公開のまま。
 - 生成マスター・参照・制作版素材・QA・アプリ・ZIPはGit対象外。ユーザーの個人用依頼と、第三者素材の公開・再配布許諾を分け、未確認フラグを維持。
 - Apple Silicon向け、最低ターゲットmacOS 14、検証はこのビルド端末のみ。Developer ID署名・公証・一般配布は未実施。古いアプリを終了してから新版を開く。[Macの操作](<macos.md>)参照。
 - 素材のない環境は既定仮素材へ切り替わる。採用デザインではない。Webのplaceholder指定・Macのplaceholder指定で制作素材を混入しない。

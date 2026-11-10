@@ -13,7 +13,7 @@
 
 ## 他のMacで試す手順
 
-1. 非公開リポジトリの Releases から、下書き `fighters-mvp4-draft` の DMG を取得する（アクセス権のあるアカウントでログインするか、作成者がDMGをAirDrop・USB等で手渡す）。
+1. 非公開リポジトリの [Releases](https://github.com/lero003/deepseek-chan-wallpaper/releases) から、下書き `fighters-mvp4-draft` の DMG を取得する（アクセス権のあるアカウントでログインするか、作成者がDMGをAirDrop・USB等で手渡す）。
 2. `SHA256SUMS.txt` で整合を確認する。
 
    ```sh
