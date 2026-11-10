@@ -41,6 +41,7 @@
 - 非公開リポジトリ `lero003/deepseek-chan-wallpaper` へソースを同期（`f30501b`）。**下書きリリース** `fighters-mvp4-draft` にDMG・ZIP・SHA256SUMSを添付。下書き・prereleaseのまま維持し、公開・可視性変更・Pages・タグpushは行わない。
 - 未認証でのリポジトリAPIは404、`gh release list` はDraft表示、`git ls-remote --tags` にリリースタグなしを確認。ドラフト資産を再ダウンロードし、DMG/ZIPのSHA-256がローカルと一致することを確認。
 - リリース: <https://github.com/lero003/deepseek-chan-wallpaper/releases>（下書きは権限者のみ）。
+- リリース名と同じ注釈付きタグ `fighters-mvp4-draft` をmainへ作成・push済み。**リリースはDraft／Prereleaseのまま**で、タグ作成による公開はしていない。将来公開する場合も同じタグへ紐づく。
 - DMGは読み取り専用マウントで署名検証、DMG内アプリの自己テスト、コピー後の単体起動まで確認。arm64・macOS 14以降、アドホック署名・未公証。
 - 取得・起動・他のMacでの試用手順は[ドラフトDMGの試用](dmg-draft.md)を参照。素材の権利・公開許諾は未確認のため再配布しない。
 
