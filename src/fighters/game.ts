@@ -17,6 +17,7 @@ export function createGame(seed: number, scene: Scene = SEASIDE): FightersGame {
     nextEventAt: 0, restReactionAt: 0, eventStartedAt: 0, lastProgressAt: 0, graceUntil: 0, hitstop: 0,
     randomState: (world.seed ^ 0x7fa82b19) >>> 0 || 1, nextId: 1, episode: 'boss',
     route: 'full', section: 0, sectionLocked: false, wave: 0, routeTick: 0, areaIndex: 0, areaBannerUntil: 0, bossSpawned: false,
+    roomVariant: 0,
     hero: newHero(world.actor.x + 120, world.floorY), enemies: [], projectiles: [], effects: [],
     input: { x: 0, y: 0 }, pendingDodge: false, pendingSpecial: false, cameraX: 120, firstWhiff: true, whiffAttackId: -1,
     message: '', messageUntil: 0, outcome: 'none', stats: newStats() };
@@ -41,8 +42,10 @@ export function command(game: FightersGame, name: string, value?: unknown): void
   switch (name) {
     case 'play':
       if (game.mode === 'manual' && !['result', 'retry'].includes(game.phase)) return;
+      // Taking over a wallpaper episode always continues as the full manual route. A room
+      // incident is restarted from the beginning so room coordinates never mix with the 3600px route.
+      if (game.route === 'room' && !['rest', 'result', 'retry', 'victory', 'return'].includes(game.phase)) startEpisode(game, 'full');
       if (['rest', 'result', 'retry', 'victory', 'return'].includes(game.phase)) startEpisode(game, 'full');
-      // Taking over a wallpaper episode always continues as the full manual route.
       game.episode = 'boss'; game.route = 'full'; game.section = Math.min(game.section, routeSections(game).length - 1);
       game.sectionLocked = false; game.hero.hp = Math.max(4, game.hero.hp);
       game.mode = 'manual'; game.paused = false;
@@ -51,7 +54,7 @@ export function command(game: FightersGame, name: string, value?: unknown): void
     case 'retry':
       if (game.mode !== 'manual') return;
       retrySection(game); game.paused = false; break;
-    case 'demo': if (game.mode === 'auto') startEpisode(game, 'auto'); break;
+    case 'demo': if (game.mode === 'auto') startEpisode(game, 'room'); break;
     case 'pause':
       if (game.mode !== 'manual') return;
       game.paused = !game.paused; clearInputs(game);

@@ -17,4 +17,7 @@ export const SUNSET_LAYOUT: LayoutProfile = {
   provenance: 'ユーザー承認済みの基準絵を参照し、GPT Imageで制作したローカル専用のドット絵です。原寸確認・透過・減色・接地整列を行っています。',
   ceilingColor: '#40344b', floorColor: '#866077', shadowColor: '#34273e',
   water: { left: 115, right: 349, top: 120, bottom: 158 },
+  // The wide room continuation keeps ultrawide wallpapers free of stretched edge columns.
+  // The 480×270 approved scene sits unchanged at (272,153) inside this 1024×576 matte.
+  matte: { width: 1024, height: 576, roomX: 272, roomY: 153 },
 };

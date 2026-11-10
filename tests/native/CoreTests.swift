@@ -19,6 +19,15 @@ struct CoreTests {
         #expect(assets.frames.count == 16)
         #expect(assets.background.width == 480)
         #expect(assets.background.height == 270)
+        if let info = assets.configuration.layout.matte {
+            let matte = try #require(assets.matte)
+            #expect(matte.width == info.width)
+            #expect(matte.height == info.height)
+            #expect(info.roomX + 480 <= info.width)
+            #expect(info.roomY + 270 <= info.height)
+        } else {
+            #expect(assets.matte == nil)
+        }
         #expect(frame.quads.count >= 14)
     }
     @Test func thirtyMinuteJavaScriptCoreReplayMatchesTheWebEngine() throws {
@@ -53,6 +62,9 @@ struct CoreTests {
         #expect(viewport.originY >= 0)
         #expect(viewport.originX + 480 <= viewport.width)
         #expect(viewport.originY + 270 <= viewport.height)
+        #expect(viewport.pixelWidth == Int(size.0.rounded()))
+        #expect(viewport.pixelHeight == Int(size.1.rounded()))
+        if viewport.scale >= 2 { #expect(viewport.scale == viewport.scale.rounded()) }
     }
     @Test func nativeBitmapAndIconAreComplete() throws {
         let engine = try SceneEngine(assets: assets())

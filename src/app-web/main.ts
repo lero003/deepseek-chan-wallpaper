@@ -7,7 +7,6 @@ import type { SpriteAtlas } from '../render/atlas.ts';
 import { FightersUI } from './fighters-ui.ts';
 import { parseAtlas } from '../render/atlas.ts';
 import { loadImage, SceneRenderer } from '../render/renderer.ts';
-import { viewportFor } from '../render/viewport.ts';
 import { AnimationLoop, shouldAnimate, shouldPaintFrame } from './playback.ts';
 import type { PlaybackConditions } from './playback.ts';
 
@@ -44,7 +43,7 @@ scene.dataset.artProfile = art.id;
 canvas.setAttribute('aria-label', art.description);
 element<HTMLElement>('#scene-name').textContent = art.label;
 element<HTMLElement>('#art-provenance').textContent = `${art.provenance} 戦闘の敵・小物・左右パネルは、本プロジェクトの仮ピクセル図形です。外部の画像・フォントは読み込みません。`;
-element<HTMLElement>('.static-scene').style.backgroundImage = `url("${backgroundUrl}")`;
+element<HTMLElement>('.static-scene').style.backgroundImage = `url("${art.matteUrl ?? backgroundUrl}")`;
 const conditions: PlaybackConditions = {
   ready: false, paused: false, hidden: document.hidden, suspended: false,
   reducedMotion: media.matches, still: false, dialogOpen: false,
@@ -110,8 +109,11 @@ function synchronize(): void {
 }
 
 function resize(): void {
+  if (!renderer) return;
   const bounds = scene.getBoundingClientRect();
-  renderer?.resize(viewportFor(bounds.width, bounds.height));
+  const dpr = window.devicePixelRatio || 1;
+  // Draw into the real device pixels so whole-number art scales stay crisp.
+  renderer.resize(Math.max(1, Math.round(bounds.width * dpr)), Math.max(1, Math.round(bounds.height * dpr)));
   // Prepare one stable frame after clearing the canvas; never advance the hidden world.
   draw('resize');
 }
@@ -138,6 +140,7 @@ window.addEventListener('pagehide', () => { conditions.suspended = true; synchro
 window.addEventListener('pageshow', () => { conditions.suspended = false; synchronize(); }, { signal });
 const observer = new ResizeObserver(resize);
 observer.observe(scene);
+window.addEventListener('resize', resize, { signal });
 
 async function bootstrap(): Promise<void> {
   try {
@@ -146,12 +149,16 @@ async function bootstrap(): Promise<void> {
     if ((art.scene.actorHalfWidth ?? ACTOR_HALF_WIDTH) < (atlas.collisionHalfWidth ?? atlas.frameWidth / 2)) {
       throw new Error('Scene collision margins are smaller than the selected sprite.');
     }
-    const [background, character] = await Promise.allSettled([loadImage(backgroundUrl), loadImage(characterUrl)]);
+    const matteRequest = art.matteUrl ? loadImage(art.matteUrl) : Promise.resolve(null);
+    const [background, character, matte] = await Promise.allSettled([loadImage(backgroundUrl), loadImage(characterUrl), matteRequest]);
     if (signal.aborted) return;
     const images = {
       background: background.status === 'fulfilled' ? background.value : null,
       character: character.status === 'fulfilled' ? character.value : null,
+      // The wide matte is an enhancement: failing to load it falls back to the room-only backdrop.
+      matte: matte.status === 'fulfilled' ? matte.value : null,
     };
+    if (art.matteUrl && matte.status === 'rejected') console.error('[kujira] Wallpaper matte failed to load; using the room-only backdrop.', matte.reason);
     renderer = new SceneRenderer(canvas, images, atlas, world.seed, art);
     resize();
     scene.dataset.ready = 'true';

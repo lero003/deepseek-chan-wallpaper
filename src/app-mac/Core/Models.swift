@@ -49,12 +49,15 @@ public struct Scene: Codable, Sendable {
     public let obstacles: [FloorInterval]
 }
 public struct Water: Codable, Sendable { public let left: Double; public let right: Double; public let top: Double; public let bottom: Double }
+/// The approved 480×270 room placed inside a wider/taller wallpaper canvas.
+public struct Matte: Codable, Sendable, Hashable { public let width: Int; public let height: Int; public let roomX: Int; public let roomY: Int }
 public struct Layout: Codable, Sendable {
     public let id: String; public let kind: String; public let label: String
     public let description: String; public let provenance: String
     public let scene: Scene
     public let ceilingColor: String?; public let floorColor: String?; public let shadowColor: String?
     public let water: Water?
+    public let matte: Matte?
 }
 public struct StageInfo: Codable, Sendable { public let width: Int }
 public struct NativeConfiguration: Codable, Sendable {
@@ -96,7 +99,11 @@ public struct DrawCommand: Codable, Sendable {
     public let frame: Int?; public let facing: Int?; public let scaleX: Double?; public let scaleY: Double?
     public let text: String?; public let size: Double?
 }
-public struct BattleFrame: Codable, Sendable { public let cameraX: Double; public let commands: [DrawCommand] }
+public struct BattleFrame: Codable, Sendable {
+    public let cameraX: Double; public let commands: [DrawCommand]
+    /// Short wallpaper incident inside the study: keep the room backdrop, no scrolling stage.
+    public let room: Bool?
+}
 public struct ScenePlan: Codable, Sendable {
     public let tick: Int; public let state: String; public let x: Double; public let floorY: Double
     public let facing: Int; public let frame: Int; public let quads: [Quad]
@@ -104,4 +111,6 @@ public struct ScenePlan: Codable, Sendable {
 }
 public struct Viewport: Codable, Hashable, Sendable {
     public let width: Int; public let height: Int; public let originX: Int; public let originY: Int
+    public let scale: Double; public let pixelWidth: Int; public let pixelHeight: Int
+    public let offsetX: Int; public let offsetY: Int
 }

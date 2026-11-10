@@ -1,5 +1,8 @@
-import { AREAS, AUTO_SECTIONS, HERO, LIMITS, RUN_SECTIONS, SHORT_SECTIONS, SKIRMISH_SECTIONS, STAGE_WIDTH } from './definitions.ts';
-import type { SectionDefinition } from './definitions.ts';
+import {
+  AREAS, AUTO_SECTIONS, HERO, LIMITS, ROOM_INCIDENTS, ROOM_PADDING, ROOM_SECTIONS, RUN_SECTIONS,
+  SHORT_SECTIONS, SKIRMISH_SECTIONS, STAGE_WIDTH,
+} from './definitions.ts';
+import type { RoomIncident, SectionDefinition } from './definitions.ts';
 import { inBattle } from './combat.ts';
 import { decision, effect, clearInputs } from './events.ts';
 import { spawnEnemy } from './enemy-brain.ts';
@@ -7,11 +10,19 @@ import { newHero } from './factory.ts';
 import { clamp } from './movement.ts';
 import type { FightersGame, Phase } from './types.ts';
 
+/**
+ * Room incidents are short by design: a small wave of visitors, a brief celebration and the
+ * wallpaper fade home. Total non-fighting time is ~5s so the whole event stays 10–25 seconds.
+ */
+const ROOM_TICKS = { intro: 90, victory: 180, teleport: 70, return: 150 } as const;
+
 export function routeSections(game: FightersGame): readonly SectionDefinition[] {
   if (game.route === 'full') return RUN_SECTIONS;
   if (game.route === 'auto') return AUTO_SECTIONS;
+  if (game.route === 'room') return ROOM_SECTIONS;
   return game.route === 'skirmish' ? SKIRMISH_SECTIONS : SHORT_SECTIONS;
 }
+export function isRoomRoute(game: FightersGame): boolean { return game.route === 'room'; }
 
 export function enterPhase(game: FightersGame, phase: Phase): void {
   game.phase = phase; game.phaseAge = 0; game.lastProgressAt = game.tick;
@@ -22,25 +33,55 @@ export function scheduleRest(game: FightersGame): void {
   game.nextEventAt = game.frequency === 'off' ? Number.MAX_SAFE_INTEGER : game.tick + Math.round((minimum + decision(game) * variation) * 60);
   game.restReactionAt = game.tick + Math.round((20 + decision(game) * 24) * 60);
 }
-export function startEpisode(game: FightersGame, route: 'short' | 'skirmish' | 'auto' | 'full'): void {
+export function startEpisode(game: FightersGame, route: 'short' | 'skirmish' | 'auto' | 'full' | 'room'): void {
   clearInputs(game);
-  game.hero = newHero(120, game.world.floorY);
+  const room = route === 'room';
+  // The room incident begins wherever the quiet heroine already stands, in the room's own
+  // art coordinates; the long routes keep the hero at the start of the 3600px stage.
+  if (room) game.roomVariant = Math.floor(decision(game) * ROOM_INCIDENTS.length) % ROOM_INCIDENTS.length;
+  game.hero = newHero(room ? game.world.actor.x : 120, game.world.floorY);
+  // Continue the quiet heroine's pose into the incident instead of snapping to a new facing.
+  if (room) game.hero.facing = game.world.actor.facing;
   game.enemies = []; game.projectiles = []; game.effects = []; game.hitstop = 0;
   game.route = route; game.section = 0; game.sectionLocked = false; game.wave = 0; game.bossSpawned = false;
   game.eventStartedAt = game.tick; game.outcome = 'none'; game.cameraX = 0;
-  game.areaIndex = 0; game.areaBannerUntil = game.tick + 130; game.routeTick = game.tick;
+  game.areaIndex = 0; game.areaBannerUntil = room ? 0 : game.tick + 130; game.routeTick = game.tick;
   game.firstWhiff = true; game.whiffAttackId = -1;
   game.stats.episodes++; game.stats.sections = 0;
   enterPhase(game, 'intro');
 }
 export function returnHome(game: FightersGame): void {
   clearInputs(game); game.projectiles = []; game.enemies = []; game.paused = false; game.mode = 'auto'; game.focused = false;
-  game.cameraX = 0; game.hero = newHero(game.world.actor.x + game.stage.homeOffset, game.world.floorY);
+  const homeOffset = game.route === 'room' ? 0 : game.stage.homeOffset;
+  game.cameraX = 0; game.hero = newHero(game.world.actor.x + homeOffset, game.world.floorY);
   game.sectionLocked = false; game.outcome = 'none';
   enterPhase(game, 'rest'); scheduleRest(game);
 }
 
+function roomIncident(game: FightersGame): RoomIncident {
+  return ROOM_INCIDENTS[game.roomVariant % ROOM_INCIDENTS.length] ?? ROOM_INCIDENTS[0]!;
+}
+/** Room visitors pop up at the window-side edges of the accepted room, not outside the camera. */
+function spawnRoomEncounter(game: FightersGame, wave: number): void {
+  const incident = roomIncident(game);
+  const list = wave === 0 ? incident.spawns : (incident.second ?? []);
+  const range = game.world.range;
+  const firstLeft = decision(game) < .5;
+  list.forEach((spawn, index) => {
+    const fromLeft = index % 2 === 0 ? firstLeft : !firstLeft;
+    const base = fromLeft ? range.left + 24 : range.right - 24;
+    const x = clamp(base + (decision(game) - .5) * 26, range.left + ROOM_PADDING, range.right - ROOM_PADDING);
+    const y = 224 + ((index * 11 + wave * 7 + game.roomVariant * 5) % 23);
+    const enemy = spawnEnemy(game, spawn.kind, spawn.variant, x, y, fromLeft ? 1 : -1, true);
+    if (!enemy) return;
+    // The visitor appears inside the room, takes a couple of steps in, then joins the scuffle.
+    enemy.targetX = clamp(x + (fromLeft ? 34 : -34) + (decision(game) - .5) * 14,
+      range.left - ROOM_PADDING, range.right + ROOM_PADDING);
+    enemy.readyAt = game.combatTick + 26;
+  });
+}
 function spawnEncounter(game: FightersGame, section: SectionDefinition, wave = 0): void {
+  if (game.route === 'room') { spawnRoomEncounter(game, wave); return; }
   const list = wave === 0 ? section.spawns : (section.second ?? []);
   list.forEach((spawn, index) => {
     const camera = Math.round(game.cameraX);
@@ -54,6 +95,19 @@ function spawnEncounter(game: FightersGame, section: SectionDefinition, wave = 0
     const y = 224 + ((index * 37 + game.section * 13 + wave * 11) % 26);
     spawnEnemy(game, spawn.kind, spawn.variant, x, y, fromLeft ? 1 : -1);
   });
+}
+function hasSecondWave(game: FightersGame, section: SectionDefinition): boolean {
+  return game.route === 'room' ? Boolean(roomIncident(game).second) : Boolean(section.second);
+}
+/** Keep a room incident inside the accepted room without scrolling the camera. */
+function constrainRoomActors(game: FightersGame): void {
+  const range = game.world.range;
+  game.cameraX = 0;
+  game.hero.x = clamp(game.hero.x, range.left, range.right);
+  for (const enemy of game.enemies) {
+    enemy.x = clamp(enemy.x, range.left - ROOM_PADDING, range.right + ROOM_PADDING);
+    enemy.targetX = clamp(enemy.targetX, range.left - ROOM_PADDING, range.right + ROOM_PADDING);
+  }
 }
 function lockSection(game: FightersGame, section: SectionDefinition): void {
   game.sectionLocked = true; game.wave = 0;
@@ -79,6 +133,10 @@ function victory(game: FightersGame): void {
       '', 110, { vx: (decision(game) - .5) * 140, vy: -20 - decision(game) * 60, gravity: 95 });
   }
   enterPhase(game, 'victory');
+  // The room incident ends quietly: a breath and a cup of tea, not a stage-clear fanfare.
+  if (game.route === 'room') {
+    effect(game, 'tea', clamp(game.hero.x + 18, 24, 456), game.hero.y - 34, '', 60);
+  }
 }
 
 function retrySection(game: FightersGame): void {
@@ -126,9 +184,9 @@ function clampi(value: number, min: number, max: number): number { return Math.m
 
 export function updateDirector(game: FightersGame): void {
   if (game.phase === 'rest') {
-    if (game.tick >= game.nextEventAt && game.mode === 'auto') {
-      const roll = game.stats.episodes === 0 ? 1 : decision(game);
-      startEpisode(game, roll < .50 ? 'short' : roll < .85 ? 'skirmish' : 'auto');
+    if (game.frequency !== 'off' && game.tick >= game.nextEventAt && game.mode === 'auto') {
+      // Every automatic wallpaper event is now a small incident inside the study room.
+      startEpisode(game, 'room');
     } else if (game.tick >= game.restReactionAt) {
       effect(game, 'spark', 330 + decision(game) * 90, 96 + decision(game) * 30, '', 34);
       game.restReactionAt = game.tick + Math.round((22 + decision(game) * 22) * 60);
@@ -136,6 +194,7 @@ export function updateDirector(game: FightersGame): void {
     return;
   }
   if (game.phase === 'result' || game.phase === 'retry') return;
+  if (game.route === 'room') constrainRoomActors(game);
 
   // Watchdogs only run for the automatic wallpaper event.
   if (game.mode === 'auto' && !['return', 'victory'].includes(game.phase)) {
@@ -159,23 +218,28 @@ export function updateDirector(game: FightersGame): void {
 
   switch (game.phase) {
     case 'intro':
-      if (game.phaseAge >= 110) enterPhase(game, 'battle');
+      if (game.phaseAge >= (game.route === 'room' ? ROOM_TICKS.intro : 110)) enterPhase(game, 'battle');
       break;
     case 'battle': {
-      // Area chapter banner on crossing a boundary.
-      const area = AREAS.findIndex(item => game.hero.x >= item.left && game.hero.x < item.right);
-      const index = area < 0 ? AREAS.length - 1 : area;
-      if (index !== game.areaIndex) { game.areaIndex = index; game.areaBannerUntil = game.tick + 150; }
+      // Area chapter banner on crossing a boundary. Room incidents never leave the study.
+      if (game.route !== 'room') {
+        const area = AREAS.findIndex(item => game.hero.x >= item.left && game.hero.x < item.right);
+        const index = area < 0 ? AREAS.length - 1 : area;
+        if (index !== game.areaIndex) { game.areaIndex = index; game.areaBannerUntil = game.tick + 150; }
+      }
       if (!current) { victory(game); break; }
       if (!game.sectionLocked) {
         if (game.hero.x >= current.at) lockSection(game, current);
       } else {
-        // Hold the line inside the arena while enemies remain.
-        game.cameraX = clamp(current.arena - 240, 0, STAGE_WIDTH - 480);
-        game.hero.x = clampi(game.hero.x, game.cameraX + 18, game.cameraX + 462);
+        if (game.route === 'room') constrainRoomActors(game);
+        else {
+          // Hold the line inside the arena while enemies remain.
+          game.cameraX = clamp(current.arena - 240, 0, STAGE_WIDTH - 480);
+          game.hero.x = clampi(game.hero.x, game.cameraX + 18, game.cameraX + 462);
+        }
         const alive = game.enemies.some(enemy => enemy.hp > 0);
         if (!alive && game.enemies.every(enemy => enemy.state === 'exit' || enemy.state === 'enter')) {
-          if (current.second && game.wave === 0) {
+          if (game.wave === 0 && hasSecondWave(game, current)) {
             game.wave = 1;
             spawnEncounter(game, current, 1);
             game.lastProgressAt = game.tick;
@@ -202,15 +266,16 @@ export function updateDirector(game: FightersGame): void {
       }
       break;
     case 'victory':
-      if (game.phaseAge >= 150) { clearInputs(game); enterPhase(game, 'return'); }
+      if (game.phaseAge >= (game.route === 'room' ? ROOM_TICKS.victory : 150)) { clearInputs(game); enterPhase(game, 'return'); }
       break;
     case 'return': {
       // Fade back home instead of walking 3000px.
-      if (game.phaseAge === 70) {
-        game.hero = newHero(game.world.actor.x + game.stage.homeOffset, game.world.floorY);
+      if (game.phaseAge === ROOM_TICKS.teleport) {
+        const homeOffset = game.route === 'room' ? 0 : game.stage.homeOffset;
+        game.hero = newHero(game.world.actor.x + homeOffset, game.world.floorY);
         game.cameraX = 0; game.enemies = []; game.projectiles = []; game.effects = [];
       }
-      if (game.phaseAge >= 150) {
+      if (game.phaseAge >= ROOM_TICKS.return) {
         if (game.mode === 'manual') enterPhase(game, 'result');
         else { enterPhase(game, 'rest'); scheduleRest(game); }
       }
@@ -222,6 +287,8 @@ export function updateDirector(game: FightersGame): void {
 
 /** Where the camera wants to be: locked arenas win, otherwise follow the heroine. */
 export function desiredCamera(game: FightersGame): number {
+  // Room incidents use the room's own art coordinates and never scroll.
+  if (game.route === 'room') return 0;
   if (game.phase === 'return') return 120;
   const sections = routeSections(game);
   const current = sections[game.section];

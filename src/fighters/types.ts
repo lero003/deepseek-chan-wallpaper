@@ -42,7 +42,9 @@ export interface FightersGame {
   frequency: Frequency; effectsLow: boolean; nextEventAt: number; restReactionAt: number;
   eventStartedAt: number; lastProgressAt: number; graceUntil: number; hitstop: number;
   randomState: number; nextId: number; episode: 'quiet' | 'skirmish' | 'boss';
-  route: 'short' | 'skirmish' | 'auto' | 'full'; section: number; sectionLocked: boolean; wave: number; routeTick: number;
+  route: 'short' | 'skirmish' | 'auto' | 'full' | 'room'; section: number; sectionLocked: boolean; wave: number; routeTick: number;
+  /** Which ROOM_INCIDENTS composition the current room event picked. Unused on the long routes. */
+  roomVariant: number;
   areaIndex: number; areaBannerUntil: number; bossSpawned: boolean;
   hero: Hero; enemies: Enemy[]; projectiles: Projectile[]; effects: Effect[];
   input: Point; pendingDodge: boolean; pendingSpecial: boolean;

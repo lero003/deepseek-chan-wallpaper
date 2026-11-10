@@ -1,6 +1,7 @@
 import type { World } from '../world/world.ts';
 import type { SpriteAtlas } from './atlas.ts';
 import type { Viewport } from './viewport.ts';
+import { viewportFor } from './viewport.ts';
 import type { RenderAppearance } from '../app-web/art-profile.ts';
 import { motesFor, scenePlan } from './scene-plan.ts';
 import type { Mote, ScenePlan } from './scene-plan.ts';
@@ -10,6 +11,8 @@ import type { DrawCommand } from '../fighters/render-types.ts';
 export interface SceneImages {
   background: HTMLImageElement | null;
   character: HTMLImageElement | null;
+  /** Optional wallpaper matte (wide/tall continuation of the room). */
+  matte?: HTMLImageElement | null;
 }
 
 export function loadImage(url: string): Promise<HTMLImageElement> {
@@ -35,8 +38,9 @@ export class SceneRenderer {
   private readonly atlas: SpriteAtlas;
   private readonly appearance: RenderAppearance;
   private readonly motes: readonly Mote[];
-  private viewport: Viewport = { width: 480, height: 270, originX: 0, originY: 0 };
-  private canvas: HTMLCanvasElement;
+  private readonly matte: HTMLImageElement | null;
+  private viewport: Viewport = viewportFor(480, 270);
+  private readonly canvas: HTMLCanvasElement;
   private wideBackdrop: HTMLCanvasElement | null = null;
 
   constructor(canvas: HTMLCanvasElement, images: SceneImages, atlas: SpriteAtlas, seed: number, appearance: RenderAppearance = {}) {
@@ -47,22 +51,44 @@ export class SceneRenderer {
     if (images.character && (images.character.naturalWidth !== atlas.frameWidth * atlas.columns
       || images.character.naturalHeight !== atlas.frameHeight * atlas.rows)) throw new Error('Character sheet size does not match the atlas.');
     if (images.background && (images.background.naturalWidth !== 480 || images.background.naturalHeight !== 270)) throw new Error('Background must be 480×270 logical pixels.');
+    if (appearance.matte && (appearance.matte.width <= 0 || appearance.matte.height <= 0
+      || appearance.matte.roomX < 0 || appearance.matte.roomY < 0
+      || appearance.matte.roomX + 480 > appearance.matte.width || appearance.matte.roomY + 270 > appearance.matte.height)) {
+      throw new Error('Wallpaper matte geometry is invalid.');
+    }
+    // A missing or wrong-sized matte is a soft failure: the room still draws with the old fallback.
+    const matte = images.matte && appearance.matte
+      && images.matte.naturalWidth === appearance.matte.width && images.matte.naturalHeight === appearance.matte.height
+      ? images.matte : null;
     this.canvas = canvas; this.context = context; this.backdrop = backdrop; this.backdropContext = backdropContext;
     this.images = images; this.atlas = atlas; this.appearance = appearance; this.motes = motesFor(seed);
+    this.matte = matte;
   }
-  resize(viewport: Viewport): void {
+
+  resize(pixelWidth: number, pixelHeight: number): void {
+    const viewport = viewportFor(pixelWidth, pixelHeight);
     this.viewport = viewport;
-    this.canvas.width = viewport.width; this.canvas.height = viewport.height;
-    this.backdrop.width = viewport.width; this.backdrop.height = viewport.height;
+    this.canvas.width = viewport.pixelWidth;
+    this.canvas.height = viewport.pixelHeight;
+    this.backdrop.width = viewport.width;
+    this.backdrop.height = viewport.height;
     this.context.imageSmoothingEnabled = false; this.backdropContext.imageSmoothingEnabled = false;
     this.wideBackdrop = null;
     this.cacheBackground();
   }
+
   private cacheBackground(): void {
     const { width, height, originX, originY } = this.viewport;
     const ctx = this.backdropContext;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.imageSmoothingEnabled = false;
     ctx.fillStyle = this.appearance.ceilingColor ?? '#617e77'; ctx.fillRect(0, 0, width, height);
-    ctx.fillStyle = this.appearance.floorColor ?? '#8a8d75'; ctx.fillRect(0, originY + 203, width, height);
+    ctx.fillStyle = this.appearance.floorColor ?? '#8a8d75'; ctx.fillRect(0, originY + 203, width, height - originY - 203);
+    if (this.matte && this.appearance.matte) {
+      // The matte already contains the approved room at art coordinates (roomX, roomY).
+      ctx.drawImage(this.matte, originX - this.appearance.matte.roomX, originY - this.appearance.matte.roomY);
+      return;
+    }
     if (this.images.background) {
       const image = this.images.background;
       if (originX > 0) {
@@ -81,6 +107,7 @@ export class SceneRenderer {
       ctx.fillStyle = '#687d70'; ctx.fillRect(originX + 100, originY + 225, 294, 24);
     }
   }
+
   private cacheWideBackground(): HTMLCanvasElement {
     if (this.wideBackdrop) return this.wideBackdrop;
     const canvas = document.createElement('canvas');
@@ -99,6 +126,7 @@ export class SceneRenderer {
     this.wideBackdrop = canvas;
     return canvas;
   }
+
   private drawCommands(commands: readonly DrawCommand[]): void {
     const ctx = this.context;
     const { originX, originY } = this.viewport;
@@ -123,14 +151,25 @@ export class SceneRenderer {
       ctx.restore();
     }
   }
+
   draw(world: Readonly<World>, decorations = true): void {
     this.drawPlan(scenePlan(world, this.atlas, this.motes, this.appearance, decorations));
   }
+
   drawPlan(plan: ScenePlan): void {
     const ctx = this.context;
-    const { originX, originY } = this.viewport;
-    ctx.globalAlpha = 1; ctx.drawImage(this.backdrop, 0, 0);
-    if (plan.battle) ctx.drawImage(this.cacheWideBackground(), originX - plan.battle.cameraX, 0);
+    const viewport = this.viewport;
+    const { originX, originY, scale, offsetX, offsetY, pixelWidth, pixelHeight } = viewport;
+    // Clear letterbox pixels in the room's own colours, then draw the whole scene on a
+    // uniform pixel grid. Whole-number scales keep every art pixel the same size on screen.
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.imageSmoothingEnabled = false;
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = this.appearance.ceilingColor ?? '#617e77'; ctx.fillRect(0, 0, pixelWidth, pixelHeight);
+    ctx.setTransform(scale, 0, 0, scale, offsetX, offsetY);
+    ctx.drawImage(this.backdrop, 0, 0);
+    // Room incidents keep the study backdrop; only the long routes scroll a wide stage.
+    if (plan.battle && !plan.battle.room) ctx.drawImage(this.cacheWideBackground(), originX - plan.battle.cameraX, 0);
     const quadCount = this.images.character || plan.battle ? plan.quads.length : plan.quads.length - 2;
     for (let index = 0; index < quadCount; index++) {
       const quad = plan.quads[index]!;

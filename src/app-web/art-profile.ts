@@ -16,11 +16,21 @@ export interface AssetCredit {
   };
 }
 
+/** Geometry of the wallpaper matte: the room art placed inside a wider/taller canvas. */
+export interface MatteInfo {
+  readonly width: number;
+  readonly height: number;
+  readonly roomX: number;
+  readonly roomY: number;
+}
+
 export interface RenderAppearance {
   readonly ceilingColor?: string;
   readonly floorColor?: string;
   readonly shadowColor?: string;
   readonly water?: { readonly left: number; readonly right: number; readonly top: number; readonly bottom: number };
+  /** Optional wide backdrop. When absent the renderer falls back to the old edge-stretched room. */
+  readonly matte?: MatteInfo;
 }
 
 export interface ArtProfile extends RenderAppearance {
@@ -29,6 +39,8 @@ export interface ArtProfile extends RenderAppearance {
   readonly label: string;
   readonly backgroundUrl: string;
   readonly characterUrl: string;
+  /** Optional wallpaper matte image. Only the local production profile provides it. */
+  readonly matteUrl?: string;
   readonly atlas: unknown;
   readonly manifest: {
     readonly assets: readonly AssetCredit[];

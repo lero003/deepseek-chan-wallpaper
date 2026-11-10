@@ -11,6 +11,8 @@ public final class Assets {
     public let coreSource: String
     public let manifest: AssetManifest
     public let background: CGImage
+    /// Optional wide/tall wallpaper backdrop containing the room at its approved offset.
+    public let matte: CGImage?
     public let frames: [CGImage]
 
     public static func checkedURL(root: URL, relative: String) throws -> URL {
@@ -39,7 +41,8 @@ public final class Assets {
               let core = String(data: coreData, encoding: .utf8) else { throw KujiraError.invalid("共有コアの整合性を確認できません。") }
         coreSource = core
         manifest = try JSONDecoder().decode(AssetManifest.self, from: bytes("manifest.json"))
-        let required = Set(["character/sheet.png", "character/atlas.json", "scene/seaside-room.png"])
+        var required = Set(["character/sheet.png", "character/atlas.json", "scene/seaside-room.png"])
+        if configuration.layout.matte != nil { required.insert("scene/seaside-room-matte.png") }
         for name in required {
             let matches = manifest.assets.filter { $0.path == name }
             guard matches.count == 1, let entry = matches.first, Self.sha(try bytes(name)) == entry.sha256,
@@ -55,6 +58,14 @@ public final class Assets {
         }
         let sheet = try image("character/sheet.png")
         background = try image("scene/seaside-room.png")
+        if let info = configuration.layout.matte {
+            let wide = try image("scene/seaside-room-matte.png")
+            guard wide.width == info.width, wide.height == info.height,
+                  info.roomX >= 0, info.roomY >= 0, info.roomX + 480 <= info.width, info.roomY + 270 <= info.height else {
+                throw KujiraError.invalid("ワイド背景の寸法・部屋の位置が不正です。")
+            }
+            matte = wide
+        } else { matte = nil }
         guard sheet.width == atlas.frameWidth * atlas.columns, sheet.height == atlas.frameHeight * atlas.rows,
               background.width == 480, background.height == 270 else { throw KujiraError.invalid("画像の寸法がアトラスと一致しません。") }
         var frames: [CGImage] = []

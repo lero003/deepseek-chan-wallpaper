@@ -57,11 +57,33 @@ export const RUN_SECTIONS: readonly SectionDefinition[] = [
   { at: 3360, arena: 3360, spawns: [ { kind: 'boss', variant: 0 }, { kind: 'slime', variant: 2 }, { kind: 'popup', variant: 2 } ], boss: true, label: '桟橋の主' },
 ] as const;
 
-/** Short route for wallpaper events; the full route is ~3 minutes for manual play. */
+/** Route lengths kept for the startEpisode contract; only the full route and room incidents are triggered now. */
 export const SHORT_SECTIONS: readonly SectionDefinition[] = RUN_SECTIONS.slice(0, 2);
 export const SKIRMISH_SECTIONS: readonly SectionDefinition[] = RUN_SECTIONS.slice(0, 5);
-/** Compact route used by the wallpaper's automatic events. */
+/** Compact four-area route (legacy preview length); the demo and the wallpaper now use ROOM_SECTIONS. */
 export const AUTO_SECTIONS: readonly SectionDefinition[] = [RUN_SECTIONS[0]!, RUN_SECTIONS[3]!, RUN_SECTIONS[6]!, RUN_SECTIONS[11]!];
+
+/**
+ * A wallpaper incident is a small visitor or two appearing inside the accepted 480×270 study,
+ * never a march along the 3600px route. Actors use the room's own art coordinates here, so
+ * `x` is also the on-screen x when the camera stays at 0.
+ */
+export interface RoomIncident { spawns: readonly SectionSpawn[]; second?: readonly SectionSpawn[]; label: string }
+/** Varied two-to-three visitor incidents; several bring a second little wave. No boss. */
+export const ROOM_INCIDENTS: readonly RoomIncident[] = [
+  { label: '窓辺のお客さん', spawns: [ { kind: 'slime', variant: 0 }, { kind: 'slime', variant: 1 }, { kind: 'slime', variant: 0 } ] },
+  { label: 'ふたつの気配', spawns: [ { kind: 'slime', variant: 1 }, { kind: 'popup', variant: 1 } ], second: [ { kind: 'popup', variant: 0 } ] },
+  { label: 'おおきな影', spawns: [ { kind: 'slime', variant: 2 }, { kind: 'popup', variant: 1 } ] },
+  { label: '本棚のざわめき', spawns: [ { kind: 'popup', variant: 0 }, { kind: 'slime', variant: 1 }, { kind: 'slime', variant: 0 } ], second: [ { kind: 'slime', variant: 1 } ] },
+  { label: '夕暮れのかくれんぼ', spawns: [ { kind: 'slime', variant: 0 }, { kind: 'popup', variant: 1 }, { kind: 'slime', variant: 0 } ], second: [ { kind: 'popup', variant: 1 } ] },
+  { label: 'ふたりの追いかけっこ', spawns: [ { kind: 'slime', variant: 1 }, { kind: 'popup', variant: 1 } ], second: [ { kind: 'slime', variant: 0 }, { kind: 'slime', variant: 0 } ] },
+];
+/** The one room-local arena: `arena - 240 = 0`, so the screen never scrolls during an incident. */
+export const ROOM_SECTIONS: readonly SectionDefinition[] = [
+  { at: 0, arena: 240, spawns: ROOM_INCIDENTS[0]!.spawns, label: '書斎の小さな事件' },
+];
+/** The room incident keeps the heroine and visitors inside the accepted room's playable span. */
+export const ROOM_PADDING = 10;
 
 export function studyStage(scene: Scene): Stage {
   return { id: 'sunset-study', width: STAGE_WIDTH, homeOffset: 120, terraceLeft: 720, areas: AREAS,

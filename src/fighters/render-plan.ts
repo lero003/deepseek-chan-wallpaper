@@ -46,6 +46,7 @@ export function gamePlan(game: FightersGame, atlas: SpriteAtlas, appearance: Ren
   // A manual game never turns the passive desktop surface into an input/HUD surface.
   if (presentation === 'wallpaper' && game.mode === 'manual') return base;
   const home = game.phase === 'rest' || game.phase === 'result';
+  const roomRoute = game.route === 'room';
   const camera = home ? 120 : Math.round(game.cameraX);
   const p = new Painter(camera);
   const hero = game.hero;
@@ -53,39 +54,25 @@ export function gamePlan(game: FightersGame, atlas: SpriteAtlas, appearance: Ren
   const low = game.effectsLow;
   const shadowColor = appearance.shadowColor ?? C.shadow;
 
-  if (home) {
-    if (decorations) {
-      for (const item of game.effects) drawEffect(p, item, low);
-      if (game.phase === 'rest' && Math.sin(tick * .03) > .55) sparkle(p, hero.x + 26, hero.y - 96, 1.6, C.goldLight, .45);
+  /** Actors, projectiles and hit effects shared by the long route and the in-room incident. */
+  function drawCast(painter: Painter): void {
+    const visible = game.enemies.filter(enemy => enemy.x > camera - 90 && enemy.x < camera + 570);
+    const enemiesById = new Map(visible.map(enemy => [enemy.id, enemy] as const));
+    for (const actor of orderedActors(game)) {
+      if (actor.kind === 'hero') {
+        drawShadow(painter, hero.x, hero.y, hero.state === 'down' ? 20 : 15, .26);
+        drawHero(painter);
+        continue;
+      }
+      const enemy = enemiesById.get(actor.id);
+      if (!enemy) continue;
+      drawShadow(painter, enemy.x, enemy.y, enemy.kind === 'boss' ? 27 : enemy.kind === 'popup' ? 14 : 13,
+        enemy.state === 'exit' ? .14 : .24);
+      drawEnemy(painter, enemy, tick);
     }
-    if (game.mode === 'manual' && game.phase === 'result') { drawResultPanel(p, game); drawVignette(p); }
-    base.overlay = p.commands;
-    return base;
   }
 
-  // The accepted 480px home background becomes the centre of the route.
-  base.quads = base.quads.slice(0, -2).map(quad => ({ ...quad, x: quad.x + 120 - camera }));
-  for (const quad of base.quads) if (quad.color === shadowColor) quad.alpha *= .8;
-
-  drawStudyAmbience(p, tick);
-  drawSceneryAmbience(p, camera, tick);
-
-  const visible = game.enemies.filter(enemy => enemy.x > camera - 90 && enemy.x < camera + 570);
-  const enemiesById = new Map(visible.map(enemy => [enemy.id, enemy] as const));
-  for (const actor of orderedActors(game)) {
-    if (actor.kind === 'hero') {
-      drawShadow(p, hero.x, hero.y, hero.state === 'down' ? 20 : 15, .26);
-      drawHero();
-      continue;
-    }
-    const enemy = enemiesById.get(actor.id);
-    if (!enemy) continue;
-    drawShadow(p, enemy.x, enemy.y, enemy.kind === 'boss' ? 27 : enemy.kind === 'popup' ? 14 : 13,
-      enemy.state === 'exit' ? .14 : .24);
-    drawEnemy(p, enemy, tick);
-  }
-
-  function drawHero(): void {
+  function drawHero(painter: Painter): void {
     const blink = game.combatTick < hero.invulnerableUntil && game.combatTick % 8 < 3;
     const alpha = blink ? .45 : 1;
     let state: 'idle' | 'walk' | 'turn' | 'sleep' = hero.state === 'walk' ? 'walk' : hero.state === 'down' ? 'sleep' : 'idle';
@@ -109,38 +96,75 @@ export function gamePlan(game: FightersGame, atlas: SpriteAtlas, appearance: Ren
       if (game.phaseAge > 70 && game.phaseAge < 110) { x += Math.sin((game.phaseAge - 70) / 40 * Math.PI) * 16; rotation = .16; }
     }
     if (hero.state === 'dodge') {
-      for (let i = 1; i <= 2; i++) p.sprite(x - hero.facing * i * 9, hero.y - z, frame, hero.facing, .16 - i * .05, rotation, 1, scaleY);
+      for (let i = 1; i <= 2; i++) painter.sprite(x - hero.facing * i * 9, hero.y - z, frame, hero.facing, .16 - i * .05, rotation, 1, scaleY);
     }
-    if (hero.state === 'special') drawSpecialAura(p, x, hero.y, Math.min(1, hero.age / 26), low);
-    p.sprite(x, hero.y - z, frame, hero.facing, alpha, rotation, 1, scaleY);
+    if (hero.state === 'special') drawSpecialAura(painter, x, hero.y, Math.min(1, hero.age / 26), low);
+    painter.sprite(x, hero.y - z, frame, hero.facing, alpha, rotation, 1, scaleY);
     if (hero.state === 'attack') {
       const attack = ATTACKS[clamp(hero.combo - 1, 0, 2)]!;
       const total = attack.windup + attack.active;
       const progress = clamp(hero.age / total, 0, 1);
       if (hero.age >= attack.windup) {
-        if (hero.combo === 1) drawSlash(p, x, hero.y, hero.facing, progress, 44, C.goldLight, alpha);
-        else if (hero.combo === 2) drawSlash(p, x, hero.y, hero.facing, progress, 52, C.paper, alpha);
-        else drawSlash(p, x, hero.y, hero.facing, progress, 60, C.white, alpha);
+        if (hero.combo === 1) drawSlash(painter, x, hero.y, hero.facing, progress, 44, C.goldLight, alpha);
+        else if (hero.combo === 2) drawSlash(painter, x, hero.y, hero.facing, progress, 52, C.paper, alpha);
+        else drawSlash(painter, x, hero.y, hero.facing, progress, 60, C.white, alpha);
       }
-      if (hero.combo === 1) drawBookSwing(p, x, hero.y, hero.facing, progress, alpha);
-      else if (hero.combo === 2) drawQuillThrust(p, x, hero.y, hero.facing, progress, alpha);
-      else if (hero.age >= attack.windup) drawSpinStars(p, x, hero.y, hero.facing, progress, alpha);
+      if (hero.combo === 1) drawBookSwing(painter, x, hero.y, hero.facing, progress, alpha);
+      else if (hero.combo === 2) drawQuillThrust(painter, x, hero.y, hero.facing, progress, alpha);
+      else if (hero.age >= attack.windup) drawSpinStars(painter, x, hero.y, hero.facing, progress, alpha);
     }
-    if (hero.state === 'dodge' && !low) p.rect(x - hero.facing * 4 - 6, hero.y - 4, 12, 2, C.paper, .2);
+    if (hero.state === 'dodge' && !low) painter.rect(x - hero.facing * 4 - 6, hero.y - 4, 12, 2, C.paper, .2);
   }
 
-  for (const projectile of game.projectiles) {
-    if (projectile.x < camera - 12 || projectile.x > camera + 492) continue;
-    drawProjectile(p, projectile, tick);
-  }
-  for (const item of game.effects) {
-    if (item.x < camera - 10 || item.x > camera + 490) continue;
-    drawEffect(p, item, low);
+  function drawCombatEffects(painter: Painter): void {
+    for (const projectile of game.projectiles) {
+      if (projectile.x < camera - 12 || projectile.x > camera + 492) continue;
+      drawProjectile(painter, projectile, tick);
+    }
+    for (const item of game.effects) {
+      if (item.x < camera - 10 || item.x > camera + 490) continue;
+      drawEffect(painter, item, low);
+    }
+    // Heavy hits briefly warm the frame; no strobing.
+    if (game.hitstop >= 4) painter.screen(0, 0, 480, 270, '#fff4d6', .05);
   }
 
-  // Heavy hits briefly warm the frame; no strobing.
-  if (game.hitstop >= 4) p.screen(0, 0, 480, 270, '#fff4d6', .05);
+  function drawReturnFade(painter: Painter): void {
+    if (game.phase !== 'return') return;
+    const age = game.phaseAge;
+    const alpha = age < 60 ? age / 60 : age > 105 ? Math.max(0, (150 - age) / 45) : 1;
+    painter.screen(0, 0, 480, 270, '#f6dcb4', alpha * .92);
+  }
 
+  if (home) {
+    if (decorations) {
+      for (const item of game.effects) drawEffect(p, item, low);
+      if (game.phase === 'rest' && Math.sin(tick * .03) > .55) sparkle(p, hero.x + 26, hero.y - 96, 1.6, C.goldLight, .45);
+    }
+    if (game.mode === 'manual' && game.phase === 'result') { drawResultPanel(p, game); drawVignette(p); }
+    base.overlay = p.commands;
+    return base;
+  }
+
+  // A wallpaper incident happens inside the accepted 480×270 study: keep the room backdrop,
+  // skip the scrolling scenery and chapter HUD, and never scroll the camera.
+  if (roomRoute) {
+    base.quads = base.quads.slice(0, -2);
+    drawCast(p);
+    drawCombatEffects(p);
+    drawReturnFade(p);
+    base.battle = { cameraX: 0, commands: p.commands, room: true };
+    return base;
+  }
+
+  // The accepted 480px home background becomes the centre of the route.
+  base.quads = base.quads.slice(0, -2).map(quad => ({ ...quad, x: quad.x + 120 - camera }));
+  for (const quad of base.quads) if (quad.color === shadowColor) quad.alpha *= .8;
+
+  drawStudyAmbience(p, tick);
+  drawSceneryAmbience(p, camera, tick);
+  drawCast(p);
+  drawCombatEffects(p);
   drawSceneryForeground(p, camera, tick);
   p.screen(0, 254, 480, 3, C.ink, .16);
   p.screen(0, 257, 480, 13, '#5d4753', .12);
@@ -150,6 +174,7 @@ export function gamePlan(game: FightersGame, atlas: SpriteAtlas, appearance: Ren
   if (game.mode === 'manual') drawManualHud();
   else drawAutoBanners();
   drawVignette(p);
+  drawReturnFade(p);
 
   function drawAutoBanners(): void {
     const banner = bannerFor(game);
@@ -222,13 +247,6 @@ export function gamePlan(game: FightersGame, atlas: SpriteAtlas, appearance: Ren
     p.screen(x + 1, y + 1, width - 2, 2, C.gold, .8);
     p.screenText(x + 14, y + 9, game.paused ? 'ひと休み中' : 'プレビューを選んでください', C.ink, 9);
     p.screenText(x + 14, y + 25, game.paused ? 'Esc で再開' : 'クリックで操作を再開', C.inkSoft, 7);
-  }
-
-  // Homecoming fade: the long run wraps in warm light instead of a 3000px walk.
-  if (game.phase === 'return') {
-    const age = game.phaseAge;
-    const alpha = age < 60 ? age / 60 : age > 105 ? Math.max(0, (150 - age) / 45) : 1;
-    p.screen(0, 0, 480, 270, '#f6dcb4', alpha * .92);
   }
 
   base.battle = { cameraX: camera, commands: p.commands };

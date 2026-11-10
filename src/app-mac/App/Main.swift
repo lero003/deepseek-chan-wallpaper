@@ -18,6 +18,20 @@ struct KujiraMain {
             guard index + 1 < arguments.count, !arguments[index + 1].hasPrefix("--") else { throw KujiraError.invalid("引数が不足しています：\(flag)") }
             return arguments[index + 1]
         }
+        func dimensions() throws -> (Int, Int) {
+            let width = Int(try value("--width") ?? "1440") ?? 1440
+            let height = Int(try value("--height") ?? "810") ?? 810
+            guard (1...8192).contains(width), (1...8192).contains(height) else { throw KujiraError.invalid("書き出し寸法が不正です。") }
+            return (width, height)
+        }
+        func advanceExact(_ seconds: Double) throws {
+            var remaining = max(0, seconds)
+            while remaining > 0 {
+                let step = min(0.25, remaining)
+                _ = try engine.advance(step)
+                remaining -= step
+            }
+        }
         let root: URL
         if let path = try value("--resources") { root = URL(fileURLWithPath: path, isDirectory: true) }
         else if let url = Bundle.main.resourceURL { root = url }
@@ -57,6 +71,7 @@ struct KujiraMain {
             try engine.command("play"); try engine.setManualFocus(true)
             let steps = Int(seconds * 60)
             let captureWave = arguments.contains("--capture-wave")
+            let captureBoss = arguments.contains("--capture-boss")
             for step in 0..<steps {
                 if step % 6 == 0 {
                     let state = try JSONDecoder().decode(BotState.self, from: Data(engine.gameJSON().utf8))
@@ -72,18 +87,28 @@ struct KujiraMain {
                     }
                 }
                 _ = try engine.advance(1.0 / 60)
-                // QA capture: stop on the first frame of the overdrive effect.
+                // QA capture: stop on the first frame of the overdrive effect or the boss phase.
+                if captureBoss, step % 6 == 0, try engine.gameJSON().contains("\"phase\":\"boss\"") {
+                    try engine.setMovement(x: 0, y: 0)
+                    let plan = try engine.snapshot()
+                    let (captureWidth, captureHeight) = try dimensions()
+                    try ScenePainter.writePNG(painter.bitmap(plan, width: captureWidth, height: captureHeight), to: URL(fileURLWithPath: output))
+                    print("NATIVE_MANUAL_RENDER_PASS: captured=boss at \(String(format: "%.2f", Double(step + 1) / 60))s. Native renderer export, not a desktop screenshot.")
+                    return
+                }
                 if captureWave, step % 2 == 0, try engine.gameJSON().contains("\"kind\":\"wave\"") {
                     try engine.setMovement(x: 0, y: 0)
                     let plan = try engine.snapshot()
-                    try ScenePainter.writePNG(painter.bitmap(plan, width: 1440, height: 810), to: URL(fileURLWithPath: output))
+                    let (captureWidth, captureHeight) = try dimensions()
+                    try ScenePainter.writePNG(painter.bitmap(plan, width: captureWidth, height: captureHeight), to: URL(fileURLWithPath: output))
                     print("NATIVE_MANUAL_RENDER_PASS: captured=wave at \(String(format: "%.2f", Double(step + 1) / 60))s. Native renderer export, not a desktop screenshot.")
                     return
                 }
             }
             try engine.setMovement(x: 0, y: 0)
             let plan = try engine.snapshot()
-            try ScenePainter.writePNG(painter.bitmap(plan, width: 1440, height: 810), to: URL(fileURLWithPath: output))
+            let (captureWidth, captureHeight) = try dimensions()
+            try ScenePainter.writePNG(painter.bitmap(plan, width: captureWidth, height: captureHeight), to: URL(fileURLWithPath: output))
             print("NATIVE_MANUAL_RENDER_PASS: phase=\(plan.game?.phase ?? "unknown"), commands=\(plan.battle?.commands.count ?? 0). Native renderer export, not a desktop screenshot.")
             return
         }
@@ -93,8 +118,27 @@ struct KujiraMain {
             try engine.command("demo")
             _ = try engine.replayGameJSON(frames: Int(seconds * 60), step: 1.0 / 60)
             let plan = try engine.snapshot()
-            try ScenePainter.writePNG(painter.bitmap(plan, width: 1440, height: 810), to: URL(fileURLWithPath: output))
+            let (captureWidth, captureHeight) = try dimensions()
+            try ScenePainter.writePNG(painter.bitmap(plan, width: captureWidth, height: captureHeight), to: URL(fileURLWithPath: output))
             print("NATIVE_GAME_RENDER_PASS: phase=\(plan.game?.phase ?? "unknown"). Native renderer export, not a desktop screenshot.")
+            return
+        }
+        if let output = try value("--render-room-event") {
+            let seconds = Double(try value("--time") ?? "6") ?? 6
+            guard seconds.isFinite, seconds >= 0, seconds <= 120 else { throw KujiraError.invalid("小事件の書き出し時間が不正です。") }
+            // Wait for the first automatic in-room incident, then advance into its battle.
+            var waited = 0.0
+            while waited < 400 {
+                let plan = try engine.snapshot()
+                if plan.game?.phase != "rest" { break }
+                try advanceExact(1.0)
+                waited += 1.0
+            }
+            try advanceExact(seconds)
+            let plan = try engine.snapshot()
+            let (captureWidth, captureHeight) = try dimensions()
+            try ScenePainter.writePNG(painter.bitmap(plan, width: captureWidth, height: captureHeight), to: URL(fileURLWithPath: output))
+            print("NATIVE_ROOM_EVENT_RENDER_PASS: phase=\(plan.game?.phase ?? "unknown"), room=\(plan.battle?.room ?? false), waited=\(String(format: "%.0f", waited))s. Native renderer export, not a desktop screenshot.")
             return
         }
         if let output = try value("--render-preview") {
@@ -102,7 +146,8 @@ struct KujiraMain {
             guard seconds.isFinite, seconds >= 0, seconds <= 1800 else { throw KujiraError.invalid("書き出し時間が不正です。") }
             _ = try engine.replayJSON(frames: Int(seconds * 60), step: 1.0 / 60)
             let plan = try engine.snapshot()
-            let image = try painter.bitmap(plan, width: 1440, height: 810)
+            let (captureWidth, captureHeight) = try dimensions()
+            let image = try painter.bitmap(plan, width: captureWidth, height: captureHeight)
             try ScenePainter.writePNG(image, to: URL(fileURLWithPath: output))
             print("NATIVE_RENDER_PASS: state=\(plan.state), frame=\(plan.frame), tick=\(plan.tick). Native renderer export, not a desktop screenshot.")
             return

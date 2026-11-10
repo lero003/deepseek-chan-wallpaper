@@ -26,6 +26,8 @@ export async function prepareMacResources({ localPreview = false, output } = {})
   const manifest = JSON.parse(await readFile(resolve(source, 'manifest.json'), 'utf8'));
   const atlas = parseAtlas(JSON.parse(await readFile(resolve(source, 'character/atlas.json'), 'utf8')));
   const paths = ['character/sheet.png', 'character/atlas.json', 'scene/seaside-room.png'];
+  // The optional wide wallpaper matte is bundled only for the local production profile.
+  if (layout.matte) paths.push('scene/seaside-room-matte.png');
   const assets = [];
   for (const name of paths) {
     const input = resolve(source, name);

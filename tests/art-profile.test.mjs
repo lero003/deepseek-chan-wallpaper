@@ -7,6 +7,7 @@ import test from 'node:test';
 import { selectArtEntry } from '../scripts/art-selection.mjs';
 import { parseAtlas, frameAt } from '../src/render/atlas.ts';
 import { walkingRange, createWorld, advanceWorld, SEASIDE } from '../src/world/world.ts';
+import { SUNSET_LAYOUT } from '../src/art/scene-profiles.ts';
 import { decodePng } from './helpers/png.mjs';
 
 const root = new URL('../', import.meta.url);
@@ -132,4 +133,22 @@ test('local production asset provenance matches bytes and never claims publicati
   const bg = decodePng(await readFile(new URL('scene/seaside-room.png', localRoot)));
   assert.equal(bg.width, 480); assert.equal(bg.height, 270);
   for (let offset = 3; offset < bg.data.length; offset += 4) assert.equal(bg.data[offset], 255);
+});
+
+const localMatte = new URL('scene/seaside-room-matte.png', localRoot);
+
+test('the wide wallpaper matte keeps the approved room pixel-exact', { skip: !existsSync(localMatte) }, async () => {
+  const matte = decodePng(await readFile(localMatte));
+  assert.equal(matte.width, 1024);
+  assert.equal(matte.height, 576);
+  for (let offset = 3; offset < matte.data.length; offset += 4) assert.equal(matte.data[offset], 255, 'the matte is fully opaque');
+  const room = decodePng(await readFile(new URL('scene/seaside-room.png', localRoot)));
+  const region = Buffer.alloc(480 * 270 * 4);
+  for (let y = 0; y < 270; y += 1) {
+    const source = ((y + 153) * 1024 + 272) * 4;
+    matte.data.copy(region, y * 480 * 4, source, source + 480 * 4);
+  }
+  assert.equal(Buffer.compare(region, room.data), 0, 'the new wide matte must not alter one pixel of the approved room');
+  assert.deepEqual(SUNSET_LAYOUT.matte, { width: 1024, height: 576, roomX: 272, roomY: 153 });
+  assert.equal(SUNSET_LAYOUT.backgroundUrl, undefined, 'the layout stays free of web-only asset URLs');
 });

@@ -1,5 +1,6 @@
 import { TICKS_PER_SECOND, worldSeconds } from '../world/world.ts';
 import type { World } from '../world/world.ts';
+import { ambienceQuads } from './ambience.ts';
 import { frameAt } from './atlas.ts';
 import type { SpriteAtlas } from './atlas.ts';
 import type { RenderAppearance } from '../app-web/art-profile.ts';
@@ -32,21 +33,9 @@ export function motesFor(seed: number): readonly Mote[] {
 export function scenePlan(world: Readonly<World>, atlas: SpriteAtlas, motes: readonly Mote[], appearance: RenderAppearance = {}, decorations = true): ScenePlan {
   const seconds = worldSeconds(world);
   const quads: Quad[] = [];
-  if (decorations) {
-    for (const mote of motes) quads.push({
-      x: Math.round(mote.x + Math.sin(seconds * .12 + mote.phase) * 3),
-      y: Math.round(75 + ((mote.y - 75 - seconds * mote.speed) % 110 + 110) % 110),
-      width: 1, height: 1, color: '#eee1be', alpha: .10 + (Math.sin(seconds * .4 + mote.phase) + 1) * .08,
-    });
-    const water = appearance.water;
-    if (water) for (const mote of motes) {
-      const alpha = Math.sin(seconds * .7 + mote.phase);
-      if (alpha < .35) continue;
-      quads.push({ x: Math.round(water.left + (mote.x - 107) / 274 * (water.right - water.left)),
-        y: Math.round(water.top + (mote.y - 75) / 110 * (water.bottom - water.top)),
-        width: 2 + Math.round(mote.speed), height: 1, color: '#ffe6b4', alpha: (alpha - .35) * .18 });
-    }
-  }
+  // Ambient life (sea sparkle, dust motes, lamp glow, an occasional bird) lives in its own
+  // pure module so Canvas and CoreGraphics stay in sync. It is skipped for still frames.
+  if (decorations) quads.push(...ambienceQuads(seconds, motes, appearance));
   const actor = world.actor;
   const x = Math.round(actor.x);
   const half = Math.round(atlas.frameWidth * (actor.state === 'sleep' ? .31 : .19));

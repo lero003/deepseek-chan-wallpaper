@@ -42,30 +42,60 @@ test('corrupt atlases fail before any sprite drawing', () => {
   }
 });
 
-test('16:9, 16:10, ultra-wide, and portrait views retain the entire safe area', () => {
-  for (const [width, height] of [[1920, 1080], [1440, 900], [3440, 1440], [390, 680], [280, 400]]) {
+test('wide screens use one whole-number pixel scale instead of a 3/4-pixel dither', () => {
+  const wide = viewportFor(2048, 864); // the user's 2048×864 ultrawide display
+  assert.equal(wide.scale, 3);
+  assert.deepEqual([wide.width, wide.height, wide.originX, wide.originY], [683, 288, 101, 9]);
+  assert.deepEqual([wide.offsetX, wide.offsetY], [-1, 0]);
+  assert.ok(wide.width * wide.scale >= 2048 - 1 && wide.width * wide.scale <= 2048 + 2);
+
+  const hd = viewportFor(1920, 1080);
+  assert.deepEqual([hd.scale, hd.width, hd.height, hd.originX, hd.originY], [4, 480, 270, 0, 0]);
+  const laptop = viewportFor(1512, 982);
+  assert.deepEqual([laptop.scale, laptop.width, laptop.height, laptop.originX, laptop.originY], [3, 504, 328, 12, 29]);
+  const hd10 = viewportFor(1440, 900);
+  assert.deepEqual([hd10.scale, hd10.width, hd10.height, hd10.originX, hd10.originY], [3, 480, 300, 0, 15]);
+  const ultrawide = viewportFor(3440, 1440);
+  assert.deepEqual([ultrawide.scale, ultrawide.width, ultrawide.height], [5, 688, 288]);
+  const preview = viewportFor(1000, 680);
+  assert.deepEqual([preview.scale, preview.width, preview.height], [2, 500, 340]);
+});
+
+test('every view keeps the full 480×270 safe area and a whole scale where two pixels fit', () => {
+  for (const [width, height] of [[1920, 1080], [1440, 900], [3440, 1440], [2048, 864], [1512, 982], [1000, 680], [720, 470], [390, 680], [280, 400]]) {
     const viewport = viewportFor(width, height);
     assert.ok(viewport.originX >= 0 && viewport.originY >= 0);
     assert.ok(viewport.originX + 480 <= viewport.width);
     assert.ok(viewport.originY + 270 <= viewport.height);
     assert.ok(Math.abs(viewport.width / viewport.height - width / height) < 0.006);
+    assert.ok(viewport.width * viewport.scale + Math.abs(viewport.offsetX) >= width - 1);
+    assert.ok(viewport.height * viewport.scale + Math.abs(viewport.offsetY) >= height - 1);
+    if (width / 480 >= 2 && height / 270 >= 2) assert.equal(viewport.scale, Math.floor(Math.min(width / 480, height / 270)));
   }
-  assert.deepEqual(viewportFor(0, 0), { width: 480, height: 270, originX: 0, originY: 0 });
-  assert.deepEqual(viewportFor(1920, 1080), { width: 480, height: 270, originX: 0, originY: 0 });
-  assert.deepEqual(viewportFor(1440, 900), { width: 480, height: 300, originX: 0, originY: 15 });
+  const tiny = viewportFor(720, 470);
+  assert.equal(tiny.scale, 1.5, 'a small preview fits fractionally rather than shrinking the room');
+  assert.deepEqual([tiny.width, tiny.height, tiny.originY, tiny.offsetY], [480, 314, 22, -1]);
+  assert.deepEqual(viewportFor(0, 0), { width: 480, height: 270, originX: 0, originY: 0, scale: 1, pixelWidth: 480, pixelHeight: 270, offsetX: 0, offsetY: 0 });
 });
 
 function fakeCanvas() {
   const calls = [];
   const context = {
     calls,
+    globalAlpha: 1,
+    imageSmoothingEnabled: true,
+    fillStyle: '',
+    font: '',
+    textBaseline: '',
     drawImage(...args) { calls.push(['drawImage', ...args]); },
     fillRect(...args) { calls.push(['fillRect', ...args]); },
+    fillText(...args) { calls.push(['fillText', ...args]); },
     save(...args) { calls.push(['save', ...args]); },
     restore(...args) { calls.push(['restore', ...args]); },
     translate(...args) { calls.push(['translate', ...args]); },
     scale(...args) { calls.push(['scale', ...args]); },
-    imageSmoothingEnabled: true,
+    rotate(...args) { calls.push(['rotate', ...args]); },
+    setTransform(...args) { calls.push(['setTransform', ...args]); },
   };
   return { width: 0, height: 0, getContext: () => context, context };
 }
@@ -81,7 +111,7 @@ test('rendering is replayable, pixelated, and cannot mutate a frozen world', () 
     Object.freeze(world.actor); Object.freeze(world.range); Object.freeze(world);
     const images = { background: { naturalWidth: 480, naturalHeight: 270 }, character: { naturalWidth: 192, naturalHeight: 256 } };
     const renderer = new SceneRenderer(canvas, images, atlas, world.seed);
-    renderer.resize(viewportFor(1440, 900));
+    renderer.resize(1440, 900);
     renderer.draw(world);
     const firstPass = [...canvas.context.calls];
     canvas.context.calls.length = 0;
@@ -89,8 +119,10 @@ test('rendering is replayable, pixelated, and cannot mutate a frozen world', () 
     assert.deepEqual(canvas.context.calls, firstPass);
     assert.deepEqual(world, original);
     assert.equal(canvas.context.imageSmoothingEnabled, false);
+    assert.deepEqual([canvas.width, canvas.height], [1440, 900]);
     assert.ok(firstPass.some((call) => call[0] === 'scale' && call[1] === -1));
     assert.ok(firstPass.some((call) => call[0] === 'translate' && call[2] === 251));
+    assert.ok(firstPass.some((call) => call[0] === 'setTransform' && call[1] === 3 && call[5] === 0), 'the accepted scene is drawn at a whole 3x scale');
   } finally { globalThis.document = previousDocument; }
 });
 
@@ -100,10 +132,32 @@ test('background or sprite failure still allows a static fallback', () => {
   try {
     const canvas = fakeCanvas();
     const renderer = new SceneRenderer(canvas, { background: null, character: null }, atlas, 1);
-    renderer.resize(viewportFor(1920, 1080));
+    renderer.resize(1920, 1080);
     renderer.draw(createWorld(1), false);
     assert.equal(canvas.context.calls.filter((call) => call[0] === 'drawImage').length, 1);
     assert.throws(() => new SceneRenderer({ getContext: () => null }, { background: null, character: null }, atlas, 1));
     assert.throws(() => new SceneRenderer(canvas, { background: null, character: { naturalWidth: 1, naturalHeight: 1 } }, atlas, 1));
+  } finally { globalThis.document = previousDocument; }
+});
+
+test('the wallpaper matte is composited at its approved room offset instead of stretching edges', () => {
+  const previousDocument = globalThis.document;
+  const created = [];
+  globalThis.document = { createElement: () => { const canvas = fakeCanvas(); created.push(canvas); return canvas; } };
+  try {
+    const canvas = fakeCanvas();
+    const matte = { naturalWidth: 1024, naturalHeight: 576 };
+    const background = { naturalWidth: 480, naturalHeight: 270 };
+    const character = { naturalWidth: 192, naturalHeight: 256 };
+    const appearance = { matte: { width: 1024, height: 576, roomX: 272, roomY: 153 } };
+    const renderer = new SceneRenderer(canvas, { background, character, matte }, atlas, 1, appearance);
+    renderer.resize(2048, 864);
+    const backdrop = created[0];
+    assert.ok(backdrop, 'the renderer creates a cached backdrop canvas');
+    const draw = backdrop.context.calls.find((call) => call[0] === 'drawImage' && call[1] === matte);
+    assert.ok(draw, 'the wide matte is drawn into the backdrop');
+    assert.deepEqual([draw[2], draw[3]], [-171, -144]);
+    assert.throws(() => new SceneRenderer(fakeCanvas(), { background: null, character: null, matte }, atlas, 1,
+      { matte: { width: 1024, height: 576, roomX: 560, roomY: 153 } }), 'a matte without room for the 480×270 scene is rejected');
   } finally { globalThis.document = previousDocument; }
 });

@@ -46,18 +46,25 @@ public final class ScenePainter {
         let w = CGFloat(viewport.width), h = CGFloat(viewport.height), ox = CGFloat(viewport.originX), oy = CGFloat(viewport.originY)
         ctx.setFillColor(try color(layout.ceilingColor ?? "#617e77")); ctx.fill(CGRect(x: 0, y: 0, width: w, height: h))
         ctx.setFillColor(try color(layout.floorColor ?? "#8a8d75")); ctx.fill(CGRect(x: 0, y: oy + 203, width: w, height: h - oy - 203))
-        let background = engine.assets.background
-        if ox > 0 {
-            guard let left = background.cropping(to: CGRect(x: 0, y: 0, width: 1, height: 270)),
-                  let right = background.cropping(to: CGRect(x: 479, y: 0, width: 1, height: 270)) else { throw KujiraError.invalid("背景の端を拡張できません。") }
-            image(left, rect: CGRect(x: 0, y: oy, width: ox, height: 270), context: ctx)
-            image(right, rect: CGRect(x: ox + 480, y: oy, width: w - ox - 480, height: 270), context: ctx)
+        if let matte = engine.assets.matte, let info = layout.matte {
+            // The matte contains the approved room at (roomX, roomY); the flat colours above
+            // only show in the extreme letterbox beyond the matte (very tall/narrow views).
+            image(matte, rect: CGRect(x: ox - CGFloat(info.roomX), y: oy - CGFloat(info.roomY),
+                                      width: CGFloat(info.width), height: CGFloat(info.height)), context: ctx)
+        } else {
+            let background = engine.assets.background
+            if ox > 0 {
+                guard let left = background.cropping(to: CGRect(x: 0, y: 0, width: 1, height: 270)),
+                      let right = background.cropping(to: CGRect(x: 479, y: 0, width: 1, height: 270)) else { throw KujiraError.invalid("背景の端を拡張できません。") }
+                image(left, rect: CGRect(x: 0, y: oy, width: ox, height: 270), context: ctx)
+                image(right, rect: CGRect(x: ox + 480, y: oy, width: w - ox - 480, height: 270), context: ctx)
+            }
+            if oy > 0 {
+                ctx.setFillColor(try color(layout.ceilingColor ?? "#3b5b5b")); ctx.fill(CGRect(x: 0, y: 0, width: w, height: oy))
+                ctx.setFillColor(try color(layout.floorColor ?? "#5c7366")); ctx.fill(CGRect(x: 0, y: oy + 270, width: w, height: h - oy - 270))
+            }
+            image(background, rect: CGRect(x: ox, y: oy, width: 480, height: 270), context: ctx)
         }
-        if oy > 0 {
-            ctx.setFillColor(try color(layout.ceilingColor ?? "#3b5b5b")); ctx.fill(CGRect(x: 0, y: 0, width: w, height: oy))
-            ctx.setFillColor(try color(layout.floorColor ?? "#5c7366")); ctx.fill(CGRect(x: 0, y: oy + 270, width: w, height: h - oy - 270))
-        }
-        image(background, rect: CGRect(x: ox, y: oy, width: 480, height: 270), context: ctx)
         guard let result = ctx.makeImage() else { throw KujiraError.invalid("背景をキャッシュできません。") }
         if backdrops.count >= 4 { backdrops.removeAll(keepingCapacity: true) }
         backdrops[viewport] = result
@@ -125,9 +132,15 @@ public final class ScenePainter {
         defer { context.restoreGState() }
         context.interpolationQuality = .none
         context.setShouldAntialias(false)
-        context.scaleBy(x: width / Double(viewport.width), y: height / Double(viewport.height))
-        image(background, rect: CGRect(x: 0, y: 0, width: viewport.width, height: viewport.height), context: context)
-        if let battle = plan.battle {
+        // Paint the edge pixels in the room colours, then draw the whole scene on one uniform
+        // pixel grid. Whole-number scales keep every source pixel the same physical size.
+        let layout = engine.assets.configuration.layout
+        context.setFillColor(try color(layout.ceilingColor ?? "#617e77"))
+        context.fill(CGRect(x: 0, y: 0, width: width, height: height))
+        context.translateBy(x: CGFloat(viewport.offsetX), y: CGFloat(viewport.offsetY))
+        context.scaleBy(x: CGFloat(viewport.scale), y: CGFloat(viewport.scale))
+        image(background, rect: CGRect(x: 0, y: 0, width: Double(viewport.width), height: Double(viewport.height)), context: context)
+        if let battle = plan.battle, battle.room != true {
             image(try wideBackdrop(viewport), rect: CGRect(x: Double(viewport.originX) - battle.cameraX, y: 0, width: Double(engine.assets.configuration.stageWidth), height: Double(viewport.height)), context: context)
         }
         context.translateBy(x: CGFloat(viewport.originX), y: CGFloat(viewport.originY))
