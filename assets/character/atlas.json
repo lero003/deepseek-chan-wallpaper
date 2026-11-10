@@ -1,0 +1,50 @@
+{
+  "version": 1,
+  "image": "sheet.png",
+  "frameWidth": 48,
+  "frameHeight": 64,
+  "columns": 4,
+  "rows": 4,
+  "anchor": {
+    "x": 24,
+    "y": 60
+  },
+  "animations": {
+    "idle": {
+      "frames": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "frameDurationMs": 320
+    },
+    "walk": {
+      "frames": [
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "frameDurationMs": 120
+    },
+    "turn": {
+      "frames": [
+        10,
+        11
+      ],
+      "frameDurationMs": 250
+    },
+    "sleep": {
+      "frames": [
+        12,
+        13,
+        14,
+        15
+      ],
+      "frameDurationMs": 500
+    }
+  }
+}

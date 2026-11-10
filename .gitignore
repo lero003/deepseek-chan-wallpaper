@@ -1,0 +1,10 @@
+node_modules/
+dist/
+habitat-report/
+.DS_Store
+*.log
+.env
+.env.*
+
+# Unapproved character references, generations, and local-only art.
+private-art/

@@ -1,0 +1,102 @@
+{
+  "schemaVersion": 1,
+  "createdOn": "2026-11-10",
+  "releaseGate": "private-prototype-only",
+  "thirdPartyCharacterArtIncluded": false,
+  "fanInterpretation": true,
+  "note": "コードと画像の利用条件は別。公開・再配布ライセンスは未設定。DeepSeekちゃんをモチーフにした独自の非公開ファンアート解釈であり、権利者による許諾や公式素材の利用を示す台帳ではない。",
+  "assets": [
+    {
+      "id": "A03",
+      "path": "assets/scene/seaside-room.png",
+      "name": "海辺の書斎・静的背景",
+      "dimensions": "480×270px",
+      "author": "本プロジェクト内で制作（OpenAI Codexによるプログラム描画支援）",
+      "source": "scripts/generate-art.mjs",
+      "sourceUrl": null,
+      "license": "LicenseRef-Private-Prototype-Art",
+      "permission": {
+        "status": "local-prototype-only",
+        "webPublication": false,
+        "sourceRedistribution": false,
+        "macAppBundling": false
+      },
+      "modifications": [
+        {
+          "date": "2026-11-10",
+          "description": "色面、板目、棚、窓、海を整数座標で独自に描画。"
+        }
+      ],
+      "sha256": "2d4c951326d4df3147db092b081e0255ac04f66a9c83fd89462ad6be8d464023"
+    },
+    {
+      "id": "A01",
+      "path": "assets/character/sheet.png",
+      "name": "クジラ娘・独自ドット絵 16コマ",
+      "dimensions": "192×256px / 48×64px ×16",
+      "author": "本プロジェクト内で制作（OpenAI Codexによるプログラム描画支援）",
+      "source": "scripts/generate-art.mjs",
+      "sourceUrl": null,
+      "license": "LicenseRef-Private-Prototype-Art",
+      "permission": {
+        "status": "local-prototype-only",
+        "webPublication": false,
+        "sourceRedistribution": false,
+        "macAppBundling": false
+      },
+      "modifications": [
+        {
+          "date": "2026-11-10",
+          "description": "青系の髪、クジラの尾、メイド風エプロンを整数座標で独自描画。既存イラストの複製や公式ロゴは不使用。"
+        }
+      ],
+      "sha256": "f7dd78836338d32083614401d8594ba37810589271fa25e600fe987bd80fa8c9"
+    },
+    {
+      "id": "A02",
+      "path": "assets/character/atlas.json",
+      "name": "アニメーション配置と足元アンカー",
+      "dimensions": "UTF-8 JSON",
+      "author": "本プロジェクト内で制作（OpenAI Codexによるプログラム描画支援）",
+      "source": "scripts/generate-art.mjs",
+      "sourceUrl": null,
+      "license": "LicenseRef-Private-Prototype-Art",
+      "permission": {
+        "status": "local-prototype-only",
+        "webPublication": false,
+        "sourceRedistribution": false,
+        "macAppBundling": false
+      },
+      "modifications": [
+        {
+          "date": "2026-11-10",
+          "description": "idle 4 / walk 6 / turn 2 / sleep 4。"
+        }
+      ],
+      "sha256": "accdd0a35fd74005f50aaa4651cbb6bf26091e62d4b07bdfa1c3cb109cd5d428"
+    },
+    {
+      "id": "A04-web",
+      "path": "assets/brand/whale-mark.svg",
+      "name": "Web試作用の独自クジラマーク",
+      "dimensions": "32×32 viewBox",
+      "author": "本プロジェクト内で制作（OpenAI Codexによるプログラム描画支援）",
+      "source": "scripts/generate-art.mjs",
+      "sourceUrl": null,
+      "license": "LicenseRef-Private-Prototype-Art",
+      "permission": {
+        "status": "local-prototype-only",
+        "webPublication": false,
+        "sourceRedistribution": false,
+        "macAppBundling": false
+      },
+      "modifications": [
+        {
+          "date": "2026-11-10",
+          "description": "公式ロゴに基づかない整数座標の独自図形。Mac配布アイコンではない。"
+        }
+      ],
+      "sha256": "acb85b0521eee174f0d1c7af69f4331d8efe6e86bcd5fe5cbf03f8d382654419"
+    }
+  ]
+}
