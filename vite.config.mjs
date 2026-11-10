@@ -1,6 +1,10 @@
 import { defineConfig } from 'vite';
+import { fileURLToPath } from 'node:url';
+import { selectArtEntry } from './scripts/art-selection.mjs';
 
-export default defineConfig({
+const projectRoot = fileURLToPath(new URL('.', import.meta.url));
+export default defineConfig(({ mode }) => ({
+  resolve: { alias: { '@kujira-art': selectArtEntry(projectRoot, mode) } },
   base: './',
   publicDir: false,
   envDir: false,
@@ -11,4 +15,4 @@ export default defineConfig({
     assetsInlineLimit: 0,
     emptyOutDir: true,
   },
-});
+}));

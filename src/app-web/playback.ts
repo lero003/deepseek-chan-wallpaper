@@ -13,6 +13,11 @@ export function shouldAnimate(conditions: Readonly<PlaybackConditions>): boolean
     && !conditions.reducedMotion && !conditions.still && !conditions.dialogOpen;
 }
 
+/** A resize needs one still paint even in a hidden tab; it must not start a timer. */
+export function shouldPaintFrame(conditions: Readonly<Pick<PlaybackConditions, 'hidden' | 'suspended'>>, reason: 'animation' | 'resize'): boolean {
+  return !conditions.suspended && (reason === 'resize' || !conditions.hidden);
+}
+
 /** Both explicit resume and an unreported sleep gap discard elapsed wall time. */
 export class FrameClock {
   private previous: number | null = null;

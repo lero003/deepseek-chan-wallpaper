@@ -1,13 +1,17 @@
-import backgroundUrl from '../../assets/scene/seaside-room.png?url';
-import characterUrl from '../../assets/character/sheet.png?url';
-import atlasData from '../../assets/character/atlas.json';
-import manifest from '../../assets/manifest.json';
-import { advanceWorld, createWorld, seedFromText } from '../world/world.ts';
+import art from '@kujira-art';
+import { ACTOR_HALF_WIDTH, seedFromText } from '../world/world.ts';
+import { createGame, advanceGame } from '../fighters/game.ts';
+import { gamePlan } from '../fighters/render-plan.ts';
+import { motesFor } from '../render/scene-plan.ts';
+import type { SpriteAtlas } from '../render/atlas.ts';
+import { FightersUI } from './fighters-ui.ts';
 import { parseAtlas } from '../render/atlas.ts';
 import { loadImage, SceneRenderer } from '../render/renderer.ts';
 import { viewportFor } from '../render/viewport.ts';
-import { AnimationLoop, shouldAnimate } from './playback.ts';
+import { AnimationLoop, shouldAnimate, shouldPaintFrame } from './playback.ts';
 import type { PlaybackConditions } from './playback.ts';
+
+const { backgroundUrl, characterUrl, atlas: atlasData, manifest } = art;
 
 function element<T extends HTMLElement>(selector: string): T {
   const found = document.querySelector<T>(selector);
@@ -32,12 +36,22 @@ const media = window.matchMedia('(prefers-reduced-motion: reduce)');
 const controller = new AbortController();
 const { signal } = controller;
 const seedText = (new URL(window.location.href).searchParams.get('seed') || 'seaside-v01').slice(0, 128);
-const world = createWorld(seedFromText(seedText));
+const game = createGame(seedFromText(seedText), art.scene);
+const world = game.world;
+const motes = motesFor(world.seed);
+document.documentElement.dataset.art = art.kind;
+scene.dataset.artProfile = art.id;
+canvas.setAttribute('aria-label', art.description);
+element<HTMLElement>('#scene-name').textContent = art.label;
+element<HTMLElement>('#art-provenance').textContent = `${art.provenance} 戦闘の敵・小物・左右パネルは、本プロジェクトの仮ピクセル図形です。外部の画像・フォントは読み込みません。`;
+element<HTMLElement>('.static-scene').style.backgroundImage = `url("${backgroundUrl}")`;
 const conditions: PlaybackConditions = {
   ready: false, paused: false, hidden: document.hidden, suspended: false,
   reducedMotion: media.matches, still: false, dialogOpen: false,
 };
 let renderer: SceneRenderer | null = null;
+let activeAtlas: SpriteAtlas | null = null;
+let fightersUI: FightersUI | null = null;
 let failed = false;
 
 // Read-only, explicit metadata. Never interpolate URL text or asset fields into HTML.
@@ -51,15 +65,16 @@ for (const asset of manifest.assets) {
   credits.append(title, detail);
 }
 
-function draw(): void {
-  if (!conditions.hidden && !conditions.suspended) renderer?.draw(world, !conditions.reducedMotion && !conditions.still);
+function draw(reason: 'animation' | 'resize' = 'animation'): void {
+  if (shouldPaintFrame(conditions, reason) && activeAtlas && renderer) renderer.drawPlan(gamePlan(game, activeAtlas, art, !conditions.reducedMotion && !conditions.still, 'preview', motes));
+  fightersUI?.sync();
 }
 
 const loop = new AnimationLoop({
   now: () => performance.now(),
   request: (callback, delay) => window.setTimeout(callback, delay),
   cancel: (handle) => window.clearTimeout(handle),
-}, (delta) => { advanceWorld(world, delta); draw(); });
+}, (delta) => { advanceGame(game, delta); draw(); });
 
 const connection = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection;
 powerSetting.checked = connection?.saveData === true;
@@ -70,6 +85,9 @@ function synchronize(): void {
   conditions.dialogOpen = dialog.open;
   conditions.reducedMotion = media.matches;
   conditions.still = stillSetting.checked;
+  if (!shouldAnimate(conditions)) fightersUI?.release();
+  else fightersUI?.input.syncFocus();
+  fightersUI?.sync();
   loop.setRunning(shouldAnimate(conditions));
   pauseButton.disabled = !conditions.ready || conditions.reducedMotion || conditions.still;
   pauseButton.setAttribute('aria-pressed', String(conditions.paused));
@@ -94,7 +112,8 @@ function synchronize(): void {
 function resize(): void {
   const bounds = scene.getBoundingClientRect();
   renderer?.resize(viewportFor(bounds.width, bounds.height));
-  draw();
+  // Prepare one stable frame after clearing the canvas; never advance the hidden world.
+  draw('resize');
 }
 
 openButton.addEventListener('click', () => {
@@ -123,13 +142,17 @@ observer.observe(scene);
 async function bootstrap(): Promise<void> {
   try {
     const atlas = parseAtlas(atlasData);
+    activeAtlas = atlas;
+    if ((art.scene.actorHalfWidth ?? ACTOR_HALF_WIDTH) < (atlas.collisionHalfWidth ?? atlas.frameWidth / 2)) {
+      throw new Error('Scene collision margins are smaller than the selected sprite.');
+    }
     const [background, character] = await Promise.allSettled([loadImage(backgroundUrl), loadImage(characterUrl)]);
     if (signal.aborted) return;
     const images = {
       background: background.status === 'fulfilled' ? background.value : null,
       character: character.status === 'fulfilled' ? character.value : null,
     };
-    renderer = new SceneRenderer(canvas, images, atlas, world.seed);
+    renderer = new SceneRenderer(canvas, images, atlas, world.seed, art);
     resize();
     scene.dataset.ready = 'true';
     failed = !images.background || !images.character;
@@ -154,6 +177,9 @@ async function bootstrap(): Promise<void> {
   }
 }
 
+fightersUI = new FightersUI(game, scene,
+  () => conditions.ready && !failed && !conditions.paused && !conditions.reducedMotion && !conditions.still && !conditions.hidden && !conditions.suspended && !conditions.dialogOpen,
+  () => draw(), signal);
 synchronize();
 void bootstrap();
 

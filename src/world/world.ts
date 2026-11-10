@@ -11,6 +11,7 @@ export interface Scene {
   width: number;
   height: number;
   floorY: number;
+  actorHalfWidth?: number;
   obstacles: readonly Interval[];
 }
 
@@ -54,16 +55,19 @@ export function seedFromText(value: string): number {
 
 /** Subtract full sprite-width collision margins, then use one connected floor. */
 export function walkingRange(scene: Scene): Interval {
-  if (!Number.isFinite(scene.width) || scene.width < ACTOR_HALF_WIDTH * 2) {
+  const halfWidth = scene.actorHalfWidth ?? ACTOR_HALF_WIDTH;
+  if (!Number.isFinite(halfWidth) || halfWidth <= 0) throw new Error('Invalid character collision width.');
+  if (!Number.isFinite(scene.floorY) || scene.floorY < 0 || scene.floorY > scene.height) throw new Error('Invalid floor position.');
+  if (!Number.isFinite(scene.width) || scene.width < halfWidth * 2) {
     throw new Error('The scene is too narrow for the character.');
   }
-  let segments: Interval[] = [{ left: ACTOR_HALF_WIDTH, right: scene.width - ACTOR_HALF_WIDTH }];
+  let segments: Interval[] = [{ left: halfWidth, right: scene.width - halfWidth }];
   for (const obstacle of scene.obstacles) {
     if (!Number.isFinite(obstacle.left) || !Number.isFinite(obstacle.right) || obstacle.left > obstacle.right) {
       throw new Error('Invalid floor obstacle.');
     }
-    const left = obstacle.left - ACTOR_HALF_WIDTH;
-    const right = obstacle.right + ACTOR_HALF_WIDTH;
+    const left = obstacle.left - halfWidth;
+    const right = obstacle.right + halfWidth;
     segments = segments.flatMap((segment) => {
       if (right <= segment.left || left >= segment.right) return [segment];
       const remaining: Interval[] = [];

@@ -13,7 +13,11 @@
     "assets:generate": "node scripts/generate-art.mjs",
     "assets:check": "node scripts/generate-art.mjs --check",
     "check": "npm run typecheck && npm test && npm run assets:check",
-    "build": "npm run check && vite build"
+    "build": "npm run check && vite build",
+    "mac:prepare": "node scripts/prepare-macos.mjs",
+    "mac:test": "node scripts/test-macos.mjs",
+    "mac:build": "node scripts/build-macos.mjs",
+    "mac:dmg": "node scripts/build-dmg.mjs"
   },
   "devDependencies": {
     "typescript": "5.9.3",

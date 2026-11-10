@@ -1,6 +1,8 @@
 node_modules/
 dist/
 habitat-report/
+.build/
+.swiftpm/
 .DS_Store
 *.log
 .env

@@ -1,0 +1,107 @@
+import Foundation
+
+public enum KujiraError: Error, LocalizedError {
+    case invalid(String)
+    public var errorDescription: String? {
+        switch self { case .invalid(let message): message }
+    }
+}
+
+public struct Anchor: Codable, Equatable, Sendable { public let x: Double; public let y: Double }
+public struct Animation: Codable, Equatable, Sendable {
+    public let frames: [Int]
+    public let frameDurationMs: Int
+    public let frameDurationsMs: [Int]?
+}
+public struct Atlas: Codable, Equatable, Sendable {
+    public let version: Int
+    public let frameWidth: Int
+    public let frameHeight: Int
+    public let columns: Int
+    public let rows: Int
+    public let anchor: Anchor
+    public let collisionHalfWidth: Double?
+    public let animations: [String: Animation]
+    public func validate() throws {
+        guard version == 1, frameWidth > 0, frameHeight > 0, frameWidth <= 1024, frameHeight <= 1024,
+              columns > 0, rows > 0, columns <= 16, rows <= 16, columns * rows == 16,
+              anchor.x.isFinite, anchor.y.isFinite, anchor.x >= 0, anchor.x <= Double(frameWidth),
+              anchor.y >= 0, anchor.y <= Double(frameHeight) else { throw KujiraError.invalid("アトラスの寸法・足元が不正です。") }
+        if let half = collisionHalfWidth, !half.isFinite || half <= 0 || half > Double(frameWidth) { throw KujiraError.invalid("キャラクターの接触幅が不正です。") }
+        var used = Set<Int>()
+        for (state, count) in [("idle", 4), ("walk", 6), ("turn", 2), ("sleep", 4)] {
+            guard let animation = animations[state], animation.frames.count == count, animation.frameDurationMs > 0,
+                  animation.frameDurationMs <= 60000 else { throw KujiraError.invalid("アニメーション設定が不正です。") }
+            if let times = animation.frameDurationsMs, times.count != count || times.contains(where: { $0 <= 0 || $0 > 60000 }) {
+                throw KujiraError.invalid("フレーム別の表示時間が不正です。")
+            }
+            for frame in animation.frames {
+                guard (0..<16).contains(frame), used.insert(frame).inserted else { throw KujiraError.invalid("フレームが欠落・重複しています。") }
+            }
+        }
+    }
+}
+
+public struct FloorInterval: Codable, Sendable { public let left: Double; public let right: Double }
+public struct Scene: Codable, Sendable {
+    public let width: Int; public let height: Int; public let floorY: Double
+    public let actorHalfWidth: Double?
+    public let obstacles: [FloorInterval]
+}
+public struct Water: Codable, Sendable { public let left: Double; public let right: Double; public let top: Double; public let bottom: Double }
+public struct Layout: Codable, Sendable {
+    public let id: String; public let kind: String; public let label: String
+    public let description: String; public let provenance: String
+    public let scene: Scene
+    public let ceilingColor: String?; public let floorColor: String?; public let shadowColor: String?
+    public let water: Water?
+}
+public struct StageInfo: Codable, Sendable { public let width: Int }
+public struct NativeConfiguration: Codable, Sendable {
+    public let schemaVersion: Int
+    public let localPreviewOnly: Bool
+    public let coreSha256: String
+    public let atlas: Atlas
+    public let layout: Layout
+    public let stage: StageInfo?
+    public var stageWidth: Int { max(1440, stage?.width ?? 1440) }
+}
+public struct Permission: Decodable, Sendable {
+    public let status: String
+    public let webPublication: Bool
+    public let sourceRedistribution: Bool
+    public let macAppBundling: Bool
+}
+public struct AssetCredit: Decodable, Sendable {
+    public let id: String; public let path: String; public let name: String
+    public let dimensions: String; public let author: String; public let license: String; public let sha256: String
+    public let permission: Permission
+}
+public struct AssetManifest: Decodable, Sendable { public let assets: [AssetCredit]; public let note: String }
+
+public struct Quad: Codable, Sendable {
+    public let x: Double; public let y: Double; public let width: Double; public let height: Double
+    public let color: String; public let alpha: Double
+}
+public struct GameUI: Codable, Sendable {
+    public let mode: String; public let phase: String; public let phaseLabel: String; public let paused: Bool; public let focused: Bool
+    public let hp: Int; public let gauge: Int; public let combo: Int; public let dodgeReady: Bool; public let specialReady: Bool
+    public let outcome: String; public let message: String; public let frequency: String; public let effectsLow: Bool
+    public let enemies: Int; public let bossHP: Int
+    public var manual: Bool { mode == "manual" }
+}
+public struct DrawCommand: Codable, Sendable {
+    public let kind: String; public let x: Double; public let y: Double; public let alpha: Double
+    public let width: Double?; public let height: Double?; public let color: String?; public let rotation: Double?
+    public let frame: Int?; public let facing: Int?; public let scaleX: Double?; public let scaleY: Double?
+    public let text: String?; public let size: Double?
+}
+public struct BattleFrame: Codable, Sendable { public let cameraX: Double; public let commands: [DrawCommand] }
+public struct ScenePlan: Codable, Sendable {
+    public let tick: Int; public let state: String; public let x: Double; public let floorY: Double
+    public let facing: Int; public let frame: Int; public let quads: [Quad]
+    public let game: GameUI?; public let battle: BattleFrame?; public let overlay: [DrawCommand]?
+}
+public struct Viewport: Codable, Hashable, Sendable {
+    public let width: Int; public let height: Int; public let originX: Int; public let originY: Int
+}
