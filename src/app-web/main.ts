@@ -1,6 +1,6 @@
 import art from '@kujira-art';
 import { ACTOR_HALF_WIDTH, applyMood, seedFromText } from '../world/world.ts';
-import { createGame, advanceGame } from '../fighters/game.ts';
+import { createGame, advanceGame, command } from '../fighters/game.ts';
 import { gamePlan } from '../fighters/render-plan.ts';
 import { motesFor } from '../render/scene-plan.ts';
 import type { SpriteAtlas } from '../render/atlas.ts';
@@ -31,8 +31,11 @@ const loading = element<HTMLElement>('#loading-note');
 const errorNote = element<HTMLElement>('#scene-error');
 const motionNote = element<HTMLElement>('#motion-note');
 const stillSetting = element<HTMLInputElement>('#still-setting');
-const backgroundRow = element<HTMLElement>('#background-row');
+const sceneName = element<HTMLElement>('#scene-name');
+const backgroundStatic = element<HTMLElement>('#background-static');
 const backgroundSetting = element<HTMLSelectElement>('#background-setting');
+const faceWrap = element<HTMLElement>('#about-face');
+const faceCanvas = element<HTMLCanvasElement>('#face-canvas');
 const powerSetting = element<HTMLInputElement>('#power-setting');
 const media = window.matchMedia('(prefers-reduced-motion: reduce)');
 const controller = new AbortController();
@@ -44,7 +47,8 @@ const motes = motesFor(world.seed);
 document.documentElement.dataset.art = art.kind;
 scene.dataset.artProfile = art.id;
 canvas.setAttribute('aria-label', art.description);
-element<HTMLElement>('#scene-name').textContent = art.label;
+sceneName.textContent = art.label;
+backgroundStatic.textContent = art.label;
 element<HTMLElement>('#art-provenance').textContent = `${art.provenance} 戦闘の小物・パネル・エフェクトは独自コード描画です。ローカル版にはテラス背景・主人公戦闘8キー姿勢・既存敵2種の6姿勢×3バリエーションを別の生成シートとして追加し、生活16コマは不変です。画像のない環境は従来描画へ戻ります。連続動作・実機操作の受け入れとは別です。綴星リュミエは文章と思考を着想にした非公式のオリジナルライバルで、Claude／Anthropicの公式キャラクター・提携作品ではありません。ローカルボス画像がない場合も独自の仮描画で動きます。外部の画像・フォントは読み込みません。「DeepSeekちゃん（クジラ娘）」の原案・デザインは、これを生み出したファンコミュニティと原案者に帰属します。`;
 element<HTMLElement>('.static-scene').style.backgroundImage = `url("${art.matteUrl ?? backgroundUrl}")`;
 const conditions: PlaybackConditions = {
@@ -82,15 +86,30 @@ const connection = (navigator as Navigator & { connection?: { saveData?: boolean
 powerSetting.checked = connection?.saveData === true;
 loop.setFrameRate(powerSetting.checked ? 15 : 30);
 
+/** One honest stop reason plus a resume hint, in priority order; null while running. */
+function stopNote(): { reason: string; guidance: string } | null {
+  if (failed) return { reason: '静止背景を表示中', guidance: 'ページを再読み込みしてください' };
+  if (conditions.reducedMotion) return { reason: 'OSの視差効果を減らすに合わせて静止中', guidance: 'OS設定の変更で再開' };
+  if (conditions.still) return { reason: '静止画で眺めるがON', guidance: '設定でオフにすると再開' };
+  if (conditions.paused) return { reason: 'ひと休みしています', guidance: '再開' };
+  if (conditions.hidden) return { reason: 'タブが非表示のため停止中', guidance: '戻ると再開します' };
+  if (conditions.suspended) return { reason: 'ページ離脱中は停止中', guidance: '戻ると再開します' };
+  if (conditions.dialogOpen) return { reason: '設定を開いている間は一休み', guidance: '閉じると再開' };
+  if (!conditions.ready) return { reason: '準備中', guidance: '' };
+  return null;
+}
+
 function synchronize(): void {
   conditions.hidden = document.hidden;
   conditions.dialogOpen = dialog.open;
   conditions.reducedMotion = media.matches;
   conditions.still = stillSetting.checked;
-  if (!shouldAnimate(conditions)) fightersUI?.release();
+  const animate = shouldAnimate(conditions);
+  // A stopped preview discards any pending call so no stale reaction replays on resume.
+  if (!animate) { command(game, 'cancelCall'); fightersUI?.release(); }
   else fightersUI?.input.syncFocus();
   fightersUI?.sync();
-  loop.setRunning(shouldAnimate(conditions));
+  loop.setRunning(animate);
   pauseButton.disabled = !conditions.ready || conditions.reducedMotion || conditions.still;
   pauseButton.setAttribute('aria-pressed', String(conditions.paused));
   pauseButton.setAttribute('aria-label', conditions.paused ? '動きを再開' : '動きを一時停止');
@@ -98,17 +117,13 @@ function synchronize(): void {
   motionNote.textContent = conditions.reducedMotion
     ? 'OSの「視差効果を減らす」に合わせて静止表示中です。OS側の設定を変更すると再開できます。'
     : 'OSの「視差効果を減らす」設定にも自動で合わせます。';
-  const text = failed ? '静止背景を表示中'
-    : !conditions.ready ? '準備中'
-    : conditions.reducedMotion ? 'OS設定により静止中'
-    : conditions.still ? '静止画で表示中'
-    : conditions.paused ? 'ひと休みしています'
-    : conditions.dialogOpen ? '作品についてを表示中'
+  const stop = stopNote();
+  const text = stop ? (stop.guidance ? `${stop.reason} — ${stop.guidance}` : stop.reason)
     : powerSetting.checked ? 'ゆっくり描画 · 15fps'
     : '音のない、小さな世界';
   // Do not repeatedly announce an unchanged status to assistive technology.
   if (status.textContent !== text) status.textContent = text;
-  if (!shouldAnimate(conditions)) draw();
+  if (!animate) draw();
 }
 
 function resize(): void {
@@ -180,6 +195,7 @@ async function bootstrap(): Promise<void> {
       } catch (error) { console.error('[kujira] Optional combat sheet unavailable; using original drawing.', key, error); }
     }));
     if (signal.aborted) return;
+    drawAboutFace(images.character);
     // Additional backgrounds are optional: a failed or mis-sized variant is simply not offered.
     const loadedVariants: { art: NonNullable<typeof art.variants>[number]; background: HTMLImageElement; matte: HTMLImageElement | null }[] = [];
     for (const variant of art.variants ?? []) {
@@ -214,19 +230,38 @@ async function bootstrap(): Promise<void> {
       for (const result of [background, character]) if (result.status === 'rejected') console.error('[kujira] Image loading failed.', result.reason);
     }
     conditions.ready = !failed;
-    if (!failed && loadedVariants.length > 0) {
-      for (const [index, variant] of loadedVariants.entries()) {
+    // The standard background (index 0) always comes first, then only variants that
+    // actually loaded, so the selection can never point at a missing asset.
+    const backgroundLabels = [art.label, ...loadedVariants.map(variant => variant.art.label)];
+    if (!failed && renderer && loadedVariants.length > 0) {
+      backgroundSetting.replaceChildren();
+      for (const [index, label] of backgroundLabels.entries()) {
         const option = document.createElement('option');
-        option.value = String(index + 1);
-        option.textContent = variant.art.label;
+        option.value = String(index);
+        option.textContent = label;
         backgroundSetting.append(option);
       }
-      backgroundRow.hidden = false;
+      backgroundSetting.value = String(renderer.selectedVariant);
+      backgroundSetting.hidden = false;
+      backgroundStatic.hidden = true;
       backgroundSetting.addEventListener('change', () => {
-        renderer?.setVariant(Number(backgroundSetting.value));
-        if (renderer) applyMood(world, renderer.activeAppearance.ambience?.mood);
+        if (!renderer) return;
+        const index = Number(backgroundSetting.value);
+        if (!Number.isInteger(index) || index < 0 || index >= renderer.variantCount) {
+          backgroundSetting.value = String(renderer.selectedVariant);
+          return;
+        }
+        renderer.setVariant(index);
+        applyMood(world, renderer.activeAppearance.ambience?.mood);
+        command(game, 'cancelCall');
+        sceneName.textContent = backgroundLabels[index] ?? art.label;
         draw('resize');
       }, { signal });
+    } else {
+      // Only the standard background is available: a static label, never an empty select.
+      backgroundSetting.hidden = true;
+      backgroundStatic.hidden = false;
+      backgroundStatic.textContent = art.label;
     }
   } catch (error) {
     if (signal.aborted) return;
@@ -243,9 +278,28 @@ async function bootstrap(): Promise<void> {
   }
 }
 
+/** B05: one existing front-facing frame at whole-number 1x; missing art stays hidden. */
+function drawAboutFace(character: HTMLImageElement | null): void {
+  try {
+    const atlas = activeAtlas;
+    const frame = atlas?.animations.turn.frames[1];
+    const context = faceCanvas.getContext('2d');
+    if (!character || !atlas || !context || frame === undefined || !Number.isInteger(frame)
+      || frame < 0 || frame >= atlas.columns * atlas.rows) { faceWrap.hidden = true; return; }
+    faceCanvas.width = atlas.frameWidth;
+    faceCanvas.height = atlas.frameHeight;
+    context.imageSmoothingEnabled = false;
+    context.clearRect(0, 0, atlas.frameWidth, atlas.frameHeight);
+    context.drawImage(character,
+      frame % atlas.columns * atlas.frameWidth, Math.floor(frame / atlas.columns) * atlas.frameHeight,
+      atlas.frameWidth, atlas.frameHeight, 0, 0, atlas.frameWidth, atlas.frameHeight);
+    faceWrap.hidden = false;
+  } catch { faceWrap.hidden = true; }
+}
+
 fightersUI = new FightersUI(game, scene,
   () => conditions.ready && !failed && !conditions.paused && !conditions.reducedMotion && !conditions.still && !conditions.hidden && !conditions.suspended && !conditions.dialogOpen,
-  () => draw(), signal);
+  () => draw(), signal, () => stopNote()?.reason ?? '');
 synchronize();
 void bootstrap();
 
@@ -256,5 +310,7 @@ if (import.meta.hot) {
     loop.dispose();
     if (dialog.open) dialog.close();
     credits.replaceChildren();
+    backgroundSetting.hidden = true;
+    backgroundStatic.hidden = false;
   });
 }

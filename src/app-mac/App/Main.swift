@@ -69,7 +69,7 @@ struct KujiraMain {
         if arguments.contains("--fighters-self-test") {
             try engine.command("demo")
             _ = try engine.replayGameJSON(frames: 120 * 60, step: 1.0 / 60)
-            guard try engine.snapshot().game?.phase == "rest" else { throw KujiraError.invalid("オート事件が書斎へ帰還しませんでした。") }
+            guard try engine.snapshot().game?.phase == "rest" else { throw KujiraError.invalid("自動対戦が書斎へ帰還しませんでした。") }
             try engine.command("play"); try engine.setManualFocus(true)
             for _ in 0..<3 { try engine.command("attack") }
             _ = try engine.replayGameJSON(frames: 90, step: 1.0 / 60)

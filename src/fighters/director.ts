@@ -8,6 +8,7 @@ import { decision, effect, clearInputs } from './events.ts';
 import { spawnEnemy } from './enemy-brain.ts';
 import { newHero, newStats, recordStat } from './factory.ts';
 import { clearArcadeRound, newArcade, startArcadeRound } from './arcade.ts';
+import { HOME_CAPTION, REST_CAPTION, settleHome } from '../companion/companion.ts';
 import { clamp } from './movement.ts';
 import type { FightersGame, Phase, Route } from './types.ts';
 
@@ -54,6 +55,7 @@ export function startEpisode(game: FightersGame, route: Route): void {
   game.eventStartedAt = game.tick; game.outcome = 'none'; game.cameraX = 0;
   game.areaIndex = 0; game.areaBannerUntil = room ? 0 : game.tick + 130; game.routeTick = game.tick;
   game.firstWhiff = true; game.whiffAttackId = -1;
+  game.cue = null;
   game.runTicks = 0; game.runStats = newStats(); game.arcade = newArcade();
   recordStat(game, 'episodes'); game.stats.sections = 0;
   game.message = ''; game.messageUntil = 0;
@@ -61,6 +63,7 @@ export function startEpisode(game: FightersGame, route: Route): void {
   else enterPhase(game, 'intro');
 }
 export function returnHome(game: FightersGame): void {
+  const won = game.outcome === 'win';
   clearInputs(game); game.projectiles = []; game.enemies = []; game.paused = false; game.mode = 'auto'; game.focused = false;
   if (game.route === 'arena') { game.effects = []; game.hitstop = 0; }
   const homeOffset = game.route === 'room' ? 0 : game.stage.homeOffset;
@@ -68,6 +71,7 @@ export function returnHome(game: FightersGame): void {
   game.cameraX = 0; game.hero = newHero(game.world.actor.x + homeOffset, game.world.floorY);
   game.sectionLocked = false; game.outcome = 'none';
   enterPhase(game, 'rest'); scheduleRest(game);
+  settleHome(game, won ? HOME_CAPTION : REST_CAPTION);
 }
 
 /** Each round has a safe, empty introduction. No traversal unlocks the fight. */
@@ -435,7 +439,7 @@ export function updateDirector(game: FightersGame): void {
       }
       if (game.phaseAge >= returnTicks) {
         if (game.mode === 'manual') enterPhase(game, 'result');
-        else { enterPhase(game, 'rest'); scheduleRest(game); }
+        else { enterPhase(game, 'rest'); scheduleRest(game); settleHome(game, HOME_CAPTION); }
       }
       break;
     }

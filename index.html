@@ -17,13 +17,13 @@
           <img class="brand-mark" src="./assets/brand/whale-mark.svg" width="36" height="36" alt="" />
           <div><h1>くじらの散歩道<span class="title-note">仮</span></h1><p class="eyebrow">A LITTLE SEASIDE STUDY</p></div>
         </div>
-        <button class="text-button about-button" id="about-open" type="button" aria-haspopup="dialog" aria-controls="about-dialog">作品について<span aria-hidden="true"> ↗</span></button>
+        <button class="text-button about-button" id="about-open" type="button" aria-haspopup="dialog" aria-controls="about-dialog">設定・作品について<span aria-hidden="true"> ↗</span></button>
       </header>
 
       <main id="main-content">
         <figure class="scene" id="scene" aria-busy="true" tabindex="-1" data-game-input>
           <div class="static-scene" aria-hidden="true"></div>
-          <canvas id="world" width="480" height="270" role="img" aria-label="海を望む小さな書斎。青い髪とクジラの尾を持つ女の子が、床を歩いたり、立ち止まったり、眠ったりしています。" aria-describedby="scene-description">
+          <canvas id="world" width="480" height="270" role="img" aria-label="海辺の書斎。クジラ娘が歩いたり眠ったりしています。ときどきテラスで自動対戦。" aria-describedby="scene-description">
             海辺のドット絵を表示するには、Canvasに対応したブラウザーが必要です。
           </canvas>
           <figcaption class="sr-only" id="scene-description">音のない、眺めるための非公開試作です。手前の一時停止ボタンで動きを止められます。OSの「視差効果を減らす」設定では静止表示になります。</figcaption>
@@ -35,7 +35,7 @@
           <div class="game-readout"><p class="game-round" id="game-round">ROUND 01 / 03 · 潮風の腕ならし</p><p id="game-health">HP 5 / 5　夕凪 0 / 100</p><p id="game-instruction">WASD / 矢印で間合いを調整 · J/Z 攻撃 · K/X 回避 · L/C 必殺</p></div>
           <div class="game-actions">
             <button id="game-attack" type="button">攻撃 <kbd>J</kbd></button><button id="game-dodge" type="button">回避 <kbd>K</kbd></button><button id="game-special" type="button">必殺 <kbd>L</kbd></button>
-            <button id="game-pause" type="button">ポーズ Esc</button><button id="game-retry" type="button" hidden>もう一戦</button><button id="game-home" type="button">壁紙へ戻る</button>
+            <button id="game-pause" type="button">ポーズ Esc</button><button id="game-retry" type="button" hidden>もう一戦</button><button id="game-home" type="button">書斎へ戻る</button>
           </div>
         </section>
         <p class="sr-only" id="bout-description">横スクロールのない固定アリーナ。雑魚戦2回のあと、琥珀の思考家・綴星リュミエと一騎打ち。勝負のあとは静かな書斎へ戻ります。</p>
@@ -43,37 +43,54 @@
       </main>
 
       <footer class="site-footer">
-        <div class="scene-caption"><span class="scene-number" aria-hidden="true">01</span><div><p class="scene-name" id="scene-name">海辺の書斎</p><p class="scene-thought" id="scene-thought">ただ、ここにいる。</p></div></div>
+        <div class="scene-caption"><span class="scene-number" aria-hidden="true">01</span><div><p class="scene-name" id="scene-name">海辺の書斎</p><p class="scene-thought" id="scene-thought">ただ、ここにいる。</p><p class="tagline">おっとり。ときどき、つよい。</p><p class="preview-note">非公式・個人用プレビュー</p></div></div>
         <div class="playback-control">
-          <p id="playback-status" class="playback-status" role="status" aria-live="polite">準備中</p>
-          <button class="text-button game-demo" id="demo-button" type="button" disabled>事件を見る</button>
-          <button class="pause-button bout-button" id="play-button" type="button" aria-describedby="bout-description" disabled>テラスで3連戦</button>
-          <button class="pause-button" id="pause-button" type="button" aria-label="動きを一時停止" aria-pressed="false" disabled>
-            <svg class="pause-icon" viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M7 5v10M13 5v10" /></svg>
-            <svg class="play-icon" viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="m7 5 8 5-8 5V5Z" /></svg>
-            <span id="pause-label">一時停止</span>
-          </button>
+          <div class="control-row">
+            <div class="background-picker">
+              <span class="picker-label" id="background-label">背景</span>
+              <select id="background-setting" aria-labelledby="background-label" hidden></select>
+              <span class="background-static" id="background-static">海辺の書斎</span>
+            </div>
+            <div class="call-control">
+              <button class="pause-button call-button" id="call-button" type="button" disabled>呼んでみる</button>
+              <p class="call-hint" id="call-hint"></p>
+            </div>
+            <button class="pause-button" id="pause-button" type="button" aria-label="動きを一時停止" aria-pressed="false" disabled>
+              <svg class="pause-icon" viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M7 5v10M13 5v10" /></svg>
+              <svg class="play-icon" viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="m7 5 8 5-8 5V5Z" /></svg>
+              <span id="pause-label">一時停止</span>
+            </button>
+          </div>
+          <div class="control-row secondary-row">
+            <p id="playback-status" class="playback-status" role="status" aria-live="polite">準備中</p>
+            <button class="text-button game-demo" id="demo-button" type="button" disabled>対戦を見る</button>
+            <button class="text-button bout-link" id="play-button" type="button" aria-describedby="bout-description" disabled>テラスで3連戦</button>
+          </div>
         </div>
       </footer>
     </div>
 
     <dialog class="about-dialog" id="about-dialog" aria-labelledby="about-title" aria-describedby="about-intro">
-      <div class="dialog-topline"><span class="eyebrow">ABOUT THIS LITTLE WORLD</span><button class="close-button" id="about-close" type="button" aria-label="作品についてを閉じる" autofocus><svg viewBox="0 0 20 20" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="m5 5 10 10M15 5 5 15" /></svg></button></div>
+      <div class="dialog-topline"><span class="eyebrow">ABOUT THIS LITTLE WORLD</span><button class="close-button" id="about-close" type="button" aria-label="設定・作品についてを閉じる" autofocus><svg viewBox="0 0 20 20" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="m5 5 10 10M15 5 5 15" /></svg></button></div>
       <h2 id="about-title">なにもしない時間を、<br />海辺の小さな書斎で。</h2>
-      <p id="about-intro" class="intro-copy">歩いて、立ち止まって、ときどき眠る。<br />普段は静かな壁紙、ときどき小さな事件。<br />「テラスで3連戦」で、雑魚戦2回と美少女AIライバルとの一騎打ちへ。横に進む旅ではなく、開戦から決着までを遊ぶ、小さな格闘アクションです。</p>
+      <p id="about-intro" class="intro-copy">歩いて、立ち止まって、ときどき眠る。<br />普段は静かな壁紙、ときどきテラスで小さな自動対戦。<br />遊びたいときは「テラスで3連戦」で、雑魚戦2回と美少女AIライバルとの一騎打ちへ。横に進む旅ではなく、開戦から決着までを遊ぶ、小さな格闘アクションです。</p>
       <div class="prototype-notice"><span class="notice-label">非公開プロトタイプ / v0.1</span><p>非公式・非営利のファン作品を目指した開発用試作です。DeepSeek社との提携・承認はありません。現在のクジラ娘は、DeepSeekちゃん（クジラ娘）をモチーフに、このプロジェクト内で独自に描き起こしたドット絵です。既存イラストの複製や公式ロゴの使用ではなく、権利者による許諾を意味するものでもありません。</p></div>
       <section class="about-section" aria-labelledby="display-heading">
         <h3 id="display-heading">風景の動き</h3>
         <label class="setting-row"><span><span class="setting-name">静止画で眺める</span><span class="setting-description">クジラ娘も光の粒も、そのままに。</span></span><input id="still-setting" type="checkbox" /></label>
         <label class="setting-row"><span><span class="setting-name">省電力にする</span><span class="setting-description">描画を30fpsから15fpsに。歩く速さは変わりません。</span></span><input id="power-setting" type="checkbox" /></label>
         <label class="setting-row"><span><span class="setting-name">自動対戦の頻度</span><span class="setting-description">テラスで自動対戦が始まる間隔。進行中の対戦は最後まで続きます。</span></span><select id="frequency-setting"><option value="low">少なめ · 約3〜5分</option><option value="normal">通常 · 約1〜2分</option><option value="off">対戦なし</option></select></label>
-        <label class="setting-row"><span><span class="setting-name">エフェクトを控えめに</span><span class="setting-description">強い点滅・画面揺れは使いません。敵・技は仮素材です。</span></span><input id="effects-setting" type="checkbox" checked /></label>
-        <label class="setting-row" id="background-row" hidden><span><span class="setting-name">背景</span><span class="setting-description">夕凪・月夜・雨音から選べます。雰囲気だけが変わり、生活の動きは同じです。</span></span><select id="background-setting"></select></label>
+        <label class="setting-row"><span><span class="setting-name">エフェクトを控えめに</span><span class="setting-description">強い点滅・画面揺れは使いません。</span></span><input id="effects-setting" type="checkbox" checked /></label>
+        <p class="system-note" id="background-note">背景はシーン下の「背景」から選びます。月夜は眠りやすく、雨音は窓辺で過ごしがち。背景ごとに生活のリズムが変わります。「雨音」は雨の景色で、音は鳴りません。</p>
         <p class="system-note" id="motion-note">OSの「視差効果を減らす」設定にも自動で合わせます。</p>
-        <p class="privacy-note">音声・通知・アクセス解析・データ収集はありません。作品についてを開いている間も、風景は一休みします。</p>
+        <p class="privacy-note">音声・通知・アクセス解析・データ収集はありません。設定・作品についてを開いている間も、風景は一休みします。</p>
       </section>
       <section class="about-section" aria-labelledby="credits-heading">
         <h3 id="credits-heading">素材とクレジット</h3>
+        <div class="about-face" id="about-face" hidden>
+          <canvas id="face-canvas" width="80" height="112" role="img" aria-label="クジラ娘の正面寄りの姿。既存スプライトの1コマを原寸で表示しています。"></canvas>
+          <p class="face-note">この子の、おなじみの姿。<br />既存スプライトの1コマを原寸で表示しています。</p>
+        </div>
         <p class="section-copy" id="art-provenance">背景とクジラ娘は、このプロジェクト内で制作しました。外部の画像・フォントは読み込みません。</p>
         <p class="section-copy">対戦相手の綴星リュミエは、Claudeの文章・思考を着想にしたオリジナルのAI擬人化案です。公式キャラクターではなく、Anthropic社との提携・承認もありません。制作アートは個人用ローカルプレビューに限定しています。</p>
         <dl class="credit-list" id="credit-list"></dl>

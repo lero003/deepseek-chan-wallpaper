@@ -6,6 +6,7 @@ import type { RenderAppearance } from '../app-web/art-profile.ts';
 import { ARENA, ATTACKS, BOSS } from './definitions.ts';
 import { drawArenaHud } from './arena-presentation.ts';
 import { gameUI } from './game.ts';
+import { CALL_POSE_TICKS } from '../companion/companion.ts';
 import { clamp } from './movement.ts';
 import type { FightersGame } from './types.ts';
 import { Painter } from './art-kit.ts';
@@ -200,6 +201,13 @@ export function gamePlan(game: FightersGame, atlas: SpriteAtlas, appearance: Ren
     }
     if (game.mode === 'manual' && game.phase === 'result') { drawResultPanel(p, game); drawVignette(p); }
     drawReturnFade(p);
+    // B03: a preview-only "notices you" pose for ~1.2s. Fixed feet/scale, no particles,
+    // no text in the scene. The passive wallpaper presentation never reaches this branch
+    // with a cue, so its command stream stays byte-identical before/after a call.
+    if (presentation === 'preview' && game.mode === 'auto' && game.phase === 'rest' && game.cue
+      && game.world.actor.state === 'idle' && game.tick - game.cue.startedTick < CALL_POSE_TICKS) {
+      base.frame = atlas.animations.turn.frames[1]!;
+    }
     base.overlay = p.commands;
     return base;
   }
@@ -315,7 +323,7 @@ export function gamePlan(game: FightersGame, atlas: SpriteAtlas, appearance: Ren
       ? ui.arcade.timedOut ? `TIME UP　ROUND ${ui.round}` : `ROUND ${ui.round}　もう一度。`
       : 'ここから、もう一度。', C.ink, 9);
     p.screenText(x + 14, y + 24, '「このラウンドを再挑戦」で再開', C.inkSoft, 6);
-    p.screenText(x + 14, y + 33, '「壁紙へ戻る」で夕凪へ', C.inkSoft, 6);
+    p.screenText(x + 14, y + 33, '「書斎へ戻る」で夕凪へ', C.inkSoft, 6);
   }
 
   function drawPauseOverlay(): void {

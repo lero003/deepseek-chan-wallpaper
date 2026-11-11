@@ -2,6 +2,32 @@
 
 更新: 2026-11-12 · 非公開Web／個人用Mac試作 · 固定アリーナ・アーケード v0.8（Build 9）+ 背景別環境演出・生活微バリエーション + 生成アート + 壁紙の自動対戦
 
+## アプリ・ブラッシュアップ B01〜B05 実装済み（2026-11-12）
+
+[指示書](<app-brushup-brief.md>)ベースで「おっとり。ときどき、つよい。」を軸に実装。**A01（追加4ポーズ）は画像生成が不可のためスルー**（下記）。承認済み生活16コマ・背景3種・各マット・ボス/テラス/戦闘シートは**byte不変（private runtime 17点のSHA-256一致を確認）**。新規依存・音・AI/API・通知・新保存設定なし。壁紙ONはテスト中含め未実施。
+
+- **B01 文言・背景選択整合**: Web背景selectに標準0（夕凪の書斎）を先頭追加＋読込成功variantsのみ・初期選択＝実描画・標準のみは静的ラベル・Aboutからシーン下へ移動・`#scene-name`同期。「事件を見る」→「対戦を見る」、ゲーム帰宅「壁紙へ戻る」→「書斎へ戻る」（壁紙ON/OFFとは別操作・Web/Mac/シーン内テキスト/同梱README/README/macos.md統一）。「雨音」は背景名維持＋無音注記・背景別生活リズムを説明。
+- **B02 導線・停止理由**: Webフッター＝背景／呼んでみる／一時停止＋二次に対戦を見る/テラスで3連戦・タグライン・非公式注記。Macツールバー＝タイトル(タグライン)／背景／一時停止／壁紙／設定／作品について（省電力・エフェクト・頻度は設定NSMenuへ・既存5保存キーのみ）。停止理由は単一理由＋再開導線（Web `stopNote()`／Mac `policy.status`）。`shouldAnimate`/`shouldPaintFrame`/壁紙安全ロジックは無変更。
+- **B03 呼びかけ（プレビュー限定）**: 共有コア [`src/companion/companion.ts`](<../src/companion/companion.ts>)。`command 'call'`/`'cancelCall'`、`gameUI.callReady/callReason/companionLine`。auto+rest+idle時のみ受付・20秒クールダウン・1回1反応・RNG/世界/対戦予定を不変更。約1.2秒だけ承認済み正面フレーム(`turn.frames[1]`)を上書き（**新規画像なし**）・台詞はシーン外。壁紙presentationはcueを無視し**描画コマンドはcue有無でbyte一致**（テストで固定）。停止/背景切替/preview閉鎖で`cancelCall`。
+- **B04 生活・帰宅キャプション**: `companionLine`＝呼びかけ＞帰宅（「ふう。書斎がいちばん。」/「ひと休みしよう。」）＞自動対戦＞生活観察文（state/mood決定・turnはidleに畳み込みちらつき防止）。Web `#scene-thought`／Mac modeLabelが共有行を表示・停止理由が優先・非live。常時の3連戦勧誘文を廃止。
+- **B05 アプリの顔**: Web Aboutに正面フレームcanvas（nearest整数1x）／Mac AboutにNSImageView（2x nearest）。いずれも既存シート再利用・欠落時graceful・placeholder対応・private importなし。Dockアイコンは別スコープのため未着手。
+- **A01 スルー**: codex CLI委譲はローカルbackend(127.0.0.1:4202)到達不可、imagegenは現モデルが画像入力非対応。参照なし生成はidentity漂移リスク＋目視検証不能のため統合せず。経緯は [generation-report](<../private-art/qa/brushup/companion/generation-report.txt>)。追加4ポーズは画像生成＋目視承認が可能な環境で別途。
+
+### 今回の検証（すべてLeadが実行・合格）
+
+- `npm run typecheck`／Node **200件**（companion +8・Web call/caption +2、skipなし）／`npm run assets:check`（既定5素材byte再現）。
+- `npm run build`（local）／`npm run build -- --mode placeholder` 成功。placeholderバンドルにprivate素材参照なし。
+- `npm run mac:test -- --local-preview`／`npm run mac:test`：**各26件・5 suites**合格（private素材SHA検証・30分V8一致・36障害フォールバック含む）。
+- private runtime art **17点のSHA-256が台帳と一致**（承認アート保全）。`git diff --check` クリーン。`package.json`/lockfile不変（依存追加なし）。
+- 担当: 共有コア+B01文言整合=Lead、Web UI=web-ui、Mac AppKit UI=mac-ui（両者とも範囲内のみ編集・ Leadが全差分レビュー）。
+
+### 未受け入れ（実機・目視はユーザー）
+
+- 実ブラウザ／実Macでのレイアウト（Web 360/768/1440px・200%拡大、Mac 720×470pt最小）・VoiceOver/Tab巡回・フォーカス復帰。
+- 呼びかけの反応タイミング（1.2sポーズ/3s台詞）・About顔・背景切替・設定メニューの実表示。
+- 壁紙ON/OFF・Space・スリープ・実時間30分のCPU/メモリ/発熱（従来項目も引き続き未完了）。
+- 既知の軽微: Mac設定NSMenuは開いている間も再生継続（既存ステータスメニューと同じ・AboutアラートはmodalOpenで停止）。呼びかけのフォーカス喪失単独cancelは未追加（occluded→!runningで実質破棄＋コアが3秒/非idleで自動破棄）。
+
 ## 壁紙の自動イベントを「書斎の小事件」から「テラスの自動対戦」へ変更（2026-11-12）
 
 ユーザー指示「壁紙にするときのアクションも小事件ではなく、対戦が途中で始まる方が嬉しい。自動操縦の格闘シーンが見たい」による変更。旧・書斎内の小事件は内部回帰用として残し、通常の自動導線は使わない。
@@ -76,13 +102,19 @@
 - 実描画QA：[戦闘](<../private-art/macos-out/20261111211617-9d09b9ac/native-manual.png>)・[ボス](<../private-art/macos-out/20261111211617-9d09b9ac/native-boss.png>)・[結果](<../private-art/macos-out/20261111211617-9d09b9ac/native-arena-result.png>)・[万年筆ポーズ](<../private-art/qa/brushup/native-combat/combat-attack2.png>)・[敵攻撃](<../private-art/qa/brushup/native-combat/popup-0-strike.png>)。Leadはテラスと新姿勢の静止画を目視し、接地・透過・武器重複がないことを確認。**ネイティブ描画器の出力であり、実デスクトップのスクリーンショット・可視キー操作・連続アニメーションの合格ではない。**
 - 環境演出AのQA（[睡眠バブル](<../private-art/qa/amb-sleep-bubbles.png>)・[流れ星](<../private-art/qa/amb-night-star-wide.png>)・[雨](<../private-art/qa/amb-rain-wide.png>)）と背景別ワイドプレビューは前Build（`20261111102451-66c9caa4`）の記録を参照。
 
-## GitHub下書き（作成済み）
+## GitHub同期（2026-11-12・ユーザー明示依頼）
+
+- ユーザーの明示依頼「github含めて更新しておいてほしい」により、B01〜B05 のソースを非公開リポジトリ `lero003/deepseek-chan-wallpaper` の `main` へ commit・push した。可視性変更・Pages・公開リリース・タグ作成はしていない。PRIVATEのまま。
+- 同期対象はコード・テスト・ドキュメントのみ。`private-art/`（生成素材・マスター・QA画像・Mac成果物）、`dist/`、`habitat-report/`、`node_modules/` は従来どおりGit対象外で、force-add していない。
+- GitHub上の既存Draftリリース（Build 9）とアセットは**更新していない**。今回のソースpushはDraftの添付ZIPを差し替えるものではなく、Draftの対象コミットとも一致しない。新しい個人テスト用ビルド／リリース更新は、別途の明示依頼とローカル`mac:build --local-preview`の実行が必要。
+
+## GitHub下書き（作成済み・未更新）
 
 - 非公開リポジトリ `lero003/deepseek-chan-wallpaper` に **Draft／Prerelease** を作成した：[固定アリーナ・アーケード Build 9 ドラフト](<https://github.com/lero003/deepseek-chan-wallpaper/releases/tag/untagged-5895c003bdef1ecd0b46>)。リリース名は「固定アリーナ・アーケード Build 9 ドラフト（個人テスト用）」。
 - 添付は `KujiraWallpaper-Arcade-B9-arm64-local-preview.zip`（2,769,540 bytes、SHA-256 `7a2182ffc2dc1401ad558ae6e69a4f38c70816361d90e0ca84fdec4836457358`）と `SHA256SUMS.txt`。GitHub上のasset digestも同じSHA-256。
 - 作成後に再ダウンロードし、`shasum -a 256 -c SHA256SUMS.txt` がOK、`codesign --verify --deep --strict` が有効、ZIP展開後のアプリを最小PATHの`env -i`で起動する`--fighters-self-test`が成功することを確認した。
 - 下書きの`tagName`は`arena-arcade-build9`だが、Draftのためリモートにタグは作成されていない（`git ls-remote --tags`で0件）。公開・可視性変更・Pages・公開リリースは行っていない。リポジトリはPRIVATEのまま。
-- 下書き作成時のソースは未commitだったが、その後ローカルcommit `2b3171b` へ保存済み。push・下書き更新はしていないため、下書きの対象コミットにはBuild 9のソース変更を反映していない。下書きZIPと現在のローカル成果物を混同しない。
+- 下書き作成時のソースは未commitだったが、その後ローカルcommit `2b3171b` 以降へ保存し、2026-11-12に `main` をpush済み。ただし下書きの添付ZIPは更新していないため、Draftのアセットと現在のソースの最新状態は一致しない。混同しない。
 - 以前のBuild 7／Build 6／MVP4の下書きは変更していない。
 
 ## 権利・次の受け入れ

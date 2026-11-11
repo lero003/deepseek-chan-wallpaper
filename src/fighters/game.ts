@@ -9,6 +9,7 @@ import { clearInputs } from './events.ts';
 import { newHero, newStats } from './factory.ts';
 import { direction } from './movement.ts';
 import { arcadeUI, newArcade, spendArcadeTick } from './arcade.ts';
+import { advanceCompanion, callState, cancelCompanion, companionLine, requestCall } from '../companion/companion.ts';
 import type { Action, FightersGame, Frequency, GameUI } from './types.ts';
 
 export function createGame(seed: number, scene: Scene = SEASIDE): FightersGame {
@@ -21,7 +22,8 @@ export function createGame(seed: number, scene: Scene = SEASIDE): FightersGame {
     roomVariant: 0, runTicks: 0, runStats: newStats(), arcade: newArcade(),
     hero: newHero(world.actor.x + 120, world.floorY), enemies: [], projectiles: [], effects: [],
     input: { x: 0, y: 0 }, pendingDodge: false, pendingSpecial: false, cameraX: 120, firstWhiff: true, whiffAttackId: -1,
-    message: '', messageUntil: 0, outcome: 'none', stats: newStats() };
+    message: '', messageUntil: 0, outcome: 'none', stats: newStats(),
+    cue: null, cueReadyAt: 0, homeLine: '', homeLineUntil: 0 };
   scheduleRest(game);
   return game;
 }
@@ -53,6 +55,8 @@ export function command(game: FightersGame, name: string, value?: unknown): void
       if (game.mode !== 'manual' || !['battle', 'boss', 'retry', 'result'].includes(game.phase)) return;
       retrySection(game); game.paused = false; break;
     case 'demo': if (game.mode === 'auto') startWallpaperBout(game); break;
+    case 'call': requestCall(game); break;
+    case 'cancelCall': cancelCompanion(game); break;
     case 'pause':
       if (game.mode !== 'manual') return;
       game.paused = !game.paused; clearInputs(game);
@@ -71,6 +75,7 @@ export function command(game: FightersGame, name: string, value?: unknown): void
 function step(game: FightersGame): void {
   advanceWorld(game.world, STEP_SECONDS);
   game.tick = game.world.tick;
+  advanceCompanion(game);
   if (game.mode === 'manual' && (!game.focused || game.paused)) return;
   // This is actual active elapsed time, not combatTick (which intentionally omits hitstop).
   if (!['rest', 'result', 'retry'].includes(game.phase)) game.runTicks++;
@@ -127,7 +132,9 @@ export function gameUI(game: FightersGame): GameUI {
   const progress = total <= 1 ? 1 : Math.min(1, (game.section + (game.phase === 'roundClear' ? 1 : game.sectionLocked ? .5 : 0)) / total);
   const ready = !arena || inBattle(game) && game.focused && !game.paused;
   const phaseLabel = arena ? ARENA_PHASE_NAMES[game.phase] : PHASE_NAMES[game.phase];
-  return { mode: game.mode, phase: game.phase, phaseLabel, focused: game.focused, paused: game.paused, hp: game.hero.hp,
+  const call = callState(game);
+  return { callReady: call.ready, callReason: call.reason, companionLine: companionLine(game),
+    mode: game.mode, phase: game.phase, phaseLabel, focused: game.focused, paused: game.paused, hp: game.hero.hp,
     gauge: game.hero.gauge, combo: game.hero.hitCombo, dodgeReady: ready && game.combatTick >= game.hero.dodgeReadyAt,
     specialReady: ready && game.hero.gauge >= 100, outcome: game.outcome, message: game.tick < game.messageUntil ? game.message : '',
     frequency: game.frequency, effectsLow: game.effectsLow, enemies: game.enemies.filter(enemy => enemy.hp > 0).length,

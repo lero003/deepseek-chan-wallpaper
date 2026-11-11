@@ -32,7 +32,10 @@ final class AppController: NSObject, NSWindowDelegate {
     private var lowPowerItem: NSMenuItem?
     private var pauseButton: NSButton?
     private var wallpaperButton: NSButton?
-    private var lowPowerButton: NSButton?
+    private var settingsMenu: NSMenu?
+    private var settingsLowPowerItem: NSMenuItem?
+    private var settingsEffectsItem: NSMenuItem?
+    private var settingsFrequencyItems: [String: NSMenuItem] = [:]
     private var statusLabel: NSTextField?
     private var memoryItem: NSMenuItem?
     private var memoryProbeTick = 0
@@ -107,6 +110,13 @@ final class AppController: NSObject, NSWindowDelegate {
         let title = NSTextField(labelWithString: assets.configuration.layout.label)
         title.font = .systemFont(ofSize: 14, weight: .medium)
         title.setContentHuggingPriority(.required, for: .horizontal)
+        // B01: the quiet tagline sits under the title; the rights note stays in the footer.
+        let tagline = NSTextField(labelWithString: "おっとり。ときどき、つよい。")
+        tagline.font = .systemFont(ofSize: 10)
+        tagline.textColor = .secondaryLabelColor
+        let titleBlock = NSStackView(views: [title, tagline])
+        titleBlock.orientation = .vertical; titleBlock.spacing = 1; titleBlock.alignment = .leading
+        titleBlock.setContentHuggingPriority(.required, for: .horizontal)
         let spacer = NSView()
         let backgrounds = NSPopUpButton(frame: .zero, pullsDown: false)
         backgrounds.addItems(withTitles: ["夕凪の書斎"] + assets.variants.map(\.label))
@@ -118,11 +128,30 @@ final class AppController: NSObject, NSWindowDelegate {
         let pause = NSButton(title: "一時停止", target: self, action: #selector(togglePause(_:)))
         let wallpaper = NSButton(title: "壁紙にする", target: self, action: #selector(toggleWallpaper(_:)))
         wallpaper.toolTip = "主画面にだけ表示します。元の壁紙設定は変更しません。"
-        let lowPower = NSButton(checkboxWithTitle: "省電力", target: self, action: #selector(toggleLowPower(_:)))
+        // B02: low power moved into the settings menu so the toolbar fits the 720pt minimum width.
+        let settings = NSButton(title: "設定", target: self, action: #selector(openSettingsMenu(_:)))
+        settings.toolTip = "省電力・エフェクト・自動対戦の頻度"
         let about = NSButton(title: "作品について", target: self, action: #selector(showAbout(_:)))
-        let toolbar = NSStackView(views: [title, spacer, backgrounds, lowPower, pause, wallpaper, about])
+        let toolbar = NSStackView(views: [titleBlock, spacer, backgrounds, pause, wallpaper, settings, about])
         toolbar.orientation = .horizontal; toolbar.spacing = 12
         toolbar.alignment = .centerY
+        for control in [backgrounds, pause, wallpaper, settings, about] {
+            control.setContentCompressionResistancePriority(.required, for: .horizontal)
+        }
+        let settingsMenu = NSMenu(title: "設定"); settingsMenu.autoenablesItems = false
+        settingsLowPowerItem = NSMenuItem(title: "省電力にする", action: #selector(toggleLowPower(_:)), keyEquivalent: "")
+        settingsLowPowerItem?.target = self; settingsMenu.addItem(settingsLowPowerItem!)
+        settingsEffectsItem = NSMenuItem(title: "エフェクト控えめ", action: #selector(toggleEffects(_:)), keyEquivalent: "")
+        settingsEffectsItem?.target = self; settingsMenu.addItem(settingsEffectsItem!)
+        settingsMenu.addItem(.separator())
+        let settingsFrequencyMenu = NSMenu(title: "自動対戦の頻度"); settingsFrequencyMenu.autoenablesItems = false
+        let settingsFrequencyParent = NSMenuItem(title: "自動対戦の頻度", action: nil, keyEquivalent: "")
+        settingsFrequencyParent.submenu = settingsFrequencyMenu; settingsMenu.addItem(settingsFrequencyParent)
+        for (value, title) in [("low", "少なめ（3〜5分）"), ("normal", "通常（1.5〜2.5分）"), ("off", "対戦なし")] {
+            let entry = NSMenuItem(title: title, action: #selector(setFrequency(_:)), keyEquivalent: "")
+            entry.target = self; entry.representedObject = value; settingsFrequencyMenu.addItem(entry); settingsFrequencyItems[value] = entry
+        }
+        self.settingsMenu = settingsMenu
         let scene = makeSceneView()
         previewScene = scene
         let gameControls = FightersControls(onCommand: { [weak self] in self?.performGameCommand($0) })
@@ -135,13 +164,14 @@ final class AppController: NSObject, NSWindowDelegate {
         let status = NSTextField(labelWithString: "準備中")
         status.font = .systemFont(ofSize: 10)
         status.textColor = .secondaryLabelColor
+        status.toolTip = "再生状態と停止理由（一時停止・静止設定・スリープなど）"
         let footer = NSStackView(views: [note, NSView(), status])
         footer.orientation = .horizontal; footer.spacing = 12
         for view in [toolbar, scene, gameBar, footer] { view.translatesAutoresizingMaskIntoConstraints = false; root.addSubview(view) }
         NSLayoutConstraint.activate([
             toolbar.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 16),
             toolbar.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -16),
-            toolbar.topAnchor.constraint(equalTo: root.topAnchor, constant: 12), toolbar.heightAnchor.constraint(equalToConstant: 32),
+            toolbar.topAnchor.constraint(equalTo: root.topAnchor, constant: 12), toolbar.heightAnchor.constraint(equalToConstant: 38),
             scene.leadingAnchor.constraint(equalTo: root.leadingAnchor), scene.trailingAnchor.constraint(equalTo: root.trailingAnchor),
             scene.topAnchor.constraint(equalTo: toolbar.bottomAnchor, constant: 12),
             scene.bottomAnchor.constraint(equalTo: gameBar.topAnchor, constant: -10),
@@ -150,8 +180,11 @@ final class AppController: NSObject, NSWindowDelegate {
             footer.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 16), footer.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -16),
             footer.bottomAnchor.constraint(equalTo: root.bottomAnchor, constant: -10), footer.heightAnchor.constraint(equalToConstant: 18)
         ])
-        pauseButton = pause; wallpaperButton = wallpaper; lowPowerButton = lowPower; statusLabel = status
+        pauseButton = pause; wallpaperButton = wallpaper; statusLabel = status
         previewWindow = window
+    }
+    @objc private func openSettingsMenu(_ sender: NSButton) {
+        settingsMenu?.popUp(positioning: nil, at: NSPoint(x: 0, y: sender.bounds.height + 4), in: sender)
     }
 
     private var canStartGame: Bool {
@@ -193,6 +226,8 @@ final class AppController: NSObject, NSWindowDelegate {
     private func applyBackground(_ index: Int) {
         guard index >= 0, index <= assets.variants.count else { return }
         do { try painter.selectVariant(index) } catch { fail(error.localizedDescription); return }
+        // Cosmetic only: a background switch discards any pending call cue.
+        try? engine.command("cancelCall")
         backgroundVariantIndex = index
         if persistSettings {
             if index == 0 { UserDefaults.standard.removeObject(forKey: "wallpaperVariant") }
@@ -224,7 +259,9 @@ final class AppController: NSObject, NSWindowDelegate {
         playItem?.isEnabled = canStartGame && plan.game?.manual != true
         homeItem?.isEnabled = plan.game?.manual == true || (plan.game?.phase != "rest" && plan.game != nil)
         effectsItem?.state = plan.game?.effectsLow == false ? .off : .on
+        settingsEffectsItem?.state = plan.game?.effectsLow == false ? .off : .on
         for (frequency, item) in frequencyItems { item.state = plan.game?.frequency == frequency ? .on : .off }
+        for (frequency, item) in settingsFrequencyItems { item.state = plan.game?.frequency == frequency ? .on : .off }
     }
 
     private func installMenus() {
@@ -251,7 +288,7 @@ final class AppController: NSObject, NSWindowDelegate {
         lowPowerItem = add("省電力にする", #selector(toggleLowPower(_:)))
         menu.addItem(.separator())
         playItem = add("ファイターズを遊ぶ", #selector(startPlaying(_:)))
-        homeItem = add("壁紙へ戻る", #selector(goHome(_:)))
+        homeItem = add("書斎へ戻る", #selector(goHome(_:)))
         let frequencyMenu = NSMenu(title: "自動対戦の頻度"); frequencyMenu.autoenablesItems = false
         let frequencyParent = add("自動対戦の頻度", nil); frequencyParent.submenu = frequencyMenu
         for (value, title) in [("low", "少なめ（3〜5分）"), ("normal", "通常（1.5〜2.5分）"), ("off", "対戦なし")] {
@@ -375,6 +412,9 @@ final class AppController: NSObject, NSWindowDelegate {
         policy.hasVisibleSurface = visiblePreview || visibleWallpaper
         do { try synchronizeGameFocus() } catch { fail(error.localizedDescription); return }
         let running = policy.shouldAnimate && !modalOpen
+        // Cosmetic only: while the preview is stopped/hidden/closed, discard any call cue so an
+        // old response never replays on resume. Never fails the app and never touches the world.
+        if !running { try? engine.command("cancelCall") }
         if running {
             if timer == nil || timerFPS != policy.fps {
                 stopTimer(); clock.reset(); _ = clock.sample(ProcessInfo.processInfo.systemUptime)
@@ -394,11 +434,17 @@ final class AppController: NSObject, NSWindowDelegate {
         pauseButton?.isEnabled = !policy.reducedMotion
         backgroundPopup?.selectItem(at: backgroundVariantIndex)
         for (index, item) in backgroundItems.enumerated() { item.state = index == backgroundVariantIndex ? .on : .off }
-        wallpaperItem?.state = wallpaperWindow == nil ? .off : .on
-        wallpaperButton?.title = wallpaperWindow == nil ? "壁紙にする" : "壁紙をOFF"
+        let wallpaperOn = wallpaperWindow != nil
+        wallpaperItem?.state = wallpaperOn ? .on : .off
+        wallpaperItem?.title = wallpaperOn ? "壁紙をOFF（主画面のみ）" : "壁紙を表示（主画面のみ）"
+        wallpaperButton?.title = wallpaperOn ? "壁紙をOFF" : "壁紙にする"
+        wallpaperButton?.toolTip = wallpaperOn
+            ? "主画面に表示中。押すとOFFになります。元の壁紙設定は変更しません。"
+            : "主画面にだけ表示します。元の壁紙設定は変更しません。"
         lowPowerItem?.state = policy.userLowPower ? .on : .off
         lowPowerItem?.title = policy.systemLowPower ? "省電力（OS設定でも有効）" : "省電力にする"
-        lowPowerButton?.state = policy.userLowPower ? .on : .off
+        settingsLowPowerItem?.state = policy.userLowPower ? .on : .off
+        settingsLowPowerItem?.title = policy.systemLowPower ? "省電力（OS設定でも有効）" : "省電力にする"
         statusLabel?.stringValue = policy.status
         updateFighterControls()
     }
@@ -434,9 +480,44 @@ final class AppController: NSObject, NSWindowDelegate {
             "\($0.id) — \($0.name)\n\($0.author)\n\($0.dimensions) · \($0.license)\n\($0.permission.status)\n"
         }.joined(separator: "\n")
         scroll.documentView = text
-        alert.accessoryView = scroll
+        // B05: a small front-facing portrait from the already-loaded sheet, integer-scaled and
+        // nearest-neighbour. Optional and graceful: without it the credits simply keep full width.
+        if let face = aboutFaceView() {
+            let faceWidth = face.frame.width
+            scroll.frame = NSRect(x: 0, y: 0, width: 560 - faceWidth - 12, height: 280)
+            face.translatesAutoresizingMaskIntoConstraints = false
+            scroll.translatesAutoresizingMaskIntoConstraints = false
+            let accessory = NSStackView(views: [face, scroll])
+            accessory.orientation = .horizontal; accessory.spacing = 12; accessory.alignment = .centerY
+            accessory.frame = NSRect(x: 0, y: 0, width: 560, height: 280)
+            NSLayoutConstraint.activate([
+                face.widthAnchor.constraint(equalToConstant: faceWidth),
+                face.heightAnchor.constraint(equalToConstant: face.frame.height),
+                scroll.widthAnchor.constraint(equalToConstant: 560 - faceWidth - 12),
+                scroll.heightAnchor.constraint(equalToConstant: 280)
+            ])
+            alert.accessoryView = accessory
+        } else {
+            alert.accessoryView = scroll
+        }
         alert.addButton(withTitle: "閉じる")
         alert.runModal()
+    }
+    /// The front-facing frame of the existing turn animation, reused without modifying any art.
+    private func aboutFaceView() -> NSImageView? {
+        guard let turn = assets.configuration.atlas.animations["turn"], turn.frames.count >= 2 else { return nil }
+        let index = turn.frames[1]
+        guard assets.frames.indices.contains(index) else { return nil }
+        let frame = assets.frames[index]
+        let scale = 2
+        let size = NSSize(width: frame.width * scale, height: frame.height * scale)
+        let view = NSImageView(frame: NSRect(origin: .zero, size: size))
+        view.image = NSImage(cgImage: frame, size: size)
+        view.imageScaling = .scaleNone
+        view.wantsLayer = true
+        view.layer?.magnificationFilter = .nearest
+        view.setAccessibilityLabel("DeepSeekちゃんの正面フレーム（既存シートの再利用）")
+        return view
     }
     private func fail(_ message: String) {
         guard !failed else { return }
@@ -453,13 +534,17 @@ final class AppController: NSObject, NSWindowDelegate {
             // Closing the preview must release its window backing store and scene view; the
             // menu can recreate it later. Keeping them alive was the largest avoidable heap cost.
             previewRequested = false
+            // Cosmetic only: closing the preview discards any pending call cue.
+            try? engine.command("cancelCall")
             previewScene?.releaseKeys()
             if let scene = previewScene { views.removeAll { $0 === scene } }
             previewScene = nil
             fightersControls = nil
             previewWindow = nil
-            pauseButton = nil; wallpaperButton = nil; lowPowerButton = nil; statusLabel = nil
+            pauseButton = nil; wallpaperButton = nil; statusLabel = nil
             backgroundPopup = nil
+            settingsMenu = nil; settingsLowPowerItem = nil; settingsEffectsItem = nil
+            settingsFrequencyItems.removeAll()
         }
         synchronize()
     }

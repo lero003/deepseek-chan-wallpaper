@@ -182,6 +182,11 @@ public struct GameUI: Codable, Sendable {
     public let enemies: Int; public let bossHP: Int
     public let route: String; public let round: Int; public let rounds: Int; public let roundLabel: String
     public let elapsedSeconds: Double; public let runStats: GameStats; public let arcade: ArcadeUI
+    /// B03/B04 preview-only companion layer. Optional so older fixtures still decode;
+    /// the shared core always emits them. The passive wallpaper ignores the cue.
+    public let callReady: Bool?
+    public let callReason: String?
+    public let companionLine: String?
     public var manual: Bool { mode == "manual" }
 }
 public struct DrawCommand: Codable, Sendable {

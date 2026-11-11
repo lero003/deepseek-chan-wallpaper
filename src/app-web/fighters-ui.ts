@@ -9,9 +9,10 @@ export class FightersUI {
   private readonly game: FightersGame;
   private readonly scene: HTMLElement;
   private readonly canPlay: () => boolean;
+  private readonly stopNote: () => string;
 
-  constructor(game: FightersGame, scene: HTMLElement, canPlay: () => boolean, changed: () => void, signal: AbortSignal) {
-    this.game = game; this.scene = scene; this.canPlay = canPlay;
+  constructor(game: FightersGame, scene: HTMLElement, canPlay: () => boolean, changed: () => void, signal: AbortSignal, stopNote: () => string = () => '') {
+    this.game = game; this.scene = scene; this.canPlay = canPlay; this.stopNote = stopNote;
     const action = (name: string, value?: unknown) => { command(game, name, value); this.sync(); changed(); };
     this.input = new GameInput(scene, {
       active: () => game.mode === 'manual' && canPlay(), movement: (x, y) => setMovement(game, x, y),
@@ -20,6 +21,8 @@ export class FightersUI {
     const focusScene = () => { scene.focus({ preventScroll: true }); this.input.syncFocus(); changed(); };
     this.button('play-button').addEventListener('click', () => { action('play'); focusScene(); }, { signal });
     this.button('demo-button').addEventListener('click', () => action('demo'), { signal });
+    // Preview-only call; the core accepts at most one reaction per cooldown, so spam needs no extra guard.
+    this.button('call-button').addEventListener('click', () => action('call'), { signal });
     this.button('game-home').addEventListener('click', () => {
       this.input.clear(); action('home'); this.button('play-button').focus({ preventScroll: true });
     }, { signal });
@@ -50,14 +53,21 @@ export class FightersUI {
     this.button('play-button').disabled = !enabled || manual;
     this.button('demo-button').hidden = manual;
     this.button('demo-button').disabled = !enabled || ui.phase !== 'rest';
+    const callButton = this.button('call-button');
+    callButton.hidden = manual;
+    callButton.disabled = !enabled || !ui.callReady;
+    // The honest reason sits right next to the disabled control; the core line wins while running.
+    const callHint = !enabled ? (this.stopNote() || '動きが停止中です') : ui.callReady ? '' : ui.callReason;
+    this.element('call-hint').textContent = callHint;
+    callButton.setAttribute('title', callHint || '呼びかけに小さく応えます。プレビューだけで、壁紙には影響しません。');
     this.scene.dataset.mode = ui.mode;
     this.scene.tabIndex = manual ? 0 : -1;
     this.scene.setAttribute('aria-label', manual
       ? 'DeepSeekちゃんファイターズ。雑魚戦2回とボスとの3連戦。WASDか矢印で間合いを調整、Jで攻撃、Kで回避、Lで必殺技、Escでポーズ。'
-      : '夕凪の書斎');
+      : '海辺の書斎。クジラ娘が歩いたり眠ったりしています。ときどきテラスで自動対戦。');
     this.element('world').setAttribute('aria-label', manual
       ? `海辺のテラス。第${ui.round}ラウンド、${ui.roundLabel}。${ui.phaseLabel}。`
-      : '海を望む小さな書斎。青い髪とクジラの尾を持つ女の子が、歩いたり、立ち止まったり、眠ったりしています。');
+      : '海を望む小さな書斎。青い髪とクジラの尾を持つ女の子が、歩いたり、立ち止まったり、眠ったりしています。ときどきテラスで自動対戦。');
     this.element('game-round').textContent = `ROUND ${ui.round.toString().padStart(2, '0')} / ${ui.rounds.toString().padStart(2, '0')} · ${ui.roundLabel}`;
     this.element('game-health').textContent = `HP ${ui.hp} / 5　夕凪 ${ui.gauge} / 100　SCORE ${ui.arcade.score}　TIME ${ui.arcade.secondsLeft}`;
     this.button('game-retry').hidden = !result;
@@ -77,8 +87,11 @@ export class FightersUI {
         ? `第${ui.round}ラウンド、${ui.roundLabel}。${ui.phaseLabel}。${ui.paused ? 'ポーズ中。' : ''}${arenaInstruction(ui)}` : '';
       this.lastAnnouncement = announcement;
     }
-    this.element('scene-thought').textContent = ui.phase === 'rest'
-      ? 'ただ、ここにいる。気分転換に、テラスで3連戦。' : manual ? ui.phaseLabel : 'テラスで自動対戦';
+    // Caption roles: the host's stop reason wins while stopped; otherwise the shared
+    // companion line (auto) or the bout phase label (manual). Never aria-live: quiet
+    // life transitions must not be announced on every change.
+    const stop = this.stopNote();
+    this.element('scene-thought').textContent = stop !== '' ? stop : manual ? ui.phaseLabel : ui.companionLine;
     if (!enabled) { this.input.clear(); setFocus(this.game, false); }
     document.documentElement.dataset.gameMode = ui.mode;
   }

@@ -531,7 +531,7 @@ export function drawResultPanel(p: Painter, game: FightersGame): void {
   if (arena) p.screenText(x + 16, y + 91, `最大コンボ ${game.arcade.bestCombo}　CONTINUE ${game.arcade.continues}`, C.inkSoft, 6);
   p.screen(x + 16, y + 74 + offset + (arena ? 7 : 0), width - 32, 1, C.inkSoft, .3);
   p.screenText(x + 16, y + 82 + offset + (arena ? 7 : 0), '「もう一戦」ではじめから', C.ink, 7);
-  p.screenText(x + 16, y + 94 + offset + (arena ? 7 : 0), '「壁紙へ戻る」で夕凪の書斎へ', C.inkSoft, 6);
+  p.screenText(x + 16, y + 94 + offset + (arena ? 7 : 0), '「書斎へ戻る」で夕凪の書斎へ', C.inkSoft, 6);
 }
 
 export { clamp01, ellipse, screenPanel };

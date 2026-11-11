@@ -1,5 +1,6 @@
 import type { World, Scene, Facing } from '../world/world.ts';
 import type { ArcadeState, ArcadeUI } from './arcade.ts';
+import type { CompanionCue } from '../companion/companion.ts';
 
 export type Mode = 'auto' | 'manual';
 export type Phase = 'rest' | 'intro' | 'battle' | 'roundClear' | 'bossIntro' | 'boss' | 'victory' | 'return' | 'result' | 'retry';
@@ -54,6 +55,8 @@ export interface FightersGame {
   input: Point; pendingDodge: boolean; pendingSpecial: boolean;
   cameraX: number; firstWhiff: boolean; whiffAttackId: number; message: string; messageUntil: number;
   outcome: 'none' | 'win' | 'loss'; stats: GameStats;
+  /** Preview-only cosmetic companion layer; never affects world/RNG/battle. */
+  cue: CompanionCue | null; cueReadyAt: number; homeLine: string; homeLineUntil: number;
 }
 export interface GameUI {
   mode: Mode; phase: Phase; phaseLabel: string; paused: boolean; focused: boolean; hp: number; gauge: number;
@@ -61,4 +64,6 @@ export interface GameUI {
   message: string; frequency: Frequency; effectsLow: boolean; enemies: number; bossHP: number;
   section: number; sections: number; locked: boolean; areaName: string; areaSubtitle: string; progress: number;
   route: Route; round: number; rounds: number; roundLabel: string; elapsedSeconds: number; runStats: GameStats; arcade: ArcadeUI;
+  /** B03/B04: preview-only call acceptance and the shared out-of-scene status line. */
+  callReady: boolean; callReason: string; companionLine: string;
 }
