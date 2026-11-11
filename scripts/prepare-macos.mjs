@@ -28,6 +28,23 @@ export async function prepareMacResources({ localPreview = false, output } = {})
   const paths = ['character/sheet.png', 'character/atlas.json', 'scene/seaside-room.png'];
   // The optional wide wallpaper matte is bundled only for the local production profile.
   if (layout.matte) paths.push('scene/seaside-room-matte.png');
+  // Optional selectable backgrounds (night/rain) are listed in the ignored local runtime.
+  const variants = [];
+  const variantsPath = resolve(source, 'variants.json');
+  if (localPreview && layout.matte && existsSync(variantsPath)) {
+    const data = JSON.parse(await readFile(variantsPath, 'utf8'));
+    if (data.schemaVersion !== 1 || !Array.isArray(data.variants)) throw new Error('variants.json is malformed.');
+    const seen = new Set();
+    for (const item of data.variants) {
+      const safeRelative = value => typeof value === 'string' && value.length > 0 && !value.startsWith('/') && !value.includes('\\') && !value.split('/').includes('..');
+      if (typeof item.id !== 'string' || !/^[a-z0-9-]+$/.test(item.id) || seen.has(item.id)) throw new Error(`Invalid background variant id: ${item.id}`);
+      if (typeof item.label !== 'string' || item.label.length === 0) throw new Error(`Invalid background variant label: ${item.id}`);
+      if (!safeRelative(item.scene) || !safeRelative(item.matte)) throw new Error(`Unsafe background variant path: ${item.id}`);
+      seen.add(item.id);
+      variants.push({ id: item.id, label: item.label, scene: item.scene, matte: item.matte });
+      paths.push(item.scene, item.matte);
+    }
+  }
   const assets = [];
   for (const name of paths) {
     const input = resolve(source, name);
@@ -50,7 +67,8 @@ export async function prepareMacResources({ localPreview = false, output } = {})
   if (!chunk) throw new Error('The shared native core was not built.');
   const core = Buffer.from(chunk.code);
   await writeFile(resolve(dest, 'world.js'), core);
-  const configuration = { schemaVersion: 1, localPreviewOnly: true, coreSha256: hash(core), atlas, layout, stage: { width: STAGE_WIDTH } };
+  const configuration = { schemaVersion: 1, localPreviewOnly: true, coreSha256: hash(core), atlas, layout, stage: { width: STAGE_WIDTH },
+    ...(variants.length > 0 ? { variants } : {}) };
   await writeFile(resolve(dest, 'configuration.json'), JSON.stringify(configuration, null, 2) + '\n');
   await writeFile(resolve(dest, 'manifest.json'), JSON.stringify({ ...manifest, assets,
     localAppPreview: { userAuthorized: localPreview, publicationAuthorized: false, thirdPartyRightsVerified: false },
@@ -70,7 +88,7 @@ export async function prepareMacResources({ localPreview = false, output } = {})
   }
   await writeFile(resolve(dest, 'test-fixtures.json'), JSON.stringify(fixture, null, 2) + '\n');
   console.log(`Prepared ${layout.kind} macOS resources with the shared TypeScript core.`);
-  return { root, resources: dest, layout, configuration };
+  return { root, resources: dest, layout, configuration, variants };
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

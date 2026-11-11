@@ -34,6 +34,11 @@ final class AppController: NSObject, NSWindowDelegate {
     private var wallpaperButton: NSButton?
     private var lowPowerButton: NSButton?
     private var statusLabel: NSTextField?
+    private var memoryItem: NSMenuItem?
+    private var memoryProbeTick = 0
+    private var backgroundVariantIndex = 0
+    private var backgroundPopup: NSPopUpButton?
+    private var backgroundItems: [NSMenuItem] = []
     private var observers: [(NotificationCenter, NSObjectProtocol)] = []
     private var systemSleeping = false
     private var displaysSleeping = false
@@ -55,6 +60,11 @@ final class AppController: NSObject, NSWindowDelegate {
             policy.userLowPower = UserDefaults.standard.bool(forKey: "userLowPower")
             if let frequency = UserDefaults.standard.string(forKey: "encounterFrequency"), ["off", "low", "normal"].contains(frequency) { try engine.command("frequency", value: frequency) }
             if let low = UserDefaults.standard.object(forKey: "effectsLow") as? Bool { try engine.command("effects", value: low) }
+            if let saved = UserDefaults.standard.string(forKey: "wallpaperVariant"),
+               let index = assets.variants.firstIndex(where: { $0.id == saved }) {
+                try painter.selectVariant(index + 1)
+                backgroundVariantIndex = index + 1
+            }
             self.plan = try engine.snapshot(); self.wallpaperPlan = self.plan
         }
     }
@@ -98,12 +108,19 @@ final class AppController: NSObject, NSWindowDelegate {
         title.font = .systemFont(ofSize: 14, weight: .medium)
         title.setContentHuggingPriority(.required, for: .horizontal)
         let spacer = NSView()
+        let backgrounds = NSPopUpButton(frame: .zero, pullsDown: false)
+        backgrounds.addItems(withTitles: ["夕凪の書斎"] + assets.variants.map(\.label))
+        backgrounds.selectItem(at: backgroundVariantIndex)
+        backgrounds.target = self; backgrounds.action = #selector(changeBackgroundPopup(_:))
+        backgrounds.toolTip = "壁紙の背景を切り替えます（夕凪・月夜・雨音）"
+        backgrounds.setContentHuggingPriority(.required, for: .horizontal)
+        backgroundPopup = backgrounds
         let pause = NSButton(title: "一時停止", target: self, action: #selector(togglePause(_:)))
         let wallpaper = NSButton(title: "壁紙にする", target: self, action: #selector(toggleWallpaper(_:)))
         wallpaper.toolTip = "主画面にだけ表示します。元の壁紙設定は変更しません。"
         let lowPower = NSButton(checkboxWithTitle: "省電力", target: self, action: #selector(toggleLowPower(_:)))
         let about = NSButton(title: "作品について", target: self, action: #selector(showAbout(_:)))
-        let toolbar = NSStackView(views: [title, spacer, lowPower, pause, wallpaper, about])
+        let toolbar = NSStackView(views: [title, spacer, backgrounds, lowPower, pause, wallpaper, about])
         toolbar.orientation = .horizontal; toolbar.spacing = 12
         toolbar.alignment = .centerY
         let scene = makeSceneView()
@@ -171,6 +188,19 @@ final class AppController: NSObject, NSWindowDelegate {
             else { previewScene?.releaseKeys() }
         } catch { fail(error.localizedDescription) }
     }
+    @objc private func changeBackgroundPopup(_ sender: NSPopUpButton) { applyBackground(sender.indexOfSelectedItem) }
+    @objc private func setBackgroundMenu(_ sender: NSMenuItem) { applyBackground(sender.tag) }
+    private func applyBackground(_ index: Int) {
+        guard index >= 0, index <= assets.variants.count else { return }
+        do { try painter.selectVariant(index) } catch { fail(error.localizedDescription); return }
+        backgroundVariantIndex = index
+        if persistSettings {
+            if index == 0 { UserDefaults.standard.removeObject(forKey: "wallpaperVariant") }
+            else { UserDefaults.standard.set(assets.variants[index - 1].id, forKey: "wallpaperVariant") }
+        }
+        for view in views { view.needsDisplay = true }
+        synchronize()
+    }
     @objc private func startPlaying(_ sender: Any?) { performGameCommand("play") }
     @objc private func goHome(_ sender: Any?) { performGameCommand("home") }
     @objc private func setFrequency(_ sender: NSMenuItem) {
@@ -207,8 +237,16 @@ final class AppController: NSObject, NSWindowDelegate {
             menu.addItem(entry); return entry
         }
         let heading = add("くじらの散歩道（個人用試作）", nil); heading.isEnabled = false
+        memoryItem = add("メモリ使用量（プロセス）: 計測中", nil)
+        memoryItem?.isEnabled = false
         _ = add("プレビューを開く", #selector(openPreview(_:)))
         wallpaperItem = add("壁紙を表示（主画面のみ）", #selector(toggleWallpaper(_:)))
+        let backgroundMenu = NSMenu(title: "背景"); backgroundMenu.autoenablesItems = false
+        let backgroundParent = add("背景", nil); backgroundParent.submenu = backgroundMenu
+        for (index, label) in (["夕凪の書斎（標準）"] + assets.variants.map(\.label)).enumerated() {
+            let entry = NSMenuItem(title: label, action: #selector(setBackgroundMenu(_:)), keyEquivalent: "")
+            entry.target = self; entry.tag = index; backgroundMenu.addItem(entry); backgroundItems.append(entry)
+        }
         pauseItem = add("一時停止", #selector(togglePause(_:)))
         lowPowerItem = add("省電力にする", #selector(toggleLowPower(_:)))
         menu.addItem(.separator())
@@ -295,6 +333,11 @@ final class AppController: NSObject, NSWindowDelegate {
         synchronize()
     }
 
+    private func updateMemoryItem() {
+        guard let text = ProcessMemory.formatted() else { return }
+        memoryItem?.title = "メモリ使用量（プロセス）: \(text)"
+    }
+
     private func observe(_ center: NotificationCenter, _ name: Notification.Name, action: @escaping @MainActor (AppController) -> Void) {
         let token = center.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated {
@@ -349,6 +392,8 @@ final class AppController: NSObject, NSWindowDelegate {
         pauseItem?.isEnabled = !policy.reducedMotion
         pauseButton?.title = policy.manuallyPaused ? "再開" : "一時停止"
         pauseButton?.isEnabled = !policy.reducedMotion
+        backgroundPopup?.selectItem(at: backgroundVariantIndex)
+        for (index, item) in backgroundItems.enumerated() { item.state = index == backgroundVariantIndex ? .on : .off }
         wallpaperItem?.state = wallpaperWindow == nil ? .off : .on
         wallpaperButton?.title = wallpaperWindow == nil ? "壁紙にする" : "壁紙をOFF"
         lowPowerItem?.state = policy.userLowPower ? .on : .off
@@ -362,7 +407,11 @@ final class AppController: NSObject, NSWindowDelegate {
         do {
             plan = try engine.advance(clock.sample(ProcessInfo.processInfo.systemUptime), decorations: !policy.reducedMotion)
             wallpaperPlan = try engine.snapshot(decorations: !policy.reducedMotion, presentation: "wallpaper")
+            // The scrolling stage caches are only needed while a manual battle is on screen.
+            if plan.game?.phase == "rest" || plan.game?.phase == "result" { painter.releaseBattleBackdrops() }
             updateFighterControls()
+            memoryProbeTick += 1
+            if memoryProbeTick % 120 == 0 { updateMemoryItem() }
             for view in views { view.needsDisplay = true }
         } catch { fail(error.localizedDescription) }
     }
@@ -373,7 +422,8 @@ final class AppController: NSObject, NSWindowDelegate {
         defer { modalOpen = false; synchronize() }
         let alert = NSAlert()
         alert.messageText = "くじらの散歩道（個人用ローカル試作）"
-        alert.informativeText = "非公式ファン作品／DeepSeek社との提携・承認なし\n壁紙設定を書き換えず、停止・終了で下層ウィンドウを閉じます。\n通信・音声・通知・分析・ログイン自動起動はありません。"
+        let memory = ProcessMemory.formatted().map { "\nメモリ使用量（プロセスfootprint）: \($0)" } ?? ""
+        alert.informativeText = "非公式ファン作品／DeepSeek社との提携・承認なし\n「DeepSeekちゃん（クジラ娘）」の原案・デザインは、これを生み出したファンコミュニティと原案者に帰属します。本プロジェクトは権利を主張せず、独自ライセンスを付与しません。\n壁紙設定を書き換えず、停止・終了で下層ウィンドウを閉じます。\n通信・音声・通知・分析・ログイン自動起動はありません。" + memory
         let scroll = NSScrollView(frame: NSRect(x: 0, y: 0, width: 560, height: 280))
         scroll.hasVerticalScroller = true; scroll.borderType = .bezelBorder
         let text = NSTextView(frame: scroll.bounds)
@@ -399,7 +449,18 @@ final class AppController: NSObject, NSWindowDelegate {
         alert.runModal()
     }
     func windowWillClose(_ notification: Notification) {
-        if let window = notification.object as? NSWindow, window === previewWindow { previewRequested = false }
+        if let window = notification.object as? NSWindow, window === previewWindow {
+            // Closing the preview must release its window backing store and scene view; the
+            // menu can recreate it later. Keeping them alive was the largest avoidable heap cost.
+            previewRequested = false
+            previewScene?.releaseKeys()
+            if let scene = previewScene { views.removeAll { $0 === scene } }
+            previewScene = nil
+            fightersControls = nil
+            previewWindow = nil
+            pauseButton = nil; wallpaperButton = nil; lowPowerButton = nil; statusLabel = nil
+            backgroundPopup = nil
+        }
         synchronize()
     }
     func windowDidBecomeKey(_ notification: Notification) { synchronize() }
@@ -420,6 +481,8 @@ final class AppController: NSObject, NSWindowDelegate {
     }
     var smokeSummary: [String: Any] {
         ["profile": assets.configuration.layout.id, "previewCreated": previewWindow != nil,
+         "processFootprintBytes": ProcessMemory.footprintBytes().map { Int($0) } as Any,
+         "backgroundVariant": painter.currentVariantID, "backgroundVariants": assets.variants.map(\.id),
          "wallpaperEnabled": wallpaperWindow != nil, "originalWallpaperChanged": false,
          "statusMenuCreated": statusItem != nil, "timerRunning": timer != nil,
          "visibleSurface": policy.hasVisibleSurface, "fightersControlsCreated": fightersControls != nil,

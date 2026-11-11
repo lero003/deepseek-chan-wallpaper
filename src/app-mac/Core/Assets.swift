@@ -14,6 +14,14 @@ public final class Assets {
     /// Optional wide/tall wallpaper backdrop containing the room at its approved offset.
     public let matte: CGImage?
     public let frames: [CGImage]
+    public let variants: [BackgroundVariant]
+
+    public struct BackgroundVariant: Sendable {
+        public let id: String
+        public let label: String
+        public let background: CGImage
+        public let matte: CGImage?
+    }
 
     public static func checkedURL(root: URL, relative: String) throws -> URL {
         guard root.isFileURL, !relative.hasPrefix("/"), !relative.contains("\\"), !relative.split(separator: "/").contains(".."), !relative.isEmpty else {
@@ -43,6 +51,10 @@ public final class Assets {
         manifest = try JSONDecoder().decode(AssetManifest.self, from: bytes("manifest.json"))
         var required = Set(["character/sheet.png", "character/atlas.json", "scene/seaside-room.png"])
         if configuration.layout.matte != nil { required.insert("scene/seaside-room-matte.png") }
+        for variant in configuration.variants ?? [] {
+            required.insert(variant.scene)
+            if let matte = variant.matte, configuration.layout.matte != nil { required.insert(matte) }
+        }
         for name in required {
             let matches = manifest.assets.filter { $0.path == name }
             guard matches.count == 1, let entry = matches.first, Self.sha(try bytes(name)) == entry.sha256,
@@ -75,6 +87,29 @@ public final class Assets {
             guard let frame = sheet.cropping(to: rect) else { throw KujiraError.invalid("フレームを切り出せません。") }
             frames.append(frame)
         }
+        var loadedVariants: [BackgroundVariant] = []
+        var seenIDs = Set<String>()
+        for variant in configuration.variants ?? [] {
+            guard !variant.id.isEmpty, !variant.label.isEmpty, seenIDs.insert(variant.id).inserted else {
+                throw KujiraError.invalid("背景バリアントのID・ラベルが不正か重複しています。")
+            }
+            let variantBackground = try image(variant.scene)
+            guard variantBackground.width == 480, variantBackground.height == 270 else {
+                throw KujiraError.invalid("背景バリアントの寸法が不正です：\(variant.scene)")
+            }
+            var variantMatte: CGImage? = nil
+            if let info = configuration.layout.matte {
+                guard let path = variant.matte else { throw KujiraError.invalid("背景バリアントのワイドマットがありません：\(variant.id)") }
+                let wide = try image(path)
+                guard wide.width == info.width, wide.height == info.height else {
+                    throw KujiraError.invalid("背景バリアントのマット寸法が不正です：\(path)")
+                }
+                variantMatte = wide
+            }
+            loadedVariants.append(BackgroundVariant(id: variant.id, label: variant.label,
+                                                    background: variantBackground, matte: variantMatte))
+        }
+        self.variants = loadedVariants
         self.frames = frames
     }
 

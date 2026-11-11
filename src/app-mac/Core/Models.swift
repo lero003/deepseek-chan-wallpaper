@@ -60,6 +60,10 @@ public struct Layout: Codable, Sendable {
     public let matte: Matte?
 }
 public struct StageInfo: Codable, Sendable { public let width: Int }
+public struct NativeVariant: Codable, Sendable {
+    public let id: String; public let label: String
+    public let scene: String; public let matte: String?
+}
 public struct NativeConfiguration: Codable, Sendable {
     public let schemaVersion: Int
     public let localPreviewOnly: Bool
@@ -67,6 +71,7 @@ public struct NativeConfiguration: Codable, Sendable {
     public let atlas: Atlas
     public let layout: Layout
     public let stage: StageInfo?
+    public let variants: [NativeVariant]?
     public var stageWidth: Int { max(1440, stage?.width ?? 1440) }
 }
 public struct Permission: Decodable, Sendable {

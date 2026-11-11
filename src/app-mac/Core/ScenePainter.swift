@@ -11,7 +11,30 @@ public final class ScenePainter {
     private var colors: [String: CGColor] = [:]
     private var wideBackdrops: [Viewport: CGImage] = [:]
     private var fonts: [Double: CTFont] = [:]
+    private var variantIndex = 0
     public init(engine: SceneEngine) { self.engine = engine }
+
+    /// 0 = the approved sunset room, 1..n = additional backgrounds.
+    public var currentVariantIndex: Int { variantIndex }
+    public var currentVariantID: String {
+        variantIndex == 0 ? "sunset" : engine.assets.variants[variantIndex - 1].id
+    }
+    public var currentVariantLabel: String {
+        variantIndex == 0 ? engine.assets.configuration.layout.label : engine.assets.variants[variantIndex - 1].label
+    }
+    public func selectVariant(_ index: Int) throws {
+        guard index >= 0, index <= engine.assets.variants.count else { throw KujiraError.invalid("背景の選択が不正です。") }
+        if index == variantIndex { return }
+        variantIndex = index
+        backdrops.removeAll(keepingCapacity: false)
+        wideBackdrops.removeAll(keepingCapacity: false)
+    }
+    private var activeBackground: CGImage {
+        variantIndex == 0 ? engine.assets.background : engine.assets.variants[variantIndex - 1].background
+    }
+    private var activeMatte: CGImage? {
+        variantIndex == 0 ? engine.assets.matte : engine.assets.variants[variantIndex - 1].matte
+    }
 
     private func color(_ hex: String) throws -> CGColor {
         if let cached = colors[hex] { return cached }
@@ -46,13 +69,13 @@ public final class ScenePainter {
         let w = CGFloat(viewport.width), h = CGFloat(viewport.height), ox = CGFloat(viewport.originX), oy = CGFloat(viewport.originY)
         ctx.setFillColor(try color(layout.ceilingColor ?? "#617e77")); ctx.fill(CGRect(x: 0, y: 0, width: w, height: h))
         ctx.setFillColor(try color(layout.floorColor ?? "#8a8d75")); ctx.fill(CGRect(x: 0, y: oy + 203, width: w, height: h - oy - 203))
-        if let matte = engine.assets.matte, let info = layout.matte {
+        if let matte = activeMatte, let info = layout.matte {
             // The matte contains the approved room at (roomX, roomY); the flat colours above
             // only show in the extreme letterbox beyond the matte (very tall/narrow views).
             image(matte, rect: CGRect(x: ox - CGFloat(info.roomX), y: oy - CGFloat(info.roomY),
                                       width: CGFloat(info.width), height: CGFloat(info.height)), context: ctx)
         } else {
-            let background = engine.assets.background
+            let background = activeBackground
             if ox > 0 {
                 guard let left = background.cropping(to: CGRect(x: 0, y: 0, width: 1, height: 270)),
                       let right = background.cropping(to: CGRect(x: 479, y: 0, width: 1, height: 270)) else { throw KujiraError.invalid("背景の端を拡張できません。") }
@@ -172,6 +195,12 @@ public final class ScenePainter {
         CGImageDestinationAddImage(destination, image, nil)
         guard CGImageDestinationFinalize(destination) else { throw KujiraError.invalid("PNGを保存できません。") }
     }
+    /// Drop the wide scrolling-stage cache when the manual battle is over (several MB at 2048×864).
+    public func releaseBattleBackdrops() {
+        guard !wideBackdrops.isEmpty else { return }
+        wideBackdrops.removeAll(keepingCapacity: false)
+    }
+
     public func makeIcon(size: Int) throws -> CGImage {
         let ctx = try context(width: size, height: size)
         ctx.scaleBy(x: Double(size) / 1024, y: Double(size) / 1024)

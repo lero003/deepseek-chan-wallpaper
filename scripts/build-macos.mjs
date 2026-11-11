@@ -48,13 +48,15 @@ const macos = resolve(contents, 'MacOS');
 await mkdir(macos, { recursive: true });
 await mkdir(resources, { recursive: true });
 for (const name of ['world.js', 'configuration.json', 'manifest.json', 'character/sheet.png', 'character/atlas.json', 'scene/seaside-room.png',
-  ...(prepared.layout.matte ? ['scene/seaside-room-matte.png'] : []), 'CREDITS.md', 'ART-LICENSE.md']) {
+  ...(prepared.layout.matte ? ['scene/seaside-room-matte.png'] : []),
+  ...(prepared.configuration.variants ?? []).flatMap(variant => [variant.scene, variant.matte]),
+  'CREDITS.md', 'ART-LICENSE.md']) {
   const destination = resolve(resources, name);
   assert.ok(destination.startsWith(resources + sep));
   await mkdir(dirname(destination), { recursive: true });
   await copyFile(resolve(prepared.resources, name), destination);
 }
-await writeFile(resolve(resources, 'FIGHTERS-README.txt'), `くじらの散歩道 — DeepSeekちゃんファイターズ MVP\n\n初回はプレビューのみ。壁紙は「壁紙にする」で明示的にONにします。\n普段は静かな書斎。小事件は既定で帰還後3〜5分の待ち時間。自動の小事件は書斎の中で起き、カメラは動きません。「事件を見る」で今すぐ確認できます。\n「遊ぶ」で手動。WASD／矢印で移動、J/Zで3段攻撃、K/Xで回避、L/Cでゲージ100の必殺技、Escでゲームポーズ。\n「壁紙へ戻る」でオートへ。「もう一度遊ぶ」で再挑戦。手動入力は前面プレビューだけ。\n壁紙は全モードでクリック透過。手動ゲーム中の壁紙は静かな生活を表示します。\n元の壁紙設定は変更しません。停止・終了はメニューバーから。ログイン自動起動は登録しません。\n少なめ／通常／事件なし、控えめエフェクト、省電力をメニューから選べます。音は常時無音です。\nOS Reduce Motionでは既存方針どおり静止。遊ぶにはその設定を人の判断でご確認ください。\n\nApple Silicon用・個人用のローカル試作、アドホック署名・未公証です。公開・第三者配布は未許諾。\n敵・技・左右背景は仮のピクセル図形。主人公の専用戦闘コマ、音、手動の操作感は後続調整。\n自動テスト／単体起動／ネイティブ描画器の検証は、可視キー操作・壁紙ON/OFF・Space・スリープ・実時間30分負荷の合格ではありません。\n旧版が起動中なら終了してからこの版を開いてください。\n`);
+await writeFile(resolve(resources, 'FIGHTERS-README.txt'), `くじらの散歩道 — DeepSeekちゃんファイターズ MVP\n\n初回はプレビューのみ。壁紙は「壁紙にする」で明示的にONにします。\n普段は静かな書斎。小事件は既定で帰還後3〜5分の待ち時間。自動の小事件は書斎の中で起き、カメラは動きません。「事件を見る」で今すぐ確認できます。\n「遊ぶ」で手動。WASD／矢印で移動、J/Zで3段攻撃、K/Xで回避、L/Cでゲージ100の必殺技、Escでゲームポーズ。\n「壁紙へ戻る」でオートへ。「もう一度遊ぶ」で再挑戦。手動入力は前面プレビューだけ。\n壁紙は全モードでクリック透過。手動ゲーム中の壁紙は静かな生活を表示します。\n元の壁紙設定は変更しません。停止・終了はメニューバーから。ログイン自動起動は登録しません。\n少なめ／通常／事件なし、控えめエフェクト、省電力をメニューから選べます。背景はツールバー／メニューバーから夕凪・月夜・雨音を切り替え（設定は保存）。音は常時無音です。\nOS Reduce Motionでは既存方針どおり静止。遊ぶにはその設定を人の判断でご確認ください。\n\nApple Silicon用・個人用のローカル試作、アドホック署名・未公証です。公開・第三者配布は未許諾。\n敵・技・左右背景は仮のピクセル図形。主人公の専用戦闘コマ、音、手動の操作感は後続調整。\n自動テスト／単体起動／ネイティブ描画器の検証は、可視キー操作・壁紙ON/OFF・Space・スリープ・実時間30分負荷の合格ではありません。\n旧版が起動中なら終了してからこの版を開いてください。\n`);
 const executable = resolve(macos, 'KujiraWallpaper');
 await copyFile(sourceBinary, executable); await chmod(executable, 0o755);
 run('/usr/bin/strip', ['-S', executable]);
@@ -69,7 +71,7 @@ await writeFile(resolve(contents, 'Info.plist'), `<?xml version="1.0" encoding="
 <key>CFBundleDisplayName</key><string>くじらの散歩道（個人用試作）</string>
 <key>CFBundlePackageType</key><string>APPL</string>
 <key>CFBundleShortVersionString</key><string>${xml(version)}</string>
-<key>CFBundleVersion</key><string>6</string>
+<key>CFBundleVersion</key><string>7</string>
 <key>CFBundleIconFile</key><string>AppIcon</string>
 <key>LSMinimumSystemVersion</key><string>14.0</string>
 <key>LSUIElement</key><false/>
@@ -100,8 +102,13 @@ run(executable, ['--self-test']);
 run(executable, ['--fighters-self-test']);
 run(executable, ['--render-preview', resolve(output, 'native-preview.png'), '--time', '6']);
 run(executable, ['--render-preview', resolve(output, 'native-preview-wide.png'), '--time', '6', '--width', '2048', '--height', '864']);
+for (const variant of prepared.configuration.variants ?? []) {
+  run(executable, ['--render-preview', resolve(output, `native-preview-${variant.id}-wide.png`), '--variant', variant.id,
+    '--time', '6', '--width', '2048', '--height', '864']);
+}
 run(executable, ['--render-room-event', resolve(output, 'native-room-event.png'), '--time', '3']);
 run(executable, ['--render-room-event', resolve(output, 'native-room-event-wide.png'), '--time', '3', '--width', '2048', '--height', '864']);
+run(executable, ['--render-room-event', resolve(output, 'native-room-event-night-wide.png'), '--variant', 'night', '--time', '3', '--width', '2048', '--height', '864']);
 run(executable, ['--render-manual', resolve(output, 'native-manual.png'), '--time', '45']);
 run(executable, ['--render-manual', resolve(output, 'native-boss.png'), '--capture-boss', '--time', '180']);
 const files = [];
@@ -119,7 +126,7 @@ assert.ok(files.every(file => !/(^|\/)(node_modules|production|concepts|research
 const architecture = capture('/usr/bin/lipo', ['-archs', executable]);
 const libraries = capture('/usr/bin/otool', ['-L', executable]);
 const systemLibraries = systemLibraryPaths(libraries);
-const zip = resolve(output, `KujiraWallpaper-Wallpaper-Brushup-${architecture.replaceAll(' ', '-')}-local-preview.zip`);
+const zip = resolve(output, `KujiraWallpaper-Wallpaper-Brushup-B7-${architecture.replaceAll(' ', '-')}-local-preview.zip`);
 run('/usr/bin/ditto', ['-c', '-k', '--sequesterRsrc', '--keepParent', app, zip]);
 // Legacy unzip console output can corrupt Japanese names under C locales.
 // Validate the real archive more strictly: extract, compare every byte, verify and execute.
@@ -142,8 +149,10 @@ const report = { schemaVersion: 1, app: relative(root, app), zip: relative(root,
   profile: prepared.layout.id, version, signing: 'ad-hoc hardened runtime, bundled-code JIT entitlement only', notarized: false,
   localPreviewOnly: true, published: false, thirdPartyRightsVerified: false, originalWallpaperChangedDuringBuild: false,
   archiveVerified: true, relocatedStandaloneSelfTest: true, relocatedFightersSelfTest: true,
-  gameplay: 'wallpaper-brushup-v0.5-room-incidents', bundleBuild: '6',
-  gamePreviews: [relative(root, resolve(output, 'native-room-event.png')), relative(root, resolve(output, 'native-room-event-wide.png')), relative(root, resolve(output, 'native-manual.png')), relative(root, resolve(output, 'native-boss.png'))],
+  gameplay: 'wallpaper-brushup-v0.6-backgrounds', bundleBuild: '7',
+  gamePreviews: [relative(root, resolve(output, 'native-room-event.png')), relative(root, resolve(output, 'native-room-event-wide.png')), relative(root, resolve(output, 'native-room-event-night-wide.png')), relative(root, resolve(output, 'native-manual.png')), relative(root, resolve(output, 'native-boss.png'))],
+  backgroundVariants: (prepared.configuration.variants ?? []).map(variant => variant.id),
+  backgroundPreviews: (prepared.configuration.variants ?? []).map(variant => relative(root, resolve(output, `native-preview-${variant.id}-wide.png`))),
   autoStartEnabled: false, desktopAcceptance: 'manual-not-run', systemLibraries, files };
 await writeFile(resolve(output, 'build-report.json'), JSON.stringify(report, null, 2) + '\n');
 await writeFile(resolve(privateRoot, 'macos-out/latest.json'), JSON.stringify(report, null, 2) + '\n');

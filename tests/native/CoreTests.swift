@@ -28,6 +28,17 @@ struct CoreTests {
         } else {
             #expect(assets.matte == nil)
         }
+        for variant in assets.variants {
+            #expect(!variant.id.isEmpty)
+            #expect(!variant.label.isEmpty)
+            #expect(variant.background.width == 480)
+            #expect(variant.background.height == 270)
+            if let info = assets.configuration.layout.matte {
+                let wide = try #require(variant.matte)
+                #expect(wide.width == info.width)
+                #expect(wide.height == info.height)
+            }
+        }
         #expect(frame.quads.count >= 14)
     }
     @Test func thirtyMinuteJavaScriptCoreReplayMatchesTheWebEngine() throws {
@@ -65,6 +76,29 @@ struct CoreTests {
         #expect(viewport.pixelWidth == Int(size.0.rounded()))
         #expect(viewport.pixelHeight == Int(size.1.rounded()))
         if viewport.scale >= 2 { #expect(viewport.scale == viewport.scale.rounded()) }
+    }
+    @Test func processFootprintIsReadable() throws {
+        let bytes = try #require(ProcessMemory.footprintBytes())
+        #expect(bytes > 0)
+        #expect(ProcessMemory.megabytes(bytes) != "0.0")
+    }
+    @Test func selectableBackgroundsRenderAndValidate() throws {
+        let assets = try assets()
+        let engine = try SceneEngine(assets: assets)
+        let painter = ScenePainter(engine: engine)
+        let plan = try engine.snapshot()
+        let base = try painter.bitmap(plan, width: 480, height: 270)
+        #expect(painter.currentVariantID == "sunset")
+        if let first = assets.variants.first {
+            try painter.selectVariant(1)
+            #expect(painter.currentVariantID == first.id)
+            let alternate = try painter.bitmap(plan, width: 480, height: 270)
+            #expect(base.width == alternate.width && base.height == alternate.height)
+            let baseBytes = base.dataProvider?.data as Data?
+            let alternateBytes = alternate.dataProvider?.data as Data?
+            #expect(baseBytes != alternateBytes, "a selectable background must change the rendered room")
+        }
+        #expect(throws: KujiraError.self) { try painter.selectVariant(assets.variants.count + 1) }
     }
     @Test func nativeBitmapAndIconAreComplete() throws {
         let engine = try SceneEngine(assets: assets())

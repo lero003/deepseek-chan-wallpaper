@@ -67,6 +67,7 @@
         <label class="setting-row"><span><span class="setting-name">省電力にする</span><span class="setting-description">描画を30fpsから15fpsに。歩く速さは変わりません。</span></span><input id="power-setting" type="checkbox" /></label>
         <label class="setting-row"><span><span class="setting-name">小事件の頻度</span><span class="setting-description">静かな時間の長さ。進行中の事件は最後まで続きます。</span></span><select id="frequency-setting"><option value="low">少なめ · 3〜5分</option><option value="normal">通常 · 1.5〜2.5分</option><option value="off">小事件なし</option></select></label>
         <label class="setting-row"><span><span class="setting-name">エフェクトを控えめに</span><span class="setting-description">強い点滅・画面揺れは使いません。敵・技は仮素材です。</span></span><input id="effects-setting" type="checkbox" checked /></label>
+        <label class="setting-row" id="background-row" hidden><span><span class="setting-name">背景</span><span class="setting-description">夕凪・月夜・雨音から選べます。雰囲気だけが変わり、生活の動きは同じです。</span></span><select id="background-setting"></select></label>
         <p class="system-note" id="motion-note">OSの「視差効果を減らす」設定にも自動で合わせます。</p>
         <p class="privacy-note">音声・通知・アクセス解析・データ収集はありません。作品についてを開いている間も、風景は一休みします。</p>
       </section>
@@ -74,7 +75,7 @@
         <h3 id="credits-heading">素材とクレジット</h3>
         <p class="section-copy" id="art-provenance">背景とクジラ娘は、このプロジェクト内で制作しました。外部の画像・フォントは読み込みません。</p>
         <dl class="credit-list" id="credit-list"></dl>
-        <p class="rights-note">素材の公開・再配布ライセンスは未設定です。公開やMacアプリへの同梱は、キャラデザインと個別素材の権利・許諾を確認してから行います。</p>
+        <p class="rights-note">「DeepSeekちゃん（クジラ娘）」の原案・デザインは、これを生み出したファンコミュニティと原案者に帰属します。本プロジェクトは権利を主張せず、独自ライセンスも付与しません。素材の公開・再配布ライセンスは未設定です。公開やMacアプリへの同梱は、キャラデザインと個別素材の権利・許諾を確認してから行います。</p>
       </section>
       <div class="dialog-footer"><span>再現用シード</span><code id="seed-value">seaside-v01</code></div>
     </dialog>

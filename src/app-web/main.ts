@@ -30,6 +30,8 @@ const loading = element<HTMLElement>('#loading-note');
 const errorNote = element<HTMLElement>('#scene-error');
 const motionNote = element<HTMLElement>('#motion-note');
 const stillSetting = element<HTMLInputElement>('#still-setting');
+const backgroundRow = element<HTMLElement>('#background-row');
+const backgroundSetting = element<HTMLSelectElement>('#background-setting');
 const powerSetting = element<HTMLInputElement>('#power-setting');
 const media = window.matchMedia('(prefers-reduced-motion: reduce)');
 const controller = new AbortController();
@@ -42,7 +44,7 @@ document.documentElement.dataset.art = art.kind;
 scene.dataset.artProfile = art.id;
 canvas.setAttribute('aria-label', art.description);
 element<HTMLElement>('#scene-name').textContent = art.label;
-element<HTMLElement>('#art-provenance').textContent = `${art.provenance} 戦闘の敵・小物・左右パネルは、本プロジェクトの仮ピクセル図形です。外部の画像・フォントは読み込みません。`;
+element<HTMLElement>('#art-provenance').textContent = `${art.provenance} 戦闘の敵・小物・左右パネルは、本プロジェクトの仮ピクセル図形です。外部の画像・フォントは読み込みません。「DeepSeekちゃん（クジラ娘）」の原案・デザインは、これを生み出したファンコミュニティと原案者に帰属します。`;
 element<HTMLElement>('.static-scene').style.backgroundImage = `url("${art.matteUrl ?? backgroundUrl}")`;
 const conditions: PlaybackConditions = {
   ready: false, paused: false, hidden: document.hidden, suspended: false,
@@ -157,8 +159,33 @@ async function bootstrap(): Promise<void> {
       character: character.status === 'fulfilled' ? character.value : null,
       // The wide matte is an enhancement: failing to load it falls back to the room-only backdrop.
       matte: matte.status === 'fulfilled' ? matte.value : null,
+      variants: [] as { background: HTMLImageElement; matte: HTMLImageElement | null }[],
     };
     if (art.matteUrl && matte.status === 'rejected') console.error('[kujira] Wallpaper matte failed to load; using the room-only backdrop.', matte.reason);
+    // Additional backgrounds are optional: a failed or mis-sized variant is simply not offered.
+    const loadedVariants: { art: NonNullable<typeof art.variants>[number]; background: HTMLImageElement; matte: HTMLImageElement | null }[] = [];
+    for (const variant of art.variants ?? []) {
+      const [variantBackground, variantMatte] = await Promise.allSettled([
+        loadImage(variant.backgroundUrl),
+        variant.matteUrl ? loadImage(variant.matteUrl) : Promise.resolve(null),
+      ]);
+      if (signal.aborted) return;
+      if (variantBackground.status !== 'fulfilled') {
+        console.error('[kujira] Background variant failed to load; skipping.', variant.id, variantBackground.reason);
+        continue;
+      }
+      const backgroundImage = variantBackground.value;
+      const matteImage = variantMatte.status === 'fulfilled' ? variantMatte.value : null;
+      const validBackground = backgroundImage.naturalWidth === 480 && backgroundImage.naturalHeight === 270;
+      const validMatte = !art.matte || !matteImage
+        || (matteImage.naturalWidth === art.matte.width && matteImage.naturalHeight === art.matte.height);
+      if (!validBackground || !validMatte) {
+        console.error('[kujira] Background variant has unexpected dimensions; skipping.', variant.id);
+        continue;
+      }
+      loadedVariants.push({ art: variant, background: backgroundImage, matte: matteImage });
+      images.variants.push({ background: backgroundImage, matte: matteImage });
+    }
     renderer = new SceneRenderer(canvas, images, atlas, world.seed, art);
     resize();
     scene.dataset.ready = 'true';
@@ -169,6 +196,19 @@ async function bootstrap(): Promise<void> {
       for (const result of [background, character]) if (result.status === 'rejected') console.error('[kujira] Image loading failed.', result.reason);
     }
     conditions.ready = !failed;
+    if (!failed && loadedVariants.length > 0) {
+      for (const [index, variant] of loadedVariants.entries()) {
+        const option = document.createElement('option');
+        option.value = String(index + 1);
+        option.textContent = variant.art.label;
+        backgroundSetting.append(option);
+      }
+      backgroundRow.hidden = false;
+      backgroundSetting.addEventListener('change', () => {
+        renderer?.setVariant(Number(backgroundSetting.value));
+        draw('resize');
+      }, { signal });
+    }
   } catch (error) {
     if (signal.aborted) return;
     failed = true;

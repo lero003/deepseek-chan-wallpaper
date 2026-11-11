@@ -39,6 +39,24 @@ struct KujiraMain {
         let assets = try Assets(root: root)
         let engine = try SceneEngine(assets: assets)
         let painter = ScenePainter(engine: engine)
+        if let variantID = try value("--variant") {
+            guard let index = assets.variants.firstIndex(where: { $0.id == variantID }) else {
+                throw KujiraError.invalid("背景バリアントが見つかりません：\(variantID)")
+            }
+            try painter.selectVariant(index + 1)
+        }
+        if arguments.contains("--memory-report") {
+            let engineBytes = ProcessMemory.footprintBytes() ?? 0
+            let plan = try engine.snapshot()
+            _ = try painter.bitmap(plan, width: 2048, height: 864)
+            let wallpaperBytes = ProcessMemory.footprintBytes() ?? 0
+            _ = try painter.bitmap(plan, width: 1000, height: 680)
+            let previewBytes = ProcessMemory.footprintBytes() ?? 0
+            // Keep the native QA values honest: these are renderer heaps, not the full GUI app.
+            let free = ProcessMemory.footprintBytes() ?? 0
+            print("MEMORY_REPORT: engine=\(ProcessMemory.megabytes(engineBytes))MB afterWallpaperRenders=\(ProcessMemory.megabytes(wallpaperBytes))MB afterPreviewRender=\(ProcessMemory.megabytes(previewBytes))MB sampled=\(ProcessMemory.megabytes(free))MB. Renderer-only process; not the windowed app footprint.")
+            return
+        }
         if arguments.contains("--self-test") {
             let before = try engine.snapshot()
             _ = try engine.replayJSON(frames: 300, step: 1.0 / 30)

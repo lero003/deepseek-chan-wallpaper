@@ -8,11 +8,19 @@ import type { Mote, ScenePlan } from './scene-plan.ts';
 import { sceneryQuads } from '../fighters/scenery.ts';
 import type { DrawCommand } from '../fighters/render-types.ts';
 
+/** One selectable background: the approved room art plus its optional wide matte. */
+export interface VariantImages {
+  background: HTMLImageElement;
+  matte?: HTMLImageElement | null;
+}
+
 export interface SceneImages {
   background: HTMLImageElement | null;
   character: HTMLImageElement | null;
   /** Optional wallpaper matte (wide/tall continuation of the room). */
   matte?: HTMLImageElement | null;
+  /** Additional backgrounds; index 0 is always the default profile background. */
+  variants?: readonly VariantImages[];
 }
 
 export function loadImage(url: string): Promise<HTMLImageElement> {
@@ -39,6 +47,8 @@ export class SceneRenderer {
   private readonly appearance: RenderAppearance;
   private readonly motes: readonly Mote[];
   private readonly matte: HTMLImageElement | null;
+  private readonly variants: readonly VariantImages[];
+  private variantIndex = 0;
   private viewport: Viewport = viewportFor(480, 270);
   private readonly canvas: HTMLCanvasElement;
   private wideBackdrop: HTMLCanvasElement | null = null;
@@ -60,9 +70,40 @@ export class SceneRenderer {
     const matte = images.matte && appearance.matte
       && images.matte.naturalWidth === appearance.matte.width && images.matte.naturalHeight === appearance.matte.height
       ? images.matte : null;
+    const variants = (images.variants ?? []).filter((variant) => {
+      const okBackground = variant.background.naturalWidth === 480 && variant.background.naturalHeight === 270;
+      const okMatte = !variant.matte || !appearance.matte
+        || (variant.matte.naturalWidth === appearance.matte.width && variant.matte.naturalHeight === appearance.matte.height);
+      return okBackground && okMatte;
+    });
     this.canvas = canvas; this.context = context; this.backdrop = backdrop; this.backdropContext = backdropContext;
     this.images = images; this.atlas = atlas; this.appearance = appearance; this.motes = motesFor(seed);
-    this.matte = matte;
+    this.matte = matte; this.variants = variants;
+  }
+
+  /** 0 = the approved sunset room; 1..n = additional backgrounds. */
+  get variantCount(): number { return this.variants.length + 1; }
+  get selectedVariant(): number { return this.variantIndex; }
+
+  setVariant(index: number): void {
+    if (!Number.isInteger(index) || index < 0 || index >= this.variantCount) throw new Error('Invalid background variant.');
+    if (index === this.variantIndex) return;
+    this.variantIndex = index;
+    this.wideBackdrop = null;
+    if (this.backdrop.width > 0 && this.backdrop.height > 0) this.cacheBackground();
+  }
+
+  private activeBackground(): HTMLImageElement | null {
+    if (this.variantIndex === 0) return this.images.background;
+    return this.variants[this.variantIndex - 1]?.background ?? this.images.background;
+  }
+
+  private activeMatte(): HTMLImageElement | null {
+    if (this.variantIndex === 0) return this.matte;
+    const candidate = this.variants[this.variantIndex - 1]?.matte;
+    return candidate && this.appearance.matte
+      && candidate.naturalWidth === this.appearance.matte.width && candidate.naturalHeight === this.appearance.matte.height
+      ? candidate : null;
   }
 
   resize(pixelWidth: number, pixelHeight: number): void {
@@ -84,13 +125,15 @@ export class SceneRenderer {
     ctx.imageSmoothingEnabled = false;
     ctx.fillStyle = this.appearance.ceilingColor ?? '#617e77'; ctx.fillRect(0, 0, width, height);
     ctx.fillStyle = this.appearance.floorColor ?? '#8a8d75'; ctx.fillRect(0, originY + 203, width, height - originY - 203);
-    if (this.matte && this.appearance.matte) {
+    const matte = this.activeMatte();
+    if (matte && this.appearance.matte) {
       // The matte already contains the approved room at art coordinates (roomX, roomY).
-      ctx.drawImage(this.matte, originX - this.appearance.matte.roomX, originY - this.appearance.matte.roomY);
+      ctx.drawImage(matte, originX - this.appearance.matte.roomX, originY - this.appearance.matte.roomY);
       return;
     }
-    if (this.images.background) {
-      const image = this.images.background;
+    const background = this.activeBackground();
+    if (background) {
+      const image = background;
       if (originX > 0) {
         ctx.drawImage(image, 0, 0, 1, 270, 0, originY, originX, 270);
         ctx.drawImage(image, 479, 0, 1, 270, originX + 480, originY, width - originX - 480, 270);
@@ -122,7 +165,8 @@ export class SceneRenderer {
       ctx.fillRect(quad.x, quad.y + this.viewport.originY, quad.width, quad.height);
     }
     ctx.globalAlpha = 1;
-    if (this.images.background) ctx.drawImage(this.images.background, 120, this.viewport.originY);
+    const background = this.activeBackground();
+    if (background) ctx.drawImage(background, 120, this.viewport.originY);
     this.wideBackdrop = canvas;
     return canvas;
   }
@@ -157,6 +201,7 @@ export class SceneRenderer {
   }
 
   drawPlan(plan: ScenePlan): void {
+    if (!plan.battle && this.wideBackdrop) this.wideBackdrop = null;
     const ctx = this.context;
     const viewport = this.viewport;
     const { originX, originY, scale, offsetX, offsetY, pixelWidth, pixelHeight } = viewport;

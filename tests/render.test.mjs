@@ -161,3 +161,37 @@ test('the wallpaper matte is composited at its approved room offset instead of s
       { matte: { width: 1024, height: 576, roomX: 560, roomY: 153 } }), 'a matte without room for the 480×270 scene is rejected');
   } finally { globalThis.document = previousDocument; }
 });
+
+test('selectable backgrounds swap the room art and its matte, not the character', () => {
+  const previousDocument = globalThis.document;
+  const created = [];
+  globalThis.document = { createElement: () => { const canvas = fakeCanvas(); created.push(canvas); return canvas; } };
+  try {
+    const canvas = fakeCanvas();
+    const background = { naturalWidth: 480, naturalHeight: 270 };
+    const matte = { naturalWidth: 1024, naturalHeight: 576 };
+    const nightBackground = { naturalWidth: 480, naturalHeight: 270 };
+    const nightMatte = { naturalWidth: 1024, naturalHeight: 576 };
+    const character = { naturalWidth: 192, naturalHeight: 256 };
+    const appearance = { matte: { width: 1024, height: 576, roomX: 272, roomY: 153 } };
+    const renderer = new SceneRenderer(canvas,
+      { background, character, matte, variants: [{ background: nightBackground, matte: nightMatte }] }, atlas, 1, appearance);
+    assert.equal(renderer.variantCount, 2);
+    assert.equal(renderer.selectedVariant, 0);
+    renderer.resize(2048, 864);
+    const backdrop = created[0];
+    assert.ok(backdrop.context.calls.some((call) => call[0] === 'drawImage' && call[1] === matte));
+    backdrop.context.calls.length = 0;
+    renderer.setVariant(1);
+    assert.equal(renderer.selectedVariant, 1);
+    assert.ok(backdrop.context.calls.some((call) => call[0] === 'drawImage' && call[1] === nightMatte), 'the night matte replaces the sunset matte');
+    renderer.draw(createWorld(1));
+    assert.throws(() => renderer.setVariant(2));
+    assert.throws(() => renderer.setVariant(-1));
+    const mixed = new SceneRenderer(fakeCanvas(), {
+      background: null, character: null,
+      variants: [{ background: { naturalWidth: 10, naturalHeight: 10 }, matte: null }],
+    }, atlas, 1);
+    assert.equal(mixed.variantCount, 1, 'a mis-sized background is not offered');
+  } finally { globalThis.document = previousDocument; }
+});

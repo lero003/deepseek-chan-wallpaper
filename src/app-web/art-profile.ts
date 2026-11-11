@@ -33,6 +33,14 @@ export interface RenderAppearance {
   readonly matte?: MatteInfo;
 }
 
+/** A selectable wallpaper background. All variants share the approved 480×270 room geometry. */
+export interface SceneVariant {
+  readonly id: string;
+  readonly label: string;
+  readonly backgroundUrl: string;
+  readonly matteUrl?: string;
+}
+
 export interface ArtProfile extends RenderAppearance {
   readonly id: string;
   readonly kind: 'placeholder' | 'local-design';
@@ -41,6 +49,8 @@ export interface ArtProfile extends RenderAppearance {
   readonly characterUrl: string;
   /** Optional wallpaper matte image. Only the local production profile provides it. */
   readonly matteUrl?: string;
+  /** Additional selectable backgrounds (e.g. night, rain) built from the same room. */
+  readonly variants?: readonly SceneVariant[];
   readonly atlas: unknown;
   readonly manifest: {
     readonly assets: readonly AssetCredit[];

@@ -152,3 +152,34 @@ test('the wide wallpaper matte keeps the approved room pixel-exact', { skip: !ex
   assert.deepEqual(SUNSET_LAYOUT.matte, { width: 1024, height: 576, roomX: 272, roomY: 153 });
   assert.equal(SUNSET_LAYOUT.backgroundUrl, undefined, 'the layout stays free of web-only asset URLs');
 });
+
+const localVariants = new URL('variants.json', localRoot);
+
+test('additional wallpaper backgrounds are complete and keep their own scene pixel-exact', { skip: !existsSync(localVariants) }, async () => {
+  const data = JSON.parse(await readFile(localVariants, 'utf8'));
+  assert.equal(data.schemaVersion, 1);
+  assert.ok(data.variants.length >= 2, 'the night and rain backgrounds are present');
+  const manifest = JSON.parse(await readFile(new URL('manifest.json', localRoot), 'utf8'));
+  const ids = new Set();
+  for (const variant of data.variants) {
+    assert.match(variant.id, /^[a-z0-9-]+$/);
+    assert.ok(!ids.has(variant.id));
+    ids.add(variant.id);
+    assert.ok(typeof variant.label === 'string' && variant.label.length > 0);
+    const scene = decodePng(await readFile(new URL(variant.scene, localRoot)));
+    assert.equal(scene.width, 480);
+    assert.equal(scene.height, 270);
+    const matte = decodePng(await readFile(new URL(variant.matte, localRoot)));
+    assert.equal(matte.width, 1024);
+    assert.equal(matte.height, 576);
+    const region = Buffer.alloc(480 * 270 * 4);
+    for (let y = 0; y < 270; y += 1) {
+      const source = ((y + 153) * 1024 + 272) * 4;
+      matte.data.copy(region, y * 480 * 4, source, source + 480 * 4);
+    }
+    assert.equal(Buffer.compare(region, scene.data), 0, `${variant.id} matte must keep the scene pixel-exact`);
+    for (const path of [variant.scene, variant.matte]) {
+      assert.ok(manifest.assets.some((asset) => asset.path === path), `${path} is in the private ledger`);
+    }
+  }
+});
