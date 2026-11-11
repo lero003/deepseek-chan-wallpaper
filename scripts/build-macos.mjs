@@ -51,6 +51,7 @@ for (const name of ['world.js', 'configuration.json', 'manifest.json', 'characte
   ...(prepared.layout.matte ? ['scene/seaside-room-matte.png'] : []),
   ...(prepared.configuration.variants ?? []).flatMap(variant => [variant.scene, variant.matte]),
   ...(prepared.configuration.boss ? [prepared.configuration.boss.sheet, prepared.configuration.boss.atlas] : []),
+  ...(prepared.configuration.arena ? [prepared.configuration.arena.scene] : []),
   'CREDITS.md', 'ART-LICENSE.md']) {
   const destination = resolve(resources, name);
   assert.ok(destination.startsWith(resources + sep));

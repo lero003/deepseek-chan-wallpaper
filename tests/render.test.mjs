@@ -4,9 +4,12 @@ import test from 'node:test';
 import { frameAt, parseAtlas } from '../src/render/atlas.ts';
 import { SceneRenderer } from '../src/render/renderer.ts';
 import { viewportFor } from '../src/render/viewport.ts';
-import { createWorld } from '../src/world/world.ts';
+import { createWorld, seedFromText } from '../src/world/world.ts';
 import { motesFor, scenePlan } from '../src/render/scene-plan.ts';
 import { resolveAppearance } from '../src/app-web/art-profile.ts';
+import { createGame, command, setFocus } from '../src/fighters/game.ts';
+import { gamePlan } from '../src/fighters/render-plan.ts';
+import { SUNSET_LAYOUT } from '../src/art/scene-profiles.ts';
 
 const atlasData = JSON.parse(await readFile(new URL('../assets/character/atlas.json', import.meta.url), 'utf8'));
 const atlas = parseAtlas(atlasData);
@@ -262,5 +265,63 @@ test('the renderer exposes the selected background appearance for plan building'
     assert.deepEqual(renderer.activeAppearance.water, { left: 115, right: 349, top: 120, bottom: 158 }, 'base water is kept');
     renderer.setVariant(0);
     assert.equal(renderer.activeAppearance.ambience, undefined);
+  } finally { globalThis.document = previousDocument; }
+});
+
+// --- Painted terrace backdrop for the fixed manual arena ---
+
+test('a 480×270 arena backdrop is accepted and flagged; a mis-sized one falls back', () => {
+  const previousDocument = globalThis.document;
+  globalThis.document = { createElement: () => fakeCanvas() };
+  try {
+    const character = { naturalWidth: 192, naturalHeight: 256 };
+    const good = new SceneRenderer(fakeCanvas(), { background: null, character, arena: { naturalWidth: 480, naturalHeight: 270 } }, atlas, 1, SUNSET_LAYOUT);
+    assert.equal(good.activeAppearance.arenaArt, true);
+    const bad = new SceneRenderer(fakeCanvas(), { background: null, character, arena: { naturalWidth: 960, naturalHeight: 540 } }, atlas, 1, SUNSET_LAYOUT);
+    assert.equal(bad.activeAppearance.arenaArt, undefined, 'a mis-sized arena backdrop is not used');
+    const none = new SceneRenderer(fakeCanvas(), { background: null, character }, atlas, 1, SUNSET_LAYOUT);
+    assert.equal(none.activeAppearance.arenaArt, undefined);
+  } finally { globalThis.document = previousDocument; }
+});
+
+test('the arena paints the viewport-sized local backdrop, not the 3600px scrolling stage', () => {
+  const previousDocument = globalThis.document;
+  globalThis.document = { createElement: () => fakeCanvas() };
+  try {
+    const game = createGame(seedFromText('arena-backdrop')); command(game, 'play'); setFocus(game, true);
+    const plan = gamePlan(game, atlas, { ...SUNSET_LAYOUT, arenaArt: true });
+    assert.equal(plan.battle.arena, true);
+    const withArt = fakeCanvas();
+    const renderer = new SceneRenderer(withArt, { background: null, character: null, arena: { naturalWidth: 480, naturalHeight: 270 } }, atlas, 1, SUNSET_LAYOUT);
+    renderer.resize(480, 270);
+    renderer.drawPlan(plan);
+    const painted = withArt.context.calls.filter(call => call[0] === 'drawImage');
+    // backdrop then the arena cache: the second image is viewport-sized (480), not the 3600 stage.
+    assert.ok(painted.length >= 2);
+    assert.equal(painted[1][1].width, 480, 'the painted arena backdrop is viewport-sized');
+    assert.equal(painted[1][2], 0, 'the painted backdrop is anchored to the view, not camera-shifted');
+    const fallback = fakeCanvas();
+    const noArt = new SceneRenderer(fallback, { background: null, character: null }, atlas, 1, SUNSET_LAYOUT);
+    noArt.resize(480, 270);
+    noArt.drawPlan(gamePlan(game, atlas, SUNSET_LAYOUT));
+    const scrolled = fallback.context.calls.filter(call => call[0] === 'drawImage');
+    assert.equal(scrolled[1][1].width, 3600, 'without the art the scrolling stage is used');
+  } finally { globalThis.document = previousDocument; }
+});
+
+test('the passive wallpaper never paints the arena backdrop even when it is loaded', () => {
+  const previousDocument = globalThis.document;
+  globalThis.document = { createElement: () => fakeCanvas() };
+  try {
+    const game = createGame(seedFromText('arena-wallpaper-isolation')); command(game, 'play'); setFocus(game, true);
+    const canvas = fakeCanvas();
+    const renderer = new SceneRenderer(canvas, { background: { naturalWidth: 480, naturalHeight: 270 }, character: { naturalWidth: 192, naturalHeight: 256 }, arena: { naturalWidth: 480, naturalHeight: 270 } }, atlas, 1, SUNSET_LAYOUT);
+    renderer.resize(480, 270);
+    const wallpaper = gamePlan(game, atlas, renderer.activeAppearance, true, 'wallpaper');
+    assert.equal(wallpaper.battle, undefined, 'the passive wallpaper has no battle frame');
+    renderer.drawPlan(wallpaper);
+    const images = canvas.context.calls.filter(call => call[0] === 'drawImage');
+    // Room backdrop + character only. An incorrectly painted arena cache would add a third image.
+    assert.equal(images.length, 2, 'the wallpaper keeps the room presentation, never the arena backdrop');
   } finally { globalThis.document = previousDocument; }
 });

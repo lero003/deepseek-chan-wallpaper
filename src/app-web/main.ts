@@ -154,7 +154,8 @@ async function bootstrap(): Promise<void> {
     }
     const matteRequest = art.matteUrl ? loadImage(art.matteUrl) : Promise.resolve(null);
     const bossRequest = art.bossUrl ? loadImage(art.bossUrl) : Promise.resolve(null);
-    const [background, character, matte, boss] = await Promise.allSettled([loadImage(backgroundUrl), loadImage(characterUrl), matteRequest, bossRequest]);
+    const arenaRequest = art.arenaBackdropUrl ? loadImage(art.arenaBackdropUrl) : Promise.resolve(null);
+    const [background, character, matte, boss, arena] = await Promise.allSettled([loadImage(backgroundUrl), loadImage(characterUrl), matteRequest, bossRequest, arenaRequest]);
     if (signal.aborted) return;
     const images = {
       background: background.status === 'fulfilled' ? background.value : null,
@@ -162,10 +163,13 @@ async function bootstrap(): Promise<void> {
       boss: boss.status === 'fulfilled' ? boss.value : null,
       // The wide matte is an enhancement: failing to load it falls back to the room-only backdrop.
       matte: matte.status === 'fulfilled' ? matte.value : null,
+      // The painted arena backdrop is optional: a failed load falls back to the code stage.
+      arena: arena.status === 'fulfilled' ? arena.value : null,
       variants: [] as VariantImages[],
     };
     if (art.matteUrl && matte.status === 'rejected') console.error('[kujira] Wallpaper matte failed to load; using the room-only backdrop.', matte.reason);
     if (art.bossUrl && boss.status === 'rejected') console.error('[kujira] Optional rival image failed to load; using the code-only rival.', boss.reason);
+    if (art.arenaBackdropUrl && arena.status === 'rejected') console.error('[kujira] Optional arena backdrop failed to load; using the code-drawn terrace.', arena.reason);
     // Additional backgrounds are optional: a failed or mis-sized variant is simply not offered.
     const loadedVariants: { art: NonNullable<typeof art.variants>[number]; background: HTMLImageElement; matte: HTMLImageElement | null }[] = [];
     for (const variant of art.variants ?? []) {

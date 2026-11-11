@@ -45,5 +45,11 @@ export interface BattleFrame {
    * the wallpaper backdrop (room + wide matte) instead of the scrolling stage.
    */
   room?: boolean;
+  /**
+   * True for the fixed manual terrace arena. When a local arena backdrop image is
+   * available the renderer paints it instead of the code-drawn scrolling stage;
+   * otherwise it falls back to that stage. The passive wallpaper never sets this.
+   */
+  arena?: boolean;
 }
 export interface GamePresentation { game?: GameUI; battle?: BattleFrame; overlay?: DrawCommand[] }

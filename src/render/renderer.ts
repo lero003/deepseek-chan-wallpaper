@@ -26,6 +26,8 @@ export interface SceneImages {
   matte?: HTMLImageElement | null;
   /** Additional backgrounds; index 0 is always the default profile background. */
   variants?: readonly VariantImages[];
+  /** Optional painted terrace backdrop for the fixed manual arena (480×270). */
+  arena?: HTMLImageElement | null;
 }
 
 export function loadImage(url: string): Promise<HTMLImageElement> {
@@ -55,10 +57,12 @@ export class SceneRenderer {
   private readonly motes: readonly Mote[];
   private readonly matte: HTMLImageElement | null;
   private readonly variants: readonly VariantImages[];
+  private readonly arenaImage: HTMLImageElement | null;
   private variantIndex = 0;
   private viewport: Viewport = viewportFor(480, 270);
   private readonly canvas: HTMLCanvasElement;
   private wideBackdrop: HTMLCanvasElement | null = null;
+  private arenaBackdrop: HTMLCanvasElement | null = null;
 
   constructor(canvas: HTMLCanvasElement, images: SceneImages, atlas: SpriteAtlas, seed: number, appearance: RenderAppearance = {}) {
     const context = canvas.getContext('2d', { alpha: false });
@@ -89,10 +93,14 @@ export class SceneRenderer {
         || (variant.matte.naturalWidth === appearance.matte.width && variant.matte.naturalHeight === appearance.matte.height);
       return okBackground && okMatte;
     });
+    // A missing or wrong-sized arena backdrop is a soft failure: the manual arena
+    // falls back to the code-drawn scrolling stage. It never affects the wallpaper.
+    const arenaImage = images.arena && images.arena.naturalWidth === 480 && images.arena.naturalHeight === 270
+      ? images.arena : null;
     this.canvas = canvas; this.context = context; this.backdrop = backdrop; this.backdropContext = backdropContext;
     this.images = images; this.atlas = atlas; this.bossAtlas = bossAtlas; this.bossImage = bossImage;
     this.appearance = appearance; this.motes = motesFor(seed);
-    this.matte = matte; this.variants = variants;
+    this.matte = matte; this.variants = variants; this.arenaImage = arenaImage;
   }
 
   /** 0 = the approved sunset room; 1..n = additional backgrounds. */
@@ -101,8 +109,10 @@ export class SceneRenderer {
 
   /** Base appearance merged with the selected background's overrides (ambient palette, water). */
   get activeAppearance(): RenderAppearance {
-    if (this.variantIndex === 0) return this.appearance;
-    return resolveAppearance(this.appearance, this.variants[this.variantIndex - 1]?.appearance);
+    const base = this.variantIndex === 0 ? this.appearance
+      : resolveAppearance(this.appearance, this.variants[this.variantIndex - 1]?.appearance);
+    // The painted arena backdrop is independent of the wallpaper background choice.
+    return this.arenaImage ? { ...base, arenaArt: true } : base;
   }
 
   setVariant(index: number): void {
@@ -135,6 +145,7 @@ export class SceneRenderer {
     this.backdrop.height = viewport.height;
     this.context.imageSmoothingEnabled = false; this.backdropContext.imageSmoothingEnabled = false;
     this.wideBackdrop = null;
+    this.arenaBackdrop = null;
     this.cacheBackground();
   }
 
@@ -191,6 +202,36 @@ export class SceneRenderer {
     return canvas;
   }
 
+  /**
+   * Viewport-sized painted terrace backdrop for the fixed manual arena. Mirrors the
+   * room backdrop's edge extension so ultrawide previews stay filled; the arena is a
+   * game surface, so 1px edge continuation here is acceptable (unlike the wallpaper).
+   */
+  private cacheArenaBackground(): HTMLCanvasElement | null {
+    if (!this.arenaImage) return null;
+    if (this.arenaBackdrop) return this.arenaBackdrop;
+    const canvas = document.createElement('canvas');
+    const { width, height, originX, originY } = this.viewport;
+    canvas.width = width; canvas.height = height;
+    const ctx = canvas.getContext('2d', { alpha: false });
+    if (!ctx) throw new Error('Canvas 2D is unavailable.');
+    ctx.imageSmoothingEnabled = false;
+    ctx.fillStyle = this.appearance.ceilingColor ?? '#40344b'; ctx.fillRect(0, 0, width, height);
+    ctx.fillStyle = this.appearance.floorColor ?? '#866077'; ctx.fillRect(0, originY + 203, width, height - originY - 203);
+    const image = this.arenaImage;
+    if (originX > 0) {
+      ctx.drawImage(image, 0, 0, 1, 270, 0, originY, originX, 270);
+      ctx.drawImage(image, 479, 0, 1, 270, originX + 480, originY, width - originX - 480, 270);
+    }
+    if (originY > 0) {
+      ctx.fillStyle = this.appearance.ceilingColor ?? '#40344b'; ctx.fillRect(0, 0, width, originY);
+      ctx.fillStyle = this.appearance.floorColor ?? '#866077'; ctx.fillRect(0, originY + 270, width, height - originY - 270);
+    }
+    ctx.drawImage(image, originX, originY);
+    this.arenaBackdrop = canvas;
+    return canvas;
+  }
+
   private drawCommands(commands: readonly DrawCommand[]): void {
     const ctx = this.context;
     const { originX, originY } = this.viewport;
@@ -244,8 +285,13 @@ export class SceneRenderer {
     ctx.fillStyle = this.appearance.ceilingColor ?? '#617e77'; ctx.fillRect(0, 0, pixelWidth, pixelHeight);
     ctx.setTransform(scale, 0, 0, scale, offsetX, offsetY);
     ctx.drawImage(this.backdrop, 0, 0);
-    // Room incidents keep the study backdrop; only the long routes scroll a wide stage.
-    if (plan.battle && !plan.battle.room) ctx.drawImage(this.cacheWideBackground(), originX - plan.battle.cameraX, 0);
+    // Room incidents keep the study backdrop. The fixed manual arena paints its local
+    // terrace backdrop when available; otherwise (and for legacy routes) scroll the stage.
+    if (plan.battle && !plan.battle.room) {
+      const arena = plan.battle.arena ? this.cacheArenaBackground() : null;
+      if (arena) ctx.drawImage(arena, 0, 0);
+      else ctx.drawImage(this.cacheWideBackground(), originX - plan.battle.cameraX, 0);
+    }
     const quadCount = this.images.character || plan.battle ? plan.quads.length : plan.quads.length - 2;
     for (let index = 0; index < quadCount; index++) {
       const quad = plan.quads[index]!;

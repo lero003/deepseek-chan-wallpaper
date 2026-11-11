@@ -40,6 +40,33 @@ test('arena presentation frames the round without GO or a scrolling chapter bann
   assert.ok(texts.some(text=>text.includes('ROUND 1 / 3')));
   assert.equal(texts.some(text=>text.includes('第一幕')||text.includes('海辺まで')),false);
 });
+test('the fixed arena flags its battle frame and never flags the wallpaper or room incident',()=>{
+  const g=make();command(g,'play');setFocus(g,true);g.phaseAge=30;
+  const arena=gamePlan(g,atlas,SUNSET_LAYOUT);
+  assert.equal(arena.battle.arena,true);
+  assert.equal(gamePlan(g,atlas,SUNSET_LAYOUT,true,'wallpaper').battle,undefined);
+  const room=make();
+  let guard=0;while(room.route!=='room'&&guard<400*60){advanceGame(room,1/60);guard++;}
+  assert.equal(gamePlan(room,atlas,SUNSET_LAYOUT).battle.arena,undefined);
+  assert.equal(gamePlan(room,atlas,SUNSET_LAYOUT).battle.room,true);
+});
+test('a painted arena backdrop skips the code scenery ambience; without it the ambience remains',()=>{
+  const g=make();command(g,'play');setFocus(g,true);enterPhase(g,'battle');g.phaseAge=40;
+  const lowAlpha=plan=>plan.battle.commands.filter(item=>item.kind==='rect'&&item.alpha<.2).length;
+  const painted=gamePlan(g,atlas,{...SUNSET_LAYOUT,arenaArt:true});
+  const code=gamePlan(g,atlas,SUNSET_LAYOUT);
+  assert.equal(painted.battle.arena,true);
+  assert.ok(lowAlpha(code)>40,'the code-drawn arena keeps its animated ambience');
+  assert.ok(lowAlpha(painted)<lowAlpha(code),'the painted arena drops the misaligned scenery ambience');
+  assert.ok(painted.battle.commands.some(item=>item.kind==='sprite'),'fighters still draw over the painted backdrop');
+});
+test('the legacy scrolling route is unaffected by the arena backdrop flag',()=>{
+  const g=make();startEpisode(g,'auto');
+  let guard=0;while(g.phase!=='boss'&&guard<200*60){advanceGame(g,1/60);guard++;}
+  const plan=gamePlan(g,atlas,{...SUNSET_LAYOUT,arenaArt:true});
+  assert.equal(plan.battle.arena,undefined);
+  assert.ok(plan.battle.commands.filter(item=>item.kind==='rect'&&item.alpha<.2).length>40,'legacy keeps ambience even if arena art exists');
+});
 test('the rival is visible during the safe boss face-off without creating a combat enemy',()=>{
   const g=make();command(g,'play');setFocus(g,true);g.section=2;enterPhase(g,'bossIntro');g.phaseAge=40;
   const before=JSON.stringify(g), plan=gamePlan(freeze(g),atlas,SUNSET_LAYOUT);

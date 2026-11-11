@@ -193,14 +193,20 @@ export function gamePlan(game: FightersGame, atlas: SpriteAtlas, appearance: Ren
   base.quads = base.quads.slice(0, -2).map(quad => ({ ...quad, x: quad.x + 120 - camera }));
   for (const quad of base.quads) if (quad.color === shadowColor) quad.alpha *= .8;
 
+  // A painted local arena backdrop is a complete scene: skip the code scenery's
+  // animated sky/sea/foreground so nothing misaligns over the art. Without the
+  // image (or on the legacy route) the original ambience is preserved.
+  const paintedArena = game.route === 'arena' && appearance.arenaArt === true;
   drawStudyAmbience(p, tick);
-  drawSceneryAmbience(p, camera, tick);
+  if (!paintedArena) drawSceneryAmbience(p, camera, tick);
   drawCast(p);
   drawCombatEffects(p);
-  drawSceneryForeground(p, camera, tick);
-  p.screen(0, 254, 480, 3, C.ink, .16);
-  p.screen(0, 257, 480, 13, '#5d4753', .12);
-  p.screen(0, 260, 480, 10, C.ink, .10);
+  if (!paintedArena) {
+    drawSceneryForeground(p, camera, tick);
+    p.screen(0, 254, 480, 3, C.ink, .16);
+    p.screen(0, 257, 480, 13, '#5d4753', .12);
+    p.screen(0, 260, 480, 10, C.ink, .10);
+  }
 
   // Progress pips and the "GO" cue belong to the manual HUD only.
   if (game.mode === 'manual') drawManualHud();
@@ -289,6 +295,6 @@ export function gamePlan(game: FightersGame, atlas: SpriteAtlas, appearance: Ren
     p.screenText(x + 14, y + 25, game.paused ? 'Esc で再開' : 'クリックで操作を再開', C.inkSoft, 7);
   }
 
-  base.battle = { cameraX: camera, commands: p.commands };
+  base.battle = { cameraX: camera, commands: p.commands, ...(game.route === 'arena' ? { arena: true } : {}) };
   return base;
 }

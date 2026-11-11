@@ -18,6 +18,8 @@ public final class Assets {
     public let bossFrames: [CGImage]
     public let bossAtlas: BossAtlas?
     public let variants: [BackgroundVariant]
+    /// Optional painted terrace backdrop for the fixed manual arena. nil = code-drawn stage.
+    public let arenaBackdrop: CGImage?
 
     public struct BackgroundVariant: Sendable {
         public let id: String
@@ -147,6 +149,26 @@ public final class Assets {
                 NSLog("[kujira] Optional rival art unavailable; using code-only rival: %@", error.localizedDescription)
             }
         }
+        // Optional painted arena backdrop: verified like the rival art, but a failure
+        // only falls back to the code-drawn terrace. It never gates the room/heroine.
+        var loadedArena: CGImage? = nil
+        if let arena = configuration.arena {
+            do {
+                let matches = manifest.assets.filter { $0.path == arena.scene }
+                guard matches.count == 1, let entry = matches.first,
+                      Self.sha(try bytes(arena.scene)) == entry.sha256, !entry.author.isEmpty, !entry.license.isEmpty else {
+                    throw KujiraError.invalid("アリーナ背景のハッシュ・出典を確認できません：\(arena.scene)")
+                }
+                let arenaImage = try image(arena.scene)
+                guard arenaImage.width == 480, arenaImage.height == 270 else {
+                    throw KujiraError.invalid("アリーナ背景の寸法が不正です：\(arena.scene)")
+                }
+                loadedArena = arenaImage
+            } catch {
+                NSLog("[kujira] Optional arena backdrop unavailable; using code-drawn terrace: %@", error.localizedDescription)
+            }
+        }
+        self.arenaBackdrop = loadedArena
         self.bossFrames = loadedBossFrames
         self.bossAtlas = loadedBossAtlas
         self.variants = loadedVariants

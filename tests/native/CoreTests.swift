@@ -119,6 +119,28 @@ struct CoreTests {
         try painter.selectVariant(0)
         #expect(try engine.worldJSON().contains("\"mood\":\"sunset\""), "returning to sunset restores the life rhythm")
     }
+    @Test func paintedArenaBackdropIsOptionalValidatedAndArenaOnly() throws {
+        let assets = try assets()
+        let engine = try SceneEngine(assets: assets)
+        let painter = ScenePainter(engine: engine)
+        if assets.configuration.arena != nil {
+            let arena = try #require(assets.arenaBackdrop)
+            #expect(arena.width == 480)
+            #expect(arena.height == 270)
+        } else {
+            #expect(assets.arenaBackdrop == nil, "placeholder keeps the code-drawn terrace")
+        }
+        try engine.command("play")
+        try engine.setManualFocus(true)
+        _ = try engine.replayGameJSON(frames: 150, step: 1.0 / 60)
+        let battle = try engine.snapshot()
+        #expect(battle.battle?.arena == true, "the manual arena flags its battle frame")
+        let wallpaper = try engine.snapshot(presentation: "wallpaper")
+        #expect(wallpaper.battle == nil, "the passive wallpaper never carries the arena frame")
+        let bitmap = try painter.bitmap(battle, width: 480, height: 270)
+        #expect(bitmap.width == 480)
+        #expect(bitmap.height == 270)
+    }
     @Test func nativeBitmapAndIconAreComplete() throws {
         let engine = try SceneEngine(assets: assets())
         let painter = ScenePainter(engine: engine)

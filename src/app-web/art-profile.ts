@@ -37,6 +37,12 @@ export interface RenderAppearance {
   readonly bossAtlas?: BossAtlas;
   /** Per-background ambient palette/episodes; absent means the approved sunset overlay. */
   readonly ambience?: AmbienceProfile;
+  /**
+   * True when a valid local painted terrace backdrop is loaded for the manual arena.
+   * Set by the renderer/host, not by static profiles; it lets the shared plan skip the
+   * code scenery's animated sky/sea/foreground over the complete painted scene.
+   */
+  readonly arenaArt?: boolean;
 }
 
 /** The subset of appearance a selectable background may override. */
@@ -75,6 +81,12 @@ export interface ArtProfile extends RenderAppearance {
   readonly bossUrl?: string;
   /** Optional wallpaper matte image. Only the local production profile provides it. */
   readonly matteUrl?: string;
+  /**
+   * Optional painted terrace backdrop (480×270) for the fixed manual arena only.
+   * Local-preview art; absent/failed loads fall back to the code-drawn stage. The
+   * passive wallpaper and in-room incidents never use it.
+   */
+  readonly arenaBackdropUrl?: string;
   /** Additional selectable backgrounds (e.g. night, rain) built from the same room. */
   readonly variants?: readonly SceneVariant[];
   readonly atlas: unknown;

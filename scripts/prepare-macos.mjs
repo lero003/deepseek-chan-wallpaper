@@ -67,6 +67,16 @@ export async function prepareMacResources({ localPreview = false, output } = {})
       provenance: `${layout.provenance} 綴星リュミエは文章・思考を着想にGPT Imageで新規制作した非公式オリジナルライバル。Claude／Anthropicの公式キャラクター・提携作品ではありません。公式ロゴ・第三者素材なし。8姿勢はローカル専用で、専用戦闘アニメーションの自然さは未確認です。` };
     paths.push(boss.sheet, boss.atlas);
   }
+  // Optional painted terrace backdrop for the fixed manual arena (local-preview only).
+  // Absent in the committed placeholder; a missing file simply keeps the code-drawn stage.
+  let arena;
+  const arenaScene = 'scene/arena/terrace.png';
+  if (localPreview && existsSync(resolve(source, arenaScene))) {
+    const input = resolve(source, arenaScene);
+    if (await realpath(input) !== input || !(await lstat(input)).isFile()) throw new Error(`Refuse linked or non-file arena asset: ${arenaScene}`);
+    arena = { scene: arenaScene };
+    paths.push(arenaScene);
+  }
   const assets = [];
   for (const name of paths) {
     const input = resolve(source, name);
@@ -90,7 +100,7 @@ export async function prepareMacResources({ localPreview = false, output } = {})
   const core = Buffer.from(chunk.code);
   await writeFile(resolve(dest, 'world.js'), core);
   const configuration = { schemaVersion: 1, localPreviewOnly: true, coreSha256: hash(core), atlas, layout, stage: { width: STAGE_WIDTH },
-    ...(variants.length > 0 ? { variants } : {}), ...(boss ? { boss } : {}) };
+    ...(variants.length > 0 ? { variants } : {}), ...(boss ? { boss } : {}), ...(arena ? { arena } : {}) };
   await writeFile(resolve(dest, 'configuration.json'), JSON.stringify(configuration, null, 2) + '\n');
   await writeFile(resolve(dest, 'manifest.json'), JSON.stringify({ ...manifest, assets,
     localAppPreview: { userAuthorized: localPreview, publicationAuthorized: false, thirdPartyRightsVerified: false },

@@ -10,7 +10,7 @@ import { gamePlan } from '../fighters/render-plan.ts';
 import { sceneryQuads } from '../fighters/scenery.ts';
 
 interface NativeVariant { id: string; label: string; scene: string; matte?: string; appearance?: VariantAppearance }
-interface NativeConfiguration { atlas: unknown; layout: RenderAppearance & { scene: Scene }; variants?: NativeVariant[] }
+interface NativeConfiguration { atlas: unknown; layout: RenderAppearance & { scene: Scene }; variants?: NativeVariant[]; arena?: { scene: string } }
 
 // This IIFE runs in Apple's JavaScriptCore, NOT a browser/webview. Only bundled code.
 export function create(configurationJSON: string, seedText = 'seaside-v01') {
@@ -24,10 +24,14 @@ export function create(configurationJSON: string, seedText = 'seaside-v01') {
   const variants = config.variants ?? [];
   // The active appearance follows the selected background; sunset (index 0) is the base layout.
   let appearance: RenderAppearance = config.layout;
+  // A configured arena backdrop is hash-verified at prepare time; the host paints it for
+  // the manual arena and the shared plan skips the code scenery's ambience over the art.
+  const arenaArt = config.arena != null;
   const snapshot = (decorations: boolean) => JSON.stringify(scenePlan(world, atlas, motes, appearance, decorations));
   const gameSnapshot = (decorations = true, presentation = 'preview') => {
     if (presentation !== 'preview' && presentation !== 'wallpaper') throw new Error('Invalid presentation.');
-    return JSON.stringify(gamePlan(game, atlas, appearance, decorations, presentation, motes));
+    const planAppearance = arenaArt ? { ...appearance, arenaArt: true } : appearance;
+    return JSON.stringify(gamePlan(game, atlas, planAppearance, decorations, presentation, motes));
   };
   return {
     gameSnapshotJSON: gameSnapshot,

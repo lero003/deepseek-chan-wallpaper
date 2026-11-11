@@ -1,6 +1,15 @@
 # 現在の状態 / 引き継ぎ
 
-更新: 2026-11-11 · 非公開Web／個人用Mac試作 · 固定アリーナ・アーケード v0.8（Build 9）+ 背景別の環境演出・生活の微小バリエーション
+更新: 2026-11-11 · 非公開Web／個人用Mac試作 · 固定アリーナ・アーケード v0.8（Build 9）+ 背景別環境演出・生活微バリエーション + アリーナ生成背景
+
+## アートブラッシュアップ（2）— 2-1テラス背景は統合済み／2-2・2-3は画像モデル待ち
+
+- [計画書](<art-brushup-plan.md>)の (1)テラス背景 → (2)主人公戦闘コマ → (3)雑魚2種 のうち、**(1)のみ完了**。ユーザーが**A / v01案（雲と海面の描き込み重視）**を選択し、手動アリーナ専用背景として統合した。
+- **統合内容**: 新規アセット`runtime/scene/arena/terrace.png`（480×270・192色・SHA `4cdd77f1…55c7`）。[render-plan](<../src/fighters/render-plan.ts>)がアリーナで`battle.arena`を立て、生成絵使用中はコードsceneryのアニメ空/海/前景をスキップ（`paintedArena`）。Webは[renderer](<../src/render/renderer.ts>)、Macは[ScenePainter](<../src/app-mac/Core/ScenePainter.swift>)が viewport サイズで描画（ウルトラワイドは端拡張）。画像なし/不正サイズはコード描画テラスへフォールバック。壁紙・書斎の小事件・legacyは不変。
+- **保全**: 承認済み主人公16コマ・背景3種・マットの計8ファイルは台帳SHA一致・加工前後不変。`--mode placeholder`はアリーナ背景をimport/同梱しない（dist-placeholderにterraceなしを確認）。
+- **検証**: Node **159テスト**(+6)・Swift **22テスト**(+1、local-preview/placeholder両方)・`check`/`build`/`mac:build --local-preview`成功。ネイティブ`native-manual.png`の空き背景帯が生成テラスと**完全一致(diff 0.0)**・主要6色すべて存在を数値確認。**ただし統合後の最終目視は画像対応モデルでの確認が必要**（作業中にテキスト専用モデルへ戻ったため、Leadは最終レンダーを目視できていない）。実機・可視操作の受け入れはユーザー。
+- **次**: 2-2主人公戦闘コマ・2-3雑魚2種は**画像生成が必要**。テキスト専用モデルでは生成できないため、画像対応モデルへの再切り替え後に計画書に沿って試作→承認→統合する。
+- 制約: 承認済み16コマ・背景3種・マットはbyte不変／追加シート+コードフォールバック／敵2種+ボス1体・1舞台／非公開・許諾未確認／無音・依存追加なし・Playwrightなし。
 
 ## 今回の変更（ブラッシュアップ A：背景別の環境演出と生活の微小バリエーション）
 
@@ -36,22 +45,23 @@
 
 ## 検証
 
-- `npm run check`：型検査・**Node 153テスト**・既定5素材のbyte再現性に成功。`npm run build`：Vite本番ビルド成功。
-- 新規テスト：夕凪ambienceのbyte一致（プロフィール無し＝明示sunset）、月夜の冷色・小鳥なし・流れ星の希少性とupper pane/縦框クリップ、雨の2パネル内落下・横框/縦框非跨ぎ・波紋・140quad予算、gazeの到達・長いidle・クールダウン・範囲内、背景別リズム（月夜は睡眠増・雨音はgaze増）、moodの15/60fps決定性、睡眠バブルの装飾ゲート・非変異、`resolveAppearance`のマージ、native-bridgeの`setVariantJSON`（appearance/mood同期・不正index拒否）。
+- `npm run check`：型検査・**Node 159テスト**・既定5素材のbyte再現性に成功。`npm run build`：Vite本番ビルド成功。`--mode placeholder`ビルドも成功（アリーナ背景を同梱しないことを確認）。
+- 新規テスト（環境演出A）：夕凪ambienceのbyte一致、月夜の冷色・流れ星、雨の2パネル内落下・波紋・140quad予算、gaze・背景別リズム・mood決定性、睡眠バブル、`resolveAppearance`、native-bridgeの`setVariantJSON`。
+- 新規テスト（アリーナ背景）：`battle.arena`フラグ（壁紙/ルーム/legacyは非設定）、生成絵使用中のscenery ambienceスキップとフォールバック維持、480×270検証と不正サイズのフォールバック、viewportサイズ描画（3600pxステージでない）、壁紙への非漏洩。
 - 得点・90秒・TIME UP・リトライ巻き戻し・CONTINUE・コンボ倍率・ランク、同tick方向＋攻撃、突進の床予告、壁紙／ルーム／レガシーへの非影響、15/30/60fpsの30分決定性をテスト。
-- `npm run mac:test -- --local-preview`：Swift Testing **21件成功**（JavaScriptCoreとV8の生活／自動ゲーム30分一致、アリーナの開始・停止時計、操作ボットの3連戦完走、ボス描画、帰宅、結果とSCORE/RANK、背景切替のmood/palette追従を確認）。`npm run mac:test`（placeholder）も21件成功。
+- `npm run mac:test -- --local-preview`：Swift Testing **22件成功**（JavaScriptCoreとV8の生活／自動ゲーム30分一致、アリーナの開始・停止時計、操作ボットの3連戦完走、ボス描画、帰宅、結果とSCORE/RANK、背景切替のmood/palette追従、アリーナ背景のoptional検証とarena専用を確認）。`npm run mac:test`（placeholder）も22件成功。
 - 独立レビュー用のサブエージェントは途中で失敗し、報告は得られなかった。最終検証はLeadが同じコマンドで直接実行した。
 - ボス画像QAは前回どおり、8姿勢の接地・透過・台帳SHA・既存素材hash不変。Viteのlocal／placeholder分離も前回検証を維持している。
 - 新演出のネイティブ描画QA：睡眠バブル・流れ星・雨筋を`--render-preview`で書き出し、 blended ピクセルを数値確認（流れ星は予測位置と一致）。**描画器の出力であり、可視アニメーションの合格ではない。**
 
-## ローカルMac成果物（Build 9 + 環境演出A）
+## ローカルMac成果物（Build 9 + 環境演出A + アリーナ生成背景）
 
-- `npm run mac:build -- --local-preview` 成功。アドホック署名＋Hardened Runtime、ZIP再展開のbyte一致・移設後のシステムPATHだけでの自己検証に成功。
-- [アプリ](<../private-art/macos-out/20261111102451-66c9caa4/くじらの散歩道.app>) / [ZIP](<../private-art/macos-out/20261111102451-66c9caa4/KujiraWallpaper-Arcade-B9-arm64-local-preview.zip>)
-  - ZIP SHA-256 `1f28504bd6e6facad14efc51c1ed3cc8513398c0ac35a8ea7d33e20ba84017d4`
+- `npm run mac:build -- --local-preview` 成功。アドホック署名＋Hardened Runtime、ZIP再展開のbyte一致・移設後のシステムPATHだけでの自己検証に成功。アリーナ背景を同梱。
+- [アプリ](<../private-art/macos-out/20261111121534-a24f52b1/くじらの散歩道.app>) / [ZIP](<../private-art/macos-out/20261111121534-a24f52b1/KujiraWallpaper-Arcade-B9-arm64-local-preview.zip>)
+  - ZIP SHA-256 `81f3fe58e0f2f73875a7862a892c794c73c2d7c720fb674ee3a2f6ba4b8df643`
   - [ローカル台帳](<../private-art/macos-out/latest.json>)
-- 背景別のワイドプレビュー（[夕凪](<../private-art/macos-out/20261111102451-66c9caa4/native-preview-wide.png>)・[月夜](<../private-art/macos-out/20261111102451-66c9caa4/native-preview-night-wide.png>)・[雨音](<../private-art/macos-out/20261111102451-66c9caa4/native-preview-rain-wide.png>)）と、新演出のQA（[睡眠バブル](<../private-art/qa/amb-sleep-bubbles.png>)・[流れ星](<../private-art/qa/amb-night-star-wide.png>)・[雨](<../private-art/qa/amb-rain-wide.png>)）。**実際の描画器の出力であり、可視キー操作・可視アニメーションの合格ではない。**
-- 前Build（`20261111091413-9cde65b8`）のアーケードPNG・smoke結果はそのまま有効。今回の差分は環境演出・生活リズム・背景appearance配線のみで、戦闘ロジックは不変。
+- アリーナ生成背景のQA：[戦闘](<../private-art/macos-out/20261111121534-a24f52b1/native-manual.png>)・[ボス](<../private-art/macos-out/20261111121534-a24f52b1/native-boss.png>)・[結果](<../private-art/macos-out/20261111121534-a24f52b1/native-arena-result.png>)。空き背景帯が生成テラスと完全一致(diff 0.0)・主要6色存在を数値確認。**描画器の出力であり、可視キー操作・可視アニメーションの合格ではない。統合後の最終目視は画像対応モデル/実機で実施のこと。**
+- 環境演出AのQA（[睡眠バブル](<../private-art/qa/amb-sleep-bubbles.png>)・[流れ星](<../private-art/qa/amb-night-star-wide.png>)・[雨](<../private-art/qa/amb-rain-wide.png>)）と背景別ワイドプレビューは前Build（`20261111102451-66c9caa4`）の記録を参照。
 
 ## GitHub下書き（作成済み）
 
@@ -59,7 +69,7 @@
 - 添付は `KujiraWallpaper-Arcade-B9-arm64-local-preview.zip`（2,769,540 bytes、SHA-256 `7a2182ffc2dc1401ad558ae6e69a4f38c70816361d90e0ca84fdec4836457358`）と `SHA256SUMS.txt`。GitHub上のasset digestも同じSHA-256。
 - 作成後に再ダウンロードし、`shasum -a 256 -c SHA256SUMS.txt` がOK、`codesign --verify --deep --strict` が有効、ZIP展開後のアプリを最小PATHの`env -i`で起動する`--fighters-self-test`が成功することを確認した。
 - 下書きの`tagName`は`arena-arcade-build9`だが、Draftのためリモートにタグは作成されていない（`git ls-remote --tags`で0件）。公開・可視性変更・Pages・公開リリースは行っていない。リポジトリはPRIVATEのまま。
-- ソースはローカル未commitのまま。今回の依頼はリリース下書きの作成であり、ソース同期の依頼ではないためpushしていない。このため下書きの対象コミットには今回のソース変更は含まれない。ZIPがビルド済みの成果物。
+- 下書き作成時のソースは未commitだったが、その後ローカルcommit `2b3171b` へ保存済み。push・下書き更新はしていないため、下書きの対象コミットにはBuild 9のソース変更を反映していない。下書きZIPと現在のローカル成果物を混同しない。
 - 以前のBuild 7／Build 6／MVP4の下書きは変更していない。
 
 ## 権利・次の受け入れ

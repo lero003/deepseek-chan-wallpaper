@@ -64,6 +64,8 @@ public struct BossAtlas: Codable, Equatable, Sendable {
 }
 
 public struct NativeBoss: Codable, Sendable { public let sheet: String; public let atlas: String }
+/// Optional painted terrace backdrop for the fixed manual arena only (480×270).
+public struct NativeArena: Codable, Sendable { public let scene: String }
 public struct FloorInterval: Codable, Sendable { public let left: Double; public let right: Double }
 public struct Scene: Codable, Sendable {
     public let width: Int; public let height: Int; public let floorY: Double
@@ -115,6 +117,7 @@ public struct NativeConfiguration: Codable, Sendable {
     public let stage: StageInfo?
     public let variants: [NativeVariant]?
     public let boss: NativeBoss?
+    public let arena: NativeArena?
     public var stageWidth: Int { max(1440, stage?.width ?? 1440) }
 }
 public struct Permission: Decodable, Sendable {
@@ -165,6 +168,8 @@ public struct BattleFrame: Codable, Sendable {
     public let cameraX: Double; public let commands: [DrawCommand]
     /// Short wallpaper incident inside the study: keep the room backdrop, no scrolling stage.
     public let room: Bool?
+    /// Fixed manual terrace arena: paint the local backdrop when available, else the code stage.
+    public let arena: Bool?
 }
 public struct ScenePlan: Codable, Sendable {
     public let tick: Int; public let state: String; public let x: Double; public let floorY: Double

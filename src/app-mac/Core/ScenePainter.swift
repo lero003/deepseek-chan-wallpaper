@@ -10,6 +10,7 @@ public final class ScenePainter {
     private var backdrops: [Viewport: CGImage] = [:]
     private var colors: [String: CGColor] = [:]
     private var wideBackdrops: [Viewport: CGImage] = [:]
+    private var arenaBackdrops: [Viewport: CGImage] = [:]
     private var fonts: [Double: CTFont] = [:]
     private var variantIndex = 0
     public init(engine: SceneEngine) { self.engine = engine }
@@ -115,6 +116,33 @@ public final class ScenePainter {
         wideBackdrops[viewport] = result
         return result
     }
+
+    /// Viewport-sized painted terrace backdrop for the fixed manual arena. Mirrors the
+    /// room backdrop's edge extension for ultrawide; independent of the wallpaper variant.
+    private func arenaBackdropImage(_ viewport: Viewport) throws -> CGImage? {
+        guard let arena = engine.assets.arenaBackdrop else { return nil }
+        if let cached = arenaBackdrops[viewport] { return cached }
+        let ctx = try context(width: viewport.width, height: viewport.height)
+        let layout = engine.assets.configuration.layout
+        let w = CGFloat(viewport.width), h = CGFloat(viewport.height), ox = CGFloat(viewport.originX), oy = CGFloat(viewport.originY)
+        ctx.setFillColor(try color(layout.ceilingColor ?? "#40344b")); ctx.fill(CGRect(x: 0, y: 0, width: w, height: h))
+        ctx.setFillColor(try color(layout.floorColor ?? "#866077")); ctx.fill(CGRect(x: 0, y: oy + 203, width: w, height: h - oy - 203))
+        if ox > 0 {
+            guard let left = arena.cropping(to: CGRect(x: 0, y: 0, width: 1, height: 270)),
+                  let right = arena.cropping(to: CGRect(x: 479, y: 0, width: 1, height: 270)) else { throw KujiraError.invalid("アリーナ背景の端を拡張できません。") }
+            image(left, rect: CGRect(x: 0, y: oy, width: ox, height: 270), context: ctx)
+            image(right, rect: CGRect(x: ox + 480, y: oy, width: w - ox - 480, height: 270), context: ctx)
+        }
+        if oy > 0 {
+            ctx.setFillColor(try color(layout.ceilingColor ?? "#40344b")); ctx.fill(CGRect(x: 0, y: 0, width: w, height: oy))
+            ctx.setFillColor(try color(layout.floorColor ?? "#866077")); ctx.fill(CGRect(x: 0, y: oy + 270, width: w, height: h - oy - 270))
+        }
+        image(arena, rect: CGRect(x: ox, y: oy, width: 480, height: 270), context: ctx)
+        guard let result = ctx.makeImage() else { throw KujiraError.invalid("アリーナ背景をキャッシュできません。") }
+        if arenaBackdrops.count >= 4 { arenaBackdrops.removeAll(keepingCapacity: true) }
+        arenaBackdrops[viewport] = result
+        return result
+    }
     private func drawCommands(_ commands: [DrawCommand], in context: CGContext) throws {
         for command in commands {
             if command.kind == "sprite", command.sheet == "boss",
@@ -178,7 +206,11 @@ public final class ScenePainter {
         context.scaleBy(x: CGFloat(viewport.scale), y: CGFloat(viewport.scale))
         image(background, rect: CGRect(x: 0, y: 0, width: Double(viewport.width), height: Double(viewport.height)), context: context)
         if let battle = plan.battle, battle.room != true {
-            image(try wideBackdrop(viewport), rect: CGRect(x: Double(viewport.originX) - battle.cameraX, y: 0, width: Double(engine.assets.configuration.stageWidth), height: Double(viewport.height)), context: context)
+            if battle.arena == true, let arena = try arenaBackdropImage(viewport) {
+                image(arena, rect: CGRect(x: 0, y: 0, width: Double(viewport.width), height: Double(viewport.height)), context: context)
+            } else {
+                image(try wideBackdrop(viewport), rect: CGRect(x: Double(viewport.originX) - battle.cameraX, y: 0, width: Double(engine.assets.configuration.stageWidth), height: Double(viewport.height)), context: context)
+            }
         }
         context.translateBy(x: CGFloat(viewport.originX), y: CGFloat(viewport.originY))
         for quad in plan.quads {
@@ -209,10 +241,11 @@ public final class ScenePainter {
         CGImageDestinationAddImage(destination, image, nil)
         guard CGImageDestinationFinalize(destination) else { throw KujiraError.invalid("PNGを保存できません。") }
     }
-    /// Drop the wide scrolling-stage cache when the manual battle is over (several MB at 2048×864).
+    /// Drop the battle backdrop caches when the manual battle is over (several MB at 2048×864).
     public func releaseBattleBackdrops() {
-        guard !wideBackdrops.isEmpty else { return }
+        guard !wideBackdrops.isEmpty || !arenaBackdrops.isEmpty else { return }
         wideBackdrops.removeAll(keepingCapacity: false)
+        arenaBackdrops.removeAll(keepingCapacity: false)
     }
 
     public func makeIcon(size: Int) throws -> CGImage {
