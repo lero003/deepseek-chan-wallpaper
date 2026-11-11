@@ -112,10 +112,10 @@
 
 ## GitHub下書き（Build 10 へ差し替え済み）
 
-- [Draft Release](<https://github.com/lero003/deepseek-chan-wallpaper/releases/tag/untagged-5895c003bdef1ecd0b46>) を「**アプリ・ブラッシュアップ Build 10 ドラフト（個人テスト用）**」へ差し替えた。Draft／Prereleaseのまま。
+- [Draft Release](<https://github.com/lero003/deepseek-chan-wallpaper/releases/tag/untagged-45f76bbaa6a1bcc41018>) を「**アプリ・ブラッシュアップ Build 10 ドラフト（個人テスト用）**」へ差し替えた。Draft／Prereleaseのまま。
 - 添付は [DMG](<../private-art/macos-out/release-b10/KujiraWallpaper-Brushup-B10-draft-arm64.dmg>)（他Mac向け・Applicationsショートカット付き）、[ZIP](<../private-art/macos-out/release-b10/KujiraWallpaper-Brushup-B10-arm64-local-preview.zip>)、[SHA256SUMS.txt](<../private-art/macos-out/release-b10/SHA256SUMS.txt>)。SHA-256は上節のとおり。
-- 差し替え後にGitHubのasset digestがローカルSHA-256と一致すること、再ダウンロードした`shasum -a 256 -c SHA256SUMS.txt`がOK、`codesign --verify --deep --strict`が有効であることを確認する（実行結果は下に追記）。
-- Draftのためリモートに公開タグは作成されない。旧Build 9のZIPは差し替えで削除した。Build 7／Build 6／MVP4の下書きは変更していない。
+- **再ダウンロード検証済み**: GitHubアセットのdigestがローカルSHA-256と一致。再取得した`shasum -a 256 -c SHA256SUMS.txt`がOK、ZIP展開後の`codesign --verify --deep --strict`が有効、DMGを読み取り専用マウントして署名検証と`--self-test`／`--fighters-self-test`が成功。
+- Draftのためリモートに公開タグは作成されない（`brushup-build10`タグなしを`git ls-remote`で確認）。旧Build 9のZIPは差し替えで削除した。Build 7／Build 6／MVP4の下書きは変更していない。
 
 ## 権利・次の受け入れ
 
