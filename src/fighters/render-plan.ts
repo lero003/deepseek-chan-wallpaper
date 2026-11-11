@@ -3,7 +3,8 @@ import type { SpriteAtlas } from '../render/atlas.ts';
 import { scenePlan, motesFor } from '../render/scene-plan.ts';
 import type { ScenePlan, Mote } from '../render/scene-plan.ts';
 import type { RenderAppearance } from '../app-web/art-profile.ts';
-import { ATTACKS } from './definitions.ts';
+import { ARENA, ATTACKS, BOSS } from './definitions.ts';
+import { drawArenaHud } from './arena-presentation.ts';
 import { gameUI } from './game.ts';
 import { clamp } from './movement.ts';
 import type { FightersGame } from './types.ts';
@@ -33,7 +34,7 @@ export function orderedActors(game: FightersGame): OrderedActor[] {
 
 const bannerFor = (game: FightersGame): { title: string; subtitle: string; duration: number } | null => {
   if (game.phase === 'intro') return { title: '第一幕　夕凪の書斎', subtitle: '海辺まで、ひと騒動', duration: 110 };
-  if (game.phase === 'bossIntro') return { title: '最終幕　夕凪の桟橋', subtitle: 'キャプテン・トークナガ', duration: 130 };
+  if (game.phase === 'bossIntro') return { title: BOSS.title, subtitle: BOSS.name, duration: 130 };
   if (game.phase === 'victory') return { title: '静かな夕凪', subtitle: '', duration: 150 };
   return null;
 };
@@ -45,7 +46,8 @@ export function gamePlan(game: FightersGame, atlas: SpriteAtlas, appearance: Ren
   base.game = ui;
   // A manual game never turns the passive desktop surface into an input/HUD surface.
   if (presentation === 'wallpaper' && game.mode === 'manual') return base;
-  const home = game.phase === 'rest' || game.phase === 'result';
+  const returningHome = game.route === 'arena' && game.phase === 'return' && game.phaseAge >= ARENA.teleportTick;
+  const home = game.phase === 'rest' || game.phase === 'result' || returningHome;
   const roomRoute = game.route === 'room';
   const camera = home ? 120 : Math.round(game.cameraX);
   const p = new Painter(camera);
@@ -56,6 +58,14 @@ export function gamePlan(game: FightersGame, atlas: SpriteAtlas, appearance: Ren
 
   /** Actors, projectiles and hit effects shared by the long route and the in-room incident. */
   function drawCast(painter: Painter): void {
+    if (game.route === 'arena' && game.phase === 'bossIntro') {
+      // The rival is already visible for the face-off, but cannot attack or be hit before
+      // the director opens the round. This entrance is presentation only, not a live enemy.
+      drawShadow(painter, ARENA.enemyX, ARENA.heroY, 24, .24);
+      drawEnemy(painter, { id: 0, kind: 'boss', variant: 0, facing: -1, x: ARENA.enemyX, y: ARENA.heroY,
+        hp: BOSS.hp, maxHP: BOSS.hp, state: 'move', age: game.phaseAge, readyAt: 0, pattern: 0, hit: false,
+        targetX: ARENA.enemyX, vx: 0, vy: 0 }, tick, appearance);
+    }
     const visible = game.enemies.filter(enemy => enemy.x > camera - 90 && enemy.x < camera + 570);
     const enemiesById = new Map(visible.map(enemy => [enemy.id, enemy] as const));
     for (const actor of orderedActors(game)) {
@@ -68,7 +78,16 @@ export function gamePlan(game: FightersGame, atlas: SpriteAtlas, appearance: Ren
       if (!enemy) continue;
       drawShadow(painter, enemy.x, enemy.y, enemy.kind === 'boss' ? 27 : enemy.kind === 'popup' ? 14 : 13,
         enemy.state === 'exit' ? .14 : .24);
-      drawEnemy(painter, enemy, tick);
+      drawEnemy(painter, enemy, tick, appearance);
+      // 思索のステップ is a straight lunge: mark the floor lane it will take, so the
+      // dash is a reaction test rather than an unreadable hit.
+      if (game.route === 'arena' && enemy.kind === 'boss' && enemy.state === 'windup' && enemy.pattern % 4 === 2) {
+        const dir = enemy.x <= hero.x ? 1 : -1, pulse = .3 + Math.sin(tick * .35) * .12;
+        for (let i = 0; i < 4; i++) {
+          painter.rect(enemy.x + dir * (30 + i * 26), enemy.y - 2, 20, 2, C.danger, pulse - i * .06);
+        }
+        painter.rect(enemy.x + dir * 20, enemy.y - 3, 7, 4, C.danger, pulse + .18);
+      }
     }
   }
 
@@ -137,11 +156,24 @@ export function gamePlan(game: FightersGame, atlas: SpriteAtlas, appearance: Ren
   }
 
   if (home) {
+    if (game.mode === 'manual' && (game.phase === 'result' || returningHome)) {
+      // Seat the result beside the heroine, not over her face. This is presentation only:
+      // the passive living world and its accepted movement range are never repositioned.
+      base.x = clamp(352, game.world.range.left, game.world.range.right);
+      base.frame = atlas.animations.idle.frames[0]!;
+      base.facing = -1;
+      base.state = 'idle';
+      const shadows = base.quads.slice(-2), half = Math.round(atlas.frameWidth * .19);
+      base.quads = [...base.quads.slice(0, -2),
+        { ...shadows[0]!, x: base.x - half, width: half * 2 + 1 },
+        { ...shadows[1]!, x: base.x - half + 4, width: half * 2 - 7 }];
+    }
     if (decorations) {
       for (const item of game.effects) drawEffect(p, item, low);
       if (game.phase === 'rest' && Math.sin(tick * .03) > .55) sparkle(p, hero.x + 26, hero.y - 96, 1.6, C.goldLight, .45);
     }
     if (game.mode === 'manual' && game.phase === 'result') { drawResultPanel(p, game); drawVignette(p); }
+    drawReturnFade(p);
     base.overlay = p.commands;
     return base;
   }
@@ -186,6 +218,12 @@ export function gamePlan(game: FightersGame, atlas: SpriteAtlas, appearance: Ren
   }
 
   function drawManualHud(): void {
+    if (game.route === 'arena') {
+      drawArenaHud(p, game, ui);
+      if (game.phase === 'retry') drawRetryPanel();
+      if (game.paused || !game.focused) drawPauseOverlay();
+      return;
+    }
     p.screen(6, 6, 124, 26, C.ink, .8);
     p.screenText(11, 9, 'DeepSeekちゃん', C.paper, 6, .9);
     for (let i = 0; i < 5; i++) drawHeart(p, 11 + i * 10, 18, i < hero.hp, 1);
@@ -235,8 +273,10 @@ export function gamePlan(game: FightersGame, atlas: SpriteAtlas, appearance: Ren
     p.screen(x - 3, y - 3, width + 6, 50, C.ink, .5);
     p.screen(x, y, width, 44, C.paper, 1);
     p.screen(x + 1, y + 1, width - 2, 2, C.gold, .8);
-    p.screenText(x + 14, y + 9, 'ここから、もう一度。', C.ink, 9);
-    p.screenText(x + 14, y + 24, '「もう一度遊ぶ」でこの区間から', C.inkSoft, 6);
+    p.screenText(x + 14, y + 9, game.route === 'arena'
+      ? ui.arcade.timedOut ? `TIME UP　ROUND ${ui.round}` : `ROUND ${ui.round}　もう一度。`
+      : 'ここから、もう一度。', C.ink, 9);
+    p.screenText(x + 14, y + 24, '「このラウンドを再挑戦」で再開', C.inkSoft, 6);
     p.screenText(x + 14, y + 33, '「壁紙へ戻る」で夕凪へ', C.inkSoft, 6);
   }
 

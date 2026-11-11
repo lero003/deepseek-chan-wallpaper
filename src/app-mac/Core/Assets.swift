@@ -14,6 +14,9 @@ public final class Assets {
     /// Optional wide/tall wallpaper backdrop containing the room at its approved offset.
     public let matte: CGImage?
     public let frames: [CGImage]
+    /// An optional local-only original rival. Empty/nil selects code-only drawing.
+    public let bossFrames: [CGImage]
+    public let bossAtlas: BossAtlas?
     public let variants: [BackgroundVariant]
 
     public struct BackgroundVariant: Sendable {
@@ -109,6 +112,43 @@ public final class Assets {
             loadedVariants.append(BackgroundVariant(id: variant.id, label: variant.label,
                                                     background: variantBackground, matte: variantMatte))
         }
+        var loadedBossFrames: [CGImage] = []
+        var loadedBossAtlas: BossAtlas? = nil
+        if let boss = configuration.boss, let info = configuration.layout.bossAtlas {
+            do {
+                try info.validate()
+                // Optional must not mean unverified: keep the same manifest/hash gate.
+                for name in [boss.sheet, boss.atlas] {
+                    let matches = manifest.assets.filter { $0.path == name }
+                    guard matches.count == 1, let entry = matches.first,
+                          Self.sha(try bytes(name)) == entry.sha256, !entry.author.isEmpty, !entry.license.isEmpty else {
+                        throw KujiraError.invalid("ライバル素材のハッシュ・出典を確認できません：\(name)")
+                    }
+                }
+                let localAtlas = try JSONDecoder().decode(BossAtlas.self, from: bytes(boss.atlas))
+                try localAtlas.validate()
+                guard localAtlas == info else { throw KujiraError.invalid("ライバルアトラスと設定が一致しません。") }
+                let bossSheet = try image(boss.sheet)
+                guard bossSheet.width == info.frameWidth * info.columns, bossSheet.height == info.frameHeight * info.rows else {
+                    throw KujiraError.invalid("ライバルシートの寸法がアトラスと一致しません。")
+                }
+                var extracted: [CGImage] = []
+                for index in 0..<(info.columns * info.rows) {
+                    let rect = CGRect(x: index % info.columns * info.frameWidth, y: index / info.columns * info.frameHeight,
+                                      width: info.frameWidth, height: info.frameHeight)
+                    guard let frame = bossSheet.cropping(to: rect) else { throw KujiraError.invalid("ライバル姿勢を切り出せません。") }
+                    extracted.append(frame)
+                }
+                loadedBossFrames = extracted
+                loadedBossAtlas = info
+            } catch {
+                // The prepared configuration still supplies fallback commands to both painters.
+                // Missing or corrupt optional art cannot make the approved room/hero unavailable.
+                NSLog("[kujira] Optional rival art unavailable; using code-only rival: %@", error.localizedDescription)
+            }
+        }
+        self.bossFrames = loadedBossFrames
+        self.bossAtlas = loadedBossAtlas
         self.variants = loadedVariants
         self.frames = frames
     }

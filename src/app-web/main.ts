@@ -44,7 +44,7 @@ document.documentElement.dataset.art = art.kind;
 scene.dataset.artProfile = art.id;
 canvas.setAttribute('aria-label', art.description);
 element<HTMLElement>('#scene-name').textContent = art.label;
-element<HTMLElement>('#art-provenance').textContent = `${art.provenance} 戦闘の敵・小物・左右パネルは、本プロジェクトの仮ピクセル図形です。外部の画像・フォントは読み込みません。「DeepSeekちゃん（クジラ娘）」の原案・デザインは、これを生み出したファンコミュニティと原案者に帰属します。`;
+element<HTMLElement>('#art-provenance').textContent = `${art.provenance} 戦闘の小物・左右パネルと通常の敵は、本プロジェクトの仮ピクセル図形です。綴星リュミエは文章と思考を着想にした非公式のオリジナルライバルで、Claude／Anthropicの公式キャラクター・提携作品ではありません。ローカルボス画像がない場合も独自の仮描画で動きます。外部の画像・フォントは読み込みません。「DeepSeekちゃん（クジラ娘）」の原案・デザインは、これを生み出したファンコミュニティと原案者に帰属します。`;
 element<HTMLElement>('.static-scene').style.backgroundImage = `url("${art.matteUrl ?? backgroundUrl}")`;
 const conditions: PlaybackConditions = {
   ready: false, paused: false, hidden: document.hidden, suspended: false,
@@ -152,16 +152,19 @@ async function bootstrap(): Promise<void> {
       throw new Error('Scene collision margins are smaller than the selected sprite.');
     }
     const matteRequest = art.matteUrl ? loadImage(art.matteUrl) : Promise.resolve(null);
-    const [background, character, matte] = await Promise.allSettled([loadImage(backgroundUrl), loadImage(characterUrl), matteRequest]);
+    const bossRequest = art.bossUrl ? loadImage(art.bossUrl) : Promise.resolve(null);
+    const [background, character, matte, boss] = await Promise.allSettled([loadImage(backgroundUrl), loadImage(characterUrl), matteRequest, bossRequest]);
     if (signal.aborted) return;
     const images = {
       background: background.status === 'fulfilled' ? background.value : null,
       character: character.status === 'fulfilled' ? character.value : null,
+      boss: boss.status === 'fulfilled' ? boss.value : null,
       // The wide matte is an enhancement: failing to load it falls back to the room-only backdrop.
       matte: matte.status === 'fulfilled' ? matte.value : null,
       variants: [] as { background: HTMLImageElement; matte: HTMLImageElement | null }[],
     };
     if (art.matteUrl && matte.status === 'rejected') console.error('[kujira] Wallpaper matte failed to load; using the room-only backdrop.', matte.reason);
+    if (art.bossUrl && boss.status === 'rejected') console.error('[kujira] Optional rival image failed to load; using the code-only rival.', boss.reason);
     // Additional backgrounds are optional: a failed or mis-sized variant is simply not offered.
     const loadedVariants: { art: NonNullable<typeof art.variants>[number]; background: HTMLImageElement; matte: HTMLImageElement | null }[] = [];
     for (const variant of art.variants ?? []) {

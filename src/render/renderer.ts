@@ -6,7 +6,8 @@ import type { RenderAppearance } from '../app-web/art-profile.ts';
 import { motesFor, scenePlan } from './scene-plan.ts';
 import type { Mote, ScenePlan } from './scene-plan.ts';
 import { sceneryQuads } from '../fighters/scenery.ts';
-import type { DrawCommand } from '../fighters/render-types.ts';
+import type { BossAtlas, DrawCommand } from '../fighters/render-types.ts';
+import { parseBossAtlas } from '../fighters/render-types.ts';
 
 /** One selectable background: the approved room art plus its optional wide matte. */
 export interface VariantImages {
@@ -17,6 +18,8 @@ export interface VariantImages {
 export interface SceneImages {
   background: HTMLImageElement | null;
   character: HTMLImageElement | null;
+  /** Optional local rival; missing/corrupt images never block the scene. */
+  boss?: HTMLImageElement | null;
   /** Optional wallpaper matte (wide/tall continuation of the room). */
   matte?: HTMLImageElement | null;
   /** Additional backgrounds; index 0 is always the default profile background. */
@@ -44,6 +47,8 @@ export class SceneRenderer {
   private readonly backdropContext: CanvasRenderingContext2D;
   private readonly images: SceneImages;
   private readonly atlas: SpriteAtlas;
+  private readonly bossAtlas: BossAtlas | null;
+  private readonly bossImage: HTMLImageElement | null;
   private readonly appearance: RenderAppearance;
   private readonly motes: readonly Mote[];
   private readonly matte: HTMLImageElement | null;
@@ -66,6 +71,12 @@ export class SceneRenderer {
       || appearance.matte.roomX + 480 > appearance.matte.width || appearance.matte.roomY + 270 > appearance.matte.height)) {
       throw new Error('Wallpaper matte geometry is invalid.');
     }
+    // Optional boss art is independently validated; the heroine atlas is never repurposed.
+    let bossAtlas: BossAtlas | null = null;
+    try { bossAtlas = appearance.bossAtlas ? parseBossAtlas(appearance.bossAtlas) : null; } catch { /* code-only rival fallback */ }
+    const bossImage = images.boss && bossAtlas
+      && images.boss.naturalWidth === bossAtlas.frameWidth * bossAtlas.columns
+      && images.boss.naturalHeight === bossAtlas.frameHeight * bossAtlas.rows ? images.boss : null;
     // A missing or wrong-sized matte is a soft failure: the room still draws with the old fallback.
     const matte = images.matte && appearance.matte
       && images.matte.naturalWidth === appearance.matte.width && images.matte.naturalHeight === appearance.matte.height
@@ -77,7 +88,8 @@ export class SceneRenderer {
       return okBackground && okMatte;
     });
     this.canvas = canvas; this.context = context; this.backdrop = backdrop; this.backdropContext = backdropContext;
-    this.images = images; this.atlas = atlas; this.appearance = appearance; this.motes = motesFor(seed);
+    this.images = images; this.atlas = atlas; this.bossAtlas = bossAtlas; this.bossImage = bossImage;
+    this.appearance = appearance; this.motes = motesFor(seed);
     this.matte = matte; this.variants = variants;
   }
 
@@ -175,6 +187,13 @@ export class SceneRenderer {
     const ctx = this.context;
     const { originX, originY } = this.viewport;
     for (const command of commands) {
+      if (command.kind === 'sprite' && command.sheet === 'boss'
+        && (!this.bossImage || !this.bossAtlas || !Number.isInteger(command.frame)
+          || command.frame < 0 || command.frame >= this.bossAtlas.columns * this.bossAtlas.rows)) {
+        // Fallback is already camera-relative, not relative to the missing sprite.
+        this.drawCommands(command.fallback ?? []);
+        continue;
+      }
       ctx.save(); ctx.globalAlpha = command.alpha;
       ctx.translate(originX + command.x, originY + command.y);
       if (command.kind === 'rect') {
@@ -185,12 +204,16 @@ export class SceneRenderer {
         ctx.fillStyle = command.color; ctx.textBaseline = 'top';
         ctx.font = `${command.size}px "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif`;
         ctx.fillText(command.text, 0, 0);
-      } else if (this.images.character) {
-        ctx.rotate(command.rotation); ctx.scale(command.facing * command.scaleX, command.scaleY);
-        const sx = command.frame % this.atlas.columns * this.atlas.frameWidth;
-        const sy = Math.floor(command.frame / this.atlas.columns) * this.atlas.frameHeight;
-        ctx.drawImage(this.images.character, sx, sy, this.atlas.frameWidth, this.atlas.frameHeight,
-          -this.atlas.anchor.x, -this.atlas.anchor.y, this.atlas.frameWidth, this.atlas.frameHeight);
+      } else {
+        const image = command.sheet === 'boss' ? this.bossImage : this.images.character;
+        const atlas = command.sheet === 'boss' ? this.bossAtlas : this.atlas;
+        if (image && atlas && Number.isInteger(command.frame) && command.frame >= 0 && command.frame < atlas.columns * atlas.rows) {
+          ctx.rotate(command.rotation); ctx.scale(command.facing * command.scaleX, command.scaleY);
+          const sx = command.frame % atlas.columns * atlas.frameWidth;
+          const sy = Math.floor(command.frame / atlas.columns) * atlas.frameHeight;
+          ctx.drawImage(image, sx, sy, atlas.frameWidth, atlas.frameHeight,
+            -atlas.anchor.x, -atlas.anchor.y, atlas.frameWidth, atlas.frameHeight);
+        }
       }
       ctx.restore();
     }

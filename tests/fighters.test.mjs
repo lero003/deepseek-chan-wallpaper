@@ -3,10 +3,10 @@ import test from 'node:test';
 import { createGame, advanceGame, command, setFocus, setMovement, requestAction, gameUI } from '../src/fighters/game.ts';
 import { spawnEnemy } from '../src/fighters/enemy-brain.ts';
 import { damageHero } from '../src/fighters/combat.ts';
-import { enterPhase, desiredCamera } from '../src/fighters/director.ts';
+import { enterPhase, desiredCamera, startEpisode } from '../src/fighters/director.ts';
 import { seedFromText } from '../src/world/world.ts';
 import { canStand, moveOnFloor } from '../src/fighters/movement.ts';
-import { HERO, LIMITS, ROOM_INCIDENTS, ROOM_SECTIONS, RUN_SECTIONS, STAGE_WIDTH } from '../src/fighters/definitions.ts';
+import { ARENA, HERO, LIMITS, ROOM_INCIDENTS, ROOM_SECTIONS, RUN_SECTIONS, STAGE_WIDTH } from '../src/fighters/definitions.ts';
 
 const make = seed => createGame(seedFromText(seed ?? 'fighters-run'));
 const ticks = (g, count) => { for (let i = 0; i < count; i++) advanceGame(g, 1 / 60); };
@@ -17,8 +17,9 @@ function dueIncident(seed = 'room-incident') {
   ticks(g, 1);
   return g;
 }
+/** Isolated legacy combat fixture; new manual arena progression is tested separately. */
 function arena() {
-  const g = make(); command(g, 'play'); setFocus(g, true); enterPhase(g, 'battle');
+  const g = make(); g.mode = 'manual'; startEpisode(g, 'full'); setFocus(g, true); enterPhase(g, 'battle');
   g.graceUntil = 0; return g;
 }
 function manualBot(g) {
@@ -45,7 +46,8 @@ test('encounter off preserves quiet life indefinitely without enemies or project
 test('input is ignored in auto, without focus, and while paused', () => {
   const g=make(); requestAction(g,'attack'); setMovement(g,1,1); assert.equal(g.hero.attackQueue,0);
   command(g,'play'); requestAction(g,'attack'); assert.equal(g.hero.attackQueue,0);
-  setFocus(g,true); requestAction(g,'attack'); assert.equal(g.hero.attackQueue,1);
+  setFocus(g,true); requestAction(g,'attack'); assert.equal(g.hero.attackQueue,0,'intro rejects attacks');
+  ticks(g,ARENA.introTicks); requestAction(g,'attack'); assert.equal(g.hero.attackQueue,1);
   command(g,'pause'); requestAction(g,'attack'); assert.equal(g.hero.attackQueue,0);
 });
 test('focus loss releases movement and refocus adds a grace second', () => {
@@ -77,8 +79,8 @@ test('stage bounds and furniture constrain feet across the full route', () => {
   assert.equal(p.x,g.stage.bounds.right); assert.equal(g.stage.width,STAGE_WIDTH);
   assert.equal(canStand(g.stage,3200,235),true);
 });
-test('the manual run is a scrolling route: twelve sections, side entrances, boss finish', () => {
-  const g=make(); command(g,'play'); setFocus(g,true);
+test('legacy startEpisode full keeps twelve scrolling sections, side entrances and its boss finish', () => {
+  const g=make(); g.mode='manual'; startEpisode(g,'full'); setFocus(g,true);
   const phases=new Set(), areas=new Set(); let sideSpawns=0; const seen=new Set();
   const started=g.tick; let elapsed=0;
   for(let i=0;i<600*60 && g.phase!=='result' && g.phase!=='retry';i++){
@@ -115,15 +117,15 @@ test('the "see an event" demo shows the same small room incident as the wallpape
   assert.equal(phases.has('boss'),false,'the demo no longer marches the 4-area route');
   assert.equal(g.bossSpawned,false); assert.equal(gameUI(g).mode,'auto');
 });
-test('handing control to a wallpaper event promotes it to the full manual route', () => {
+test('handing control to a wallpaper event starts a fresh fixed-terrace match', () => {
   const g=make(); command(g,'demo'); ticks(g,320);
   assert.equal(g.route,'room'); assert.equal(g.mode,'auto');
   command(g,'play'); setFocus(g,true);
-  assert.equal(g.mode,'manual'); assert.equal(g.route,'full');
+  assert.equal(g.mode,'manual'); assert.equal(g.route,'arena');
   assert.equal(g.phase,'intro'); assert.equal(g.enemies.length,0);
-  let guard=0;
-  while(!g.sectionLocked&&guard++<400){setMovement(g,1,0);advanceGame(g,1/60);}
-  assert.ok(g.sectionLocked,'the promoted route reaches its first arena');
+  assert.equal(g.hero.x,ARENA.heroX); assert.equal(g.cameraX,ARENA.cameraX);
+  ticks(g,ARENA.introTicks);
+  assert.ok(g.sectionLocked,'the match starts its first round without moving');
   assert.ok(g.enemies.length>0);
 });
 test('return to wallpaper clears combat and keeps encounter preferences', () => {
@@ -188,21 +190,19 @@ test('room incidents vary their composition and stay room-sized and boss-free', 
   }
   assert.ok(picked.size>=2,'different incidents pick different room compositions');
 });
-test('taking over a room incident restarts the full manual route', () => {
+test('taking over a live room incident discards visitors and starts arena round one', () => {
   const g=dueIncident('room-takeover');
   let guard=0;
   while((g.phase!=='battle'||!g.sectionLocked)&&guard++<600)advanceGame(g,1/60);
   assert.equal(g.route,'room'); assert.ok(g.enemies.length>0);
   command(g,'play');
-  assert.equal(g.mode,'manual'); assert.equal(g.route,'full');
+  assert.equal(g.mode,'manual'); assert.equal(g.route,'arena');
   assert.equal(g.phase,'intro'); assert.equal(g.section,0); assert.equal(g.enemies.length,0);
-  assert.equal(g.hero.x,120,'the full route starts at its own home position');
-  setFocus(g,true);
-  let steps=0;
-  while(!g.sectionLocked&&steps++<400){setMovement(g,1,0);advanceGame(g,1/60);}
-  assert.ok(g.sectionLocked,'the full route reaches its first arena');
-  assert.equal(g.stats.sections,1);
-  setMovement(g,0,0);
+  assert.equal(g.hero.x,ARENA.heroX,'the terrace match starts at its fixed mark');
+  assert.equal(g.runStats.episodes,1); assert.equal(g.runStats.hits,0); assert.equal(g.runTicks,0);
+  setFocus(g,true); ticks(g,ARENA.introTicks);
+  assert.ok(g.sectionLocked,'round one starts without traversing the old route');
+  assert.equal(g.stats.sections,1); assert.equal(g.runStats.sections,1);
 });
 test('room incidents keep the off/low/normal encounter settings', () => {
   const g=make('room-frequency'); assert.equal(g.frequency,'low');

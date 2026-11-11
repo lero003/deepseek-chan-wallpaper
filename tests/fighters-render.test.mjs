@@ -11,7 +11,7 @@ import { parseAtlas } from '../src/render/atlas.ts';
 import { SceneRenderer } from '../src/render/renderer.ts';
 import { motesFor, scenePlan } from '../src/render/scene-plan.ts';
 import { PLACEHOLDER_LAYOUT, SUNSET_LAYOUT } from '../src/art/scene-profiles.ts';
-import { STAGE_WIDTH } from '../src/fighters/definitions.ts';
+import { ARENA, ARENA_ROUNDS, BOSS, STAGE_WIDTH } from '../src/fighters/definitions.ts';
 import { seedFromText } from '../src/world/world.ts';
 
 const atlas=parseAtlas(JSON.parse(await readFile(new URL('../assets/character/atlas.json',import.meta.url),'utf8')));
@@ -30,6 +30,59 @@ test('manual preview never leaks a HUD or combat actors onto the passive wallpap
   assert.ok(preview.battle);assert.equal(wallpaper.battle,undefined);assert.equal(wallpaper.overlay,undefined);
   const original=scenePlan(g.world,atlas,motesFor(g.world.seed),PLACEHOLDER_LAYOUT);
   assert.deepEqual(wallpaper.quads,original.quads);
+});
+test('arena presentation frames the round without GO or a scrolling chapter banner',()=>{
+  const g=make();command(g,'play');setFocus(g,true);g.phaseAge=30;
+  const opening=gamePlan(freeze(g),atlas,SUNSET_LAYOUT);
+  assert.equal(opening.battle.cameraX,ARENA.cameraX);
+  const texts=opening.battle.commands.filter(item=>item.kind==='text').map(item=>item.text);
+  assert.ok(texts.includes(ARENA_ROUNDS[0].label));
+  assert.ok(texts.some(text=>text.includes('ROUND 1 / 3')));
+  assert.equal(texts.some(text=>text.includes('第一幕')||text.includes('海辺まで')),false);
+});
+test('the rival is visible during the safe boss face-off without creating a combat enemy',()=>{
+  const g=make();command(g,'play');setFocus(g,true);g.section=2;enterPhase(g,'bossIntro');g.phaseAge=40;
+  const before=JSON.stringify(g), plan=gamePlan(freeze(g),atlas,SUNSET_LAYOUT);
+  assert.equal(JSON.stringify(g),before,'drawing must never spawn an enemy or consume randomness');
+  assert.equal(g.enemies.length,0);
+  assert.ok(plan.battle.commands.some(item=>item.kind==='text'&&item.text.includes(BOSS.name)));
+  assert.ok(plan.battle.commands.some(item=>item.kind==='rect'&&item.x>270&&item.y>120),'the opponent is drawn beside the heroine');
+});
+test('the rival marks the dash lane on the floor before a thought-step lunge',()=>{
+  const g=make();command(g,'play');setFocus(g,true);g.section=2;enterPhase(g,'boss');
+  const boss=spawnEnemy(g,'boss',0,ARENA.enemyX,ARENA.heroY,-1,false);
+  assert.ok(boss);
+  const lane=()=>gamePlan(g,atlas,SUNSET_LAYOUT).battle.commands.filter(item=>item.kind==='rect'&&item.color==='#d98a83');
+  boss.state='windup';boss.pattern=2;boss.age=10;
+  const lunge=lane();
+  assert.ok(lunge.length>=4,'the lunge floor lane must be visible during windup');
+  assert.ok(lunge.some(item=>item.x>60&&item.x<ARENA.enemyX-ARENA.cameraX),'the lane runs from the rival toward the heroine side');
+  boss.pattern=0;
+  assert.equal(lane().length,0,'other patterns must not draw a dash lane');
+});
+test('results count this bout rather than time spent in the wallpaper or earlier games',()=>{
+  const g=make();command(g,'play');g.phase='result';g.outcome='win';g.section=3;
+  g.tick=60000;g.runTicks=600;g.stats.hits=999;g.runStats.hits=7;
+  const worldX=g.world.actor.x, result=gamePlan(freeze(g),atlas,SUNSET_LAYOUT);
+  const texts=result.overlay.filter(item=>item.kind==='text').map(item=>item.text);
+  assert.ok(result.x>310,'the result paper must not hide the returning heroine');
+  assert.equal(result.frame,atlas.animations.idle.frames[0]);
+  for(const shadow of result.quads.slice(-2))assert.equal(shadow.x+(shadow.width-1)/2,result.x,'the contact shadow follows the composed heroine');
+  assert.equal(g.world.actor.x,worldX,'result composition never repositions the living world');
+  assert.ok(texts.some(text=>text.includes('命中 7')));
+  assert.equal(texts.some(text=>text.includes('999')),false);
+  assert.ok(texts.some(text=>text.includes('所要 10秒')));
+});
+test('the arena return fades into the exact room presentation before the result, without a 120px jump',()=>{
+  const g=make();command(g,'play');g.phase='return';g.phaseAge=ARENA.teleportTick+40;g.outcome='win';
+  const returning=gamePlan(g,atlas,SUNSET_LAYOUT);
+  assert.equal(returning.battle,undefined,'the quiet room, not the shifted legacy route, is revealed under the fade');
+  assert.ok(returning.overlay.some(item=>item.kind==='rect'&&item.width===480&&item.color==='#f6dcb4'));
+  g.phase='result';const result=gamePlan(g,atlas,SUNSET_LAYOUT);
+  assert.equal(returning.x,result.x);assert.equal(returning.frame,result.frame);assert.equal(returning.facing,result.facing);
+  assert.deepEqual(returning.quads,result.quads);
+  const wallpaper=gamePlan(g,atlas,SUNSET_LAYOUT,true,'wallpaper');
+  assert.equal(wallpaper.x,g.world.actor.x,'the passive wallpaper still follows its own world');
 });
 test('actors draw by ground depth, and the heroine wins same-depth ties',()=>{
   const g=make();command(g,'play');setFocus(g,true);enterPhase(g,'battle');

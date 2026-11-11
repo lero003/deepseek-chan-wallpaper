@@ -1,12 +1,14 @@
 import { ATTACKS, HERO } from './definitions.ts';
 import { effect, say } from './events.ts';
 import { direction, moveOnFloor, clamp } from './movement.ts';
+import { recordStat } from './factory.ts';
+import { arcadeDamage, scoreHit } from './arcade.ts';
 import type { Enemy, FightersGame } from './types.ts';
 
 export const inBattle = (game: FightersGame): boolean => game.phase === 'battle' || game.phase === 'boss';
 
 export function damageEnemy(game: FightersGame, enemy: Enemy, amount: number, knockback: number): void {
-  if (enemy.hp <= 0 || enemy.state === 'exit') return;
+  if (game.route === 'arena' && !inBattle(game) || enemy.hp <= 0 || enemy.state === 'exit') return;
   const before = enemy.hp;
   enemy.hp = Math.max(0, enemy.hp - amount);
   // Small hits do not erase a boss telegraph; the third hit/special can interrupt it.
@@ -14,10 +16,11 @@ export function damageEnemy(game: FightersGame, enemy: Enemy, amount: number, kn
     enemy.vx = game.hero.facing * knockback; enemy.vy = 0; enemy.age = 0;
     enemy.state = enemy.hp === 0 ? 'exit' : 'stunned';
   }
-  game.lastProgressAt = game.tick; game.stats.hits++;
+  game.lastProgressAt = game.tick; recordStat(game, 'hits');
   game.hero.gauge = Math.min(100, game.hero.gauge + 13);
   game.hero.hitCombo = game.combatTick <= game.hero.hitComboUntil ? game.hero.hitCombo + 1 : 1;
   game.hero.hitComboUntil = game.combatTick + 120;
+  scoreHit(game, enemy, before - enemy.hp);
   game.hitstop = Math.max(game.hitstop, amount >= 2 ? 5 : 3);
   const height = enemy.kind === 'boss' ? 40 : enemy.kind === 'popup' ? 18 : 12;
   effect(game, amount >= 2 ? 'ring' : 'spark', enemy.x, enemy.y - height, '', amount >= 2 ? 28 : 24);
@@ -39,8 +42,9 @@ export function damageEnemy(game: FightersGame, enemy: Enemy, amount: number, kn
 
 export function damageHero(game: FightersGame, fromX: number): void {
   const hero = game.hero;
-  if (game.combatTick < game.graceUntil || game.combatTick < hero.invulnerableUntil || hero.hp <= 0) return;
+  if (game.route === 'arena' && !inBattle(game) || game.combatTick < game.graceUntil || game.combatTick < hero.invulnerableUntil || hero.hp <= 0) return;
   hero.hp = Math.max(game.mode === 'auto' ? 1 : 0, hero.hp - 1);
+  recordStat(game, 'damageTaken'); arcadeDamage(game);
   hero.gauge = Math.min(100, hero.gauge + 5); hero.state = hero.hp === 0 ? 'down' : 'hurt'; hero.age = 0;
   hero.invulnerableUntil = game.combatTick + 58;
   hero.vx = hero.x >= fromX ? 55 : -55; hero.vy = 0; hero.attackQueue = 0;
@@ -58,7 +62,7 @@ function beginAttack(game: FightersGame): void {
   hero.combo = game.combatTick <= hero.comboUntil ? hero.combo % 3 + 1 : 1;
   const attack = ATTACKS[hero.combo - 1]!;
   hero.state = 'attack'; hero.age = 0; hero.attackId++; hero.hitIds = [];
-  if (hero.attackId === game.whiffAttackId) game.stats.misses++;
+  if (hero.attackId === game.whiffAttackId) recordStat(game, 'misses');
   hero.comboUntil = game.combatTick + attack.windup + attack.active + attack.recovery + HERO.comboWindow;
   hero.attackQueue--; hero.queueUntil = game.combatTick + HERO.comboWindow;
 }
@@ -98,7 +102,7 @@ export function updateHero(game: FightersGame): void {
     const d = direction(game.input.x || (game.input.y ? 0 : hero.facing), game.input.y);
     hero.state = 'dodge'; hero.age = 0; hero.vx = d.x * HERO.dodgeSpeed; hero.vy = d.y * HERO.dodgeSpeed * .65;
     hero.invulnerableUntil = game.combatTick + 20; hero.dodgeReadyAt = game.combatTick + HERO.dodgeCooldown;
-    hero.attackQueue = 0; game.stats.dodges++;
+    hero.attackQueue = 0; recordStat(game, 'dodges');
     effect(game, 'bubbles', hero.x, hero.y - 12, '', 22);
     effect(game, 'dust', hero.x - d.x * 10, hero.y, '', 20, { vx: -d.x * 20, vy: -8 });
     return;
@@ -106,7 +110,7 @@ export function updateHero(game: FightersGame): void {
   game.pendingDodge = false;
   if (game.pendingSpecial && hero.gauge >= 100) {
     game.pendingSpecial = false; hero.gauge = 0; hero.state = 'special'; hero.age = 0;
-    hero.invulnerableUntil = game.combatTick + 46; hero.attackQueue = 0; game.stats.specials++;
+    hero.invulnerableUntil = game.combatTick + 46; hero.attackQueue = 0; recordStat(game, 'specials');
     return;
   }
   game.pendingSpecial = false;
@@ -125,15 +129,17 @@ export function updateHero(game: FightersGame): void {
     }
     if (hero.age >= attack.windup + attack.active + attack.recovery) {
       if (hero.hitIds.length === 0 && hero.attackId !== game.whiffAttackId) {
-        game.stats.misses++;
+        recordStat(game, 'misses');
         effect(game, 'dust', hero.x + hero.facing * 28, hero.y - 36, '', 18, { vx: hero.facing * 18, vy: -6 });
       }
       hero.state = 'idle'; hero.age = 0;
     } else return;
   }
-  if (hero.attackQueue > 0) { beginAttack(game); return; }
+  // The direction held on the same tick as the attack decides its facing. Pausing input
+  // until after beginAttack() made a same-tick "left + J" swing the wrong way.
   const d = direction(game.input.x, game.input.y);
   if (d.x !== 0) hero.facing = d.x < 0 ? -1 : 1;
+  if (hero.attackQueue > 0) { beginAttack(game); return; }
   moveOnFloor(hero, d.x * HERO.walkSpeed / 60, d.y * HERO.depthSpeed / 60, game.stage);
   if ((d.x || d.y) && game.combatTick % 22 === 0) effect(game, 'dust', hero.x - hero.facing * 6, hero.y, '', 16, { vy: -5 });
   const nextState = d.x || d.y ? 'walk' : 'idle';

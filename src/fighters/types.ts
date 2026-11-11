@@ -1,7 +1,9 @@
 import type { World, Scene, Facing } from '../world/world.ts';
+import type { ArcadeState, ArcadeUI } from './arcade.ts';
 
 export type Mode = 'auto' | 'manual';
-export type Phase = 'rest' | 'intro' | 'battle' | 'bossIntro' | 'boss' | 'victory' | 'return' | 'result' | 'retry';
+export type Phase = 'rest' | 'intro' | 'battle' | 'roundClear' | 'bossIntro' | 'boss' | 'victory' | 'return' | 'result' | 'retry';
+export type Route = 'short' | 'skirmish' | 'auto' | 'full' | 'room' | 'arena';
 export type Frequency = 'off' | 'low' | 'normal';
 export type EnemyKind = 'slime' | 'popup' | 'boss';
 export type Action = 'attack' | 'dodge' | 'special';
@@ -35,14 +37,16 @@ export interface Effect extends Point {
   id: number; kind: EffectKind; age: number; ttl: number; text: string;
   vx: number; vy: number; gravity: number; spin: number; size: number;
 }
-export interface GameStats { episodes: number; wins: number; losses: number; hits: number; misses: number; dodges: number; specials: number; recoveries: number; maxEnemies: number; maxProjectiles: number; maxEffects: number; sections: number }
+export interface GameStats { episodes: number; wins: number; losses: number; hits: number; misses: number; dodges: number; specials: number; damageTaken: number; recoveries: number; maxEnemies: number; maxProjectiles: number; maxEffects: number; sections: number }
 export interface FightersGame {
   world: World; scene: Scene; stage: Stage; tick: number; combatTick: number; remainder: number;
   mode: Mode; phase: Phase; phaseAge: number; focused: boolean; paused: boolean;
   frequency: Frequency; effectsLow: boolean; nextEventAt: number; restReactionAt: number;
   eventStartedAt: number; lastProgressAt: number; graceUntil: number; hitstop: number;
   randomState: number; nextId: number; episode: 'quiet' | 'skirmish' | 'boss';
-  route: 'short' | 'skirmish' | 'auto' | 'full' | 'room'; section: number; sectionLocked: boolean; wave: number; routeTick: number;
+  route: Route; section: number; sectionLocked: boolean; wave: number; routeTick: number;
+  /** Unpaused/focused elapsed steps, including hitstop; retry/result screens do not count. */
+  runTicks: number; runStats: GameStats; arcade: ArcadeState;
   /** Which ROOM_INCIDENTS composition the current room event picked. Unused on the long routes. */
   roomVariant: number;
   areaIndex: number; areaBannerUntil: number; bossSpawned: boolean;
@@ -56,4 +60,5 @@ export interface GameUI {
   combo: number; dodgeReady: boolean; specialReady: boolean; outcome: string;
   message: string; frequency: Frequency; effectsLow: boolean; enemies: number; bossHP: number;
   section: number; sections: number; locked: boolean; areaName: string; areaSubtitle: string; progress: number;
+  route: Route; round: number; rounds: number; roundLabel: string; elapsedSeconds: number; runStats: GameStats; arcade: ArcadeUI;
 }

@@ -1,14 +1,15 @@
 import {
-  AREAS, AUTO_SECTIONS, HERO, LIMITS, ROOM_INCIDENTS, ROOM_PADDING, ROOM_SECTIONS, RUN_SECTIONS,
-  SHORT_SECTIONS, SKIRMISH_SECTIONS, STAGE_WIDTH,
+  AREAS, ARENA, ARENA_ROUNDS, AUTO_SECTIONS, HERO, LIMITS, ROOM_INCIDENTS, ROOM_PADDING, ROOM_SECTIONS, RUN_SECTIONS,
+  SHORT_SECTIONS, SKIRMISH_SECTIONS, STAGE_WIDTH, arenaStage, studyStage,
 } from './definitions.ts';
 import type { RoomIncident, SectionDefinition } from './definitions.ts';
 import { inBattle } from './combat.ts';
 import { decision, effect, clearInputs } from './events.ts';
 import { spawnEnemy } from './enemy-brain.ts';
-import { newHero } from './factory.ts';
+import { newHero, newStats, recordStat } from './factory.ts';
+import { clearArcadeRound, newArcade, startArcadeRound } from './arcade.ts';
 import { clamp } from './movement.ts';
-import type { FightersGame, Phase } from './types.ts';
+import type { FightersGame, Phase, Route } from './types.ts';
 
 /**
  * Room incidents are short by design: a small wave of visitors, a brief celebration and the
@@ -17,6 +18,7 @@ import type { FightersGame, Phase } from './types.ts';
 const ROOM_TICKS = { intro: 90, victory: 180, teleport: 70, return: 150 } as const;
 
 export function routeSections(game: FightersGame): readonly SectionDefinition[] {
+  if (game.route === 'arena') return ARENA_ROUNDS;
   if (game.route === 'full') return RUN_SECTIONS;
   if (game.route === 'auto') return AUTO_SECTIONS;
   if (game.route === 'room') return ROOM_SECTIONS;
@@ -26,6 +28,10 @@ export function isRoomRoute(game: FightersGame): boolean { return game.route ===
 
 export function enterPhase(game: FightersGame, phase: Phase): void {
   game.phase = phase; game.phaseAge = 0; game.lastProgressAt = game.tick;
+  if (game.route === 'arena' && !inBattle(game)) {
+    clearInputs(game);
+    if (phase !== 'retry') { game.hero.state = 'idle'; game.hero.age = 0; }
+  }
 }
 export function scheduleRest(game: FightersGame): void {
   const minimum = game.frequency === 'normal' ? 80 : 170;
@@ -33,9 +39,10 @@ export function scheduleRest(game: FightersGame): void {
   game.nextEventAt = game.frequency === 'off' ? Number.MAX_SAFE_INTEGER : game.tick + Math.round((minimum + decision(game) * variation) * 60);
   game.restReactionAt = game.tick + Math.round((20 + decision(game) * 24) * 60);
 }
-export function startEpisode(game: FightersGame, route: 'short' | 'skirmish' | 'auto' | 'full' | 'room'): void {
+export function startEpisode(game: FightersGame, route: Route): void {
   clearInputs(game);
   const room = route === 'room';
+  game.stage = route === 'arena' ? arenaStage(game.scene) : studyStage(game.scene);
   // The room incident begins wherever the quiet heroine already stands, in the room's own
   // art coordinates; the long routes keep the hero at the start of the 3600px stage.
   if (room) game.roomVariant = Math.floor(decision(game) * ROOM_INCIDENTS.length) % ROOM_INCIDENTS.length;
@@ -47,15 +54,89 @@ export function startEpisode(game: FightersGame, route: 'short' | 'skirmish' | '
   game.eventStartedAt = game.tick; game.outcome = 'none'; game.cameraX = 0;
   game.areaIndex = 0; game.areaBannerUntil = room ? 0 : game.tick + 130; game.routeTick = game.tick;
   game.firstWhiff = true; game.whiffAttackId = -1;
-  game.stats.episodes++; game.stats.sections = 0;
-  enterPhase(game, 'intro');
+  game.runTicks = 0; game.runStats = newStats(); game.arcade = newArcade();
+  recordStat(game, 'episodes'); game.stats.sections = 0;
+  game.message = ''; game.messageUntil = 0;
+  if (route === 'arena') prepareArenaRound(game);
+  else enterPhase(game, 'intro');
 }
 export function returnHome(game: FightersGame): void {
   clearInputs(game); game.projectiles = []; game.enemies = []; game.paused = false; game.mode = 'auto'; game.focused = false;
+  if (game.route === 'arena') { game.effects = []; game.hitstop = 0; }
   const homeOffset = game.route === 'room' ? 0 : game.stage.homeOffset;
+  game.stage = studyStage(game.scene);
   game.cameraX = 0; game.hero = newHero(game.world.actor.x + homeOffset, game.world.floorY);
   game.sectionLocked = false; game.outcome = 'none';
   enterPhase(game, 'rest'); scheduleRest(game);
+}
+
+/** Each round has a safe, empty introduction. No traversal unlocks the fight. */
+function prepareArenaRound(game: FightersGame, retry = false): void {
+  startArcadeRound(game, retry);
+  const hp = game.hero.hp, gauge = game.hero.gauge;
+  clearInputs(game);
+  game.stage = arenaStage(game.scene);
+  game.hero = newHero(ARENA.heroX, ARENA.heroY);
+  game.hero.hp = hp; game.hero.gauge = gauge;
+  game.enemies = []; game.projectiles = []; game.effects = []; game.hitstop = 0;
+  game.sectionLocked = false; game.wave = 0; game.bossSpawned = false;
+  game.cameraX = ARENA.cameraX; game.areaIndex = 1; game.areaBannerUntil = 0;
+  enterPhase(game, ARENA_ROUNDS[game.section]?.boss ? 'bossIntro' : 'intro');
+}
+function beginArenaBattle(game: FightersGame): void {
+  const round = ARENA_ROUNDS[game.section];
+  if (!round) { victory(game); return; }
+  clearInputs(game);
+  game.sectionLocked = true;
+  round.spawns.forEach((spawn, index) => {
+    const x = round.boss ? ARENA.enemyX : ARENA.enemyX + (index % 2) * 44;
+    const y = round.boss ? ARENA.heroY : ARENA.heroY + (index === 0 ? 0 : index % 2 ? -8 : 8);
+    spawnEnemy(game, spawn.kind, spawn.variant, x, y, -1, false);
+  });
+  game.bossSpawned = Boolean(round.boss);
+  // A replayed round is still the same round, not another completed/visited section.
+  game.stats.sections = Math.max(game.stats.sections, game.section + 1);
+  game.runStats.sections = Math.max(game.runStats.sections, game.section + 1);
+  enterPhase(game, round.boss ? 'boss' : 'battle');
+  game.graceUntil = game.combatTick + HERO.graceTicks;
+}
+/** Keep actors readable in the fixed terrace even after knockback, dodge or a lunge. */
+function constrainArenaActors(game: FightersGame): void {
+  game.cameraX = ARENA.cameraX;
+  for (const actor of [game.hero, ...game.enemies]) {
+    actor.x = clamp(actor.x, ARENA.left, ARENA.right);
+    actor.y = clamp(actor.y, ARENA.top, ARENA.bottom);
+  }
+  for (const enemy of game.enemies) enemy.targetX = clamp(enemy.targetX, ARENA.left, ARENA.right);
+}
+function updateArenaRound(game: FightersGame): void {
+  constrainArenaActors(game);
+  switch (game.phase) {
+    case 'intro':
+      if (game.phaseAge >= ARENA.introTicks) beginArenaBattle(game);
+      break;
+    case 'bossIntro':
+      if (game.phaseAge >= ARENA.bossIntroTicks) beginArenaBattle(game);
+      break;
+    case 'battle':
+    case 'boss':
+      if (!game.enemies.some(enemy => enemy.hp > 0 && enemy.state !== 'exit')) {
+        game.projectiles = []; game.hitstop = 0; game.sectionLocked = false;
+        clearArcadeRound(game);
+        if (game.phase === 'boss') { game.section = ARENA_ROUNDS.length; victory(game); }
+        else {
+          // Leave the defeat particles, not frozen exit-pose bodies, behind the clear card.
+          game.enemies = [];
+          game.hero.hp = Math.min(HERO.hp, game.hero.hp + 1);
+          enterPhase(game, 'roundClear');
+        }
+      }
+      break;
+    case 'roundClear':
+      if (game.phaseAge >= ARENA.roundClearTicks) { game.section++; prepareArenaRound(game); }
+      break;
+    default: break;
+  }
 }
 
 function roomIncident(game: FightersGame): RoomIncident {
@@ -115,14 +196,14 @@ function lockSection(game: FightersGame, section: SectionDefinition): void {
   game.graceUntil = game.combatTick + 45;
   game.lastProgressAt = game.tick;
   spawnEncounter(game, section, 0);
-  game.stats.sections++;
+  recordStat(game, 'sections');
   if (section.boss) {
     game.bossSpawned = true;
     enterPhase(game, 'bossIntro');
   }
 }
 function victory(game: FightersGame): void {
-  if (game.outcome !== 'win') game.stats.wins++;
+  if (game.outcome !== 'win') recordStat(game, 'wins');
   game.outcome = 'win'; game.projectiles = [];
   for (const enemy of game.enemies) { enemy.hp = 0; enemy.state = 'exit'; enemy.age = 0; enemy.vx = 30; }
   clearInputs(game); game.hero.state = 'idle'; game.hero.age = 0;
@@ -140,8 +221,16 @@ function victory(game: FightersGame): void {
 }
 
 function retrySection(game: FightersGame): void {
+  if (game.phase === 'result') { startEpisode(game, game.route); return; }
+  if (game.phase !== 'retry' && !inBattle(game)) return;
   clearInputs(game);
-  game.enemies = []; game.projectiles = []; game.effects = [];
+  if (game.route === 'arena') {
+    game.hero.hp = HERO.hp; game.hero.gauge = 0;
+    game.outcome = 'none';
+    prepareArenaRound(game, true);
+    return;
+  }
+  game.enemies = []; game.projectiles = []; game.effects = []; game.hitstop = 0;
   const sections = routeSections(game);
   const section = sections[game.section];
   const spawnX = section ? clamp(section.arena - 60, 60, STAGE_WIDTH - 60) : 120;
@@ -199,17 +288,22 @@ export function updateDirector(game: FightersGame): void {
   // Watchdogs only run for the automatic wallpaper event.
   if (game.mode === 'auto' && !['return', 'victory'].includes(game.phase)) {
     if (game.tick - game.eventStartedAt > LIMITS.autoSeconds * 60) {
-      game.stats.recoveries++; victory(game); return;
+      recordStat(game, 'recoveries'); victory(game); return;
     }
     if (game.sectionLocked && game.tick - game.lastProgressAt > LIMITS.stallSeconds * 60) {
       const target = game.enemies.find(enemy => enemy.hp > 0);
       if (target) { target.x = clamp(game.hero.x + 40 * game.hero.facing, 55, STAGE_WIDTH - 55); target.y = game.hero.y; target.state = 'stunned'; target.age = 0; }
-      game.hero.gauge = 100; game.lastProgressAt = game.tick; game.stats.recoveries++;
+      game.hero.gauge = 100; game.lastProgressAt = game.tick; recordStat(game, 'recoveries');
     }
   }
   if (game.hero.hp <= 0 && game.mode === 'manual') {
-    game.stats.losses++; game.outcome = 'loss'; clearInputs(game);
+    recordStat(game, 'losses'); game.outcome = 'loss'; clearInputs(game);
+    game.projectiles = []; game.hitstop = 0;
     enterPhase(game, 'retry');
+    return;
+  }
+  if (game.route === 'arena' && !['victory', 'return'].includes(game.phase)) {
+    updateArenaRound(game);
     return;
   }
 
@@ -266,16 +360,19 @@ export function updateDirector(game: FightersGame): void {
       }
       break;
     case 'victory':
-      if (game.phaseAge >= (game.route === 'room' ? ROOM_TICKS.victory : 150)) { clearInputs(game); enterPhase(game, 'return'); }
+      if (game.phaseAge >= (game.route === 'room' ? ROOM_TICKS.victory : ARENA.victoryTicks)) { clearInputs(game); enterPhase(game, 'return'); }
       break;
     case 'return': {
       // Fade back home instead of walking 3000px.
-      if (game.phaseAge === ROOM_TICKS.teleport) {
+      const teleportTick = game.route === 'arena' ? ARENA.teleportTick : ROOM_TICKS.teleport;
+      const returnTicks = game.route === 'arena' ? ARENA.returnTicks : ROOM_TICKS.return;
+      if (game.phaseAge === teleportTick) {
         const homeOffset = game.route === 'room' ? 0 : game.stage.homeOffset;
+        game.stage = studyStage(game.scene);
         game.hero = newHero(game.world.actor.x + homeOffset, game.world.floorY);
         game.cameraX = 0; game.enemies = []; game.projectiles = []; game.effects = [];
       }
-      if (game.phaseAge >= ROOM_TICKS.return) {
+      if (game.phaseAge >= returnTicks) {
         if (game.mode === 'manual') enterPhase(game, 'result');
         else { enterPhase(game, 'rest'); scheduleRest(game); }
       }
@@ -289,6 +386,8 @@ export function updateDirector(game: FightersGame): void {
 export function desiredCamera(game: FightersGame): number {
   // Room incidents use the room's own art coordinates and never scroll.
   if (game.route === 'room') return 0;
+  if (game.route === 'arena') return ['rest', 'result'].includes(game.phase)
+    || game.phase === 'return' && game.phaseAge >= ARENA.teleportTick ? 0 : ARENA.cameraX;
   if (game.phase === 'return') return 120;
   const sections = routeSections(game);
   const current = sections[game.section];

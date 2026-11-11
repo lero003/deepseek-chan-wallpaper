@@ -152,17 +152,22 @@ body:has(dialog[open]) { overflow: hidden; }
 }
 /* Fighters is an optional leaf mode; the quiet gallery stays the default. */
 .scene:focus-visible { outline: 2px solid #c7b595; outline-offset: 3px; }
-.game-controls { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 12px 0 4px; border-bottom: 1px solid var(--line); }
+.game-controls { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 14px 24px; padding: 14px 0 8px; border-bottom: 1px solid var(--line); }
 .game-readout p { margin: 0 0 6px; font-size: 10px; color: var(--muted); line-height: 1.6; }
-#game-health { color: #e5d7bb; font-family: ui-monospace, monospace; }
+.game-readout .game-round { color: #e5d7bb; font-size: 11px; letter-spacing: .07em; }
+#game-health { color: #e5d7bb; font-family: ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+#game-instruction { max-width: 64ch; }
+.bout-button { border-color: #b7a68c; color: #f3e8d4; background: #3c3b44; }
+.bout-button:hover:not(:disabled) { background: #4a4650; }
+#game-retry { border-color: #b7a68c; color: #f3e8d4; }
 .game-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 7px; }
 .game-actions button { min-height: 36px; padding: 7px 10px; font-size: 10px; border: 1px solid #706778; border-radius: 3px; color: #e9dfd0; background: #292c3c; white-space: nowrap; }
 .game-actions button:hover:not(:disabled) { background: #3c3b4c; border-color: #b7a68c; }
 kbd { margin-left: 5px; color: #d2bb91; font-size: 9px; font-family: ui-monospace, monospace; }
 .setting-row select { max-width: 165px; border: 1px solid var(--line); padding: 9px 6px; color: inherit; background: transparent; font: inherit; font-size: 11px; }
 select:focus-visible { outline: 2px solid #dfd9b5; outline-offset: 3px; }
-[data-game-mode="manual"] .scene { height: calc(100dvh - 278px); }
-@media (max-width: 950px) { .game-controls { align-items: flex-start; flex-direction: column; } .game-actions { justify-content: flex-start; } .playback-control { gap: 12px; } }
+[data-game-mode="manual"] .scene { height: calc(100dvh - 302px); }
+@media (max-width: 1100px) { .game-controls { grid-template-columns: minmax(0, 1fr); } .game-actions { justify-content: flex-start; } .playback-control { gap: 12px; } [data-game-mode="manual"] .scene { height: calc(100dvh - 350px); } }
 @media (max-width: 767px) {
   .site-footer { flex-wrap: wrap; padding: 16px 0; }
   .playback-control { flex-wrap: wrap; justify-content: flex-end; gap: 9px; width: 100%; }

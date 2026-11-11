@@ -33,10 +33,15 @@ export class Painter {
   screenTextCentered(x: number, y: number, value: string, color = '#f2e7d2', size = 8, alpha = 1): void {
     this.screenText(x - value.length * size * .5, y, value, color, size, alpha);
   }
-  sprite(x: number, y: number, frame: number, facing: number, alpha = 1, rotation = 0, scaleX = 1, scaleY = 1): void {
-    this.commands.push({ kind: 'sprite', x: Math.round(x - this.cameraX), y: Math.round(y), frame,
+  sprite(x: number, y: number, frame: number, facing: number, alpha = 1, rotation = 0, scaleX = 1, scaleY = 1,
+    sheet?: 'hero' | 'boss', fallback?: readonly DrawCommand[]): void {
+    const command: Extract<DrawCommand, { kind: 'sprite' }> = { kind: 'sprite', x: Math.round(x - this.cameraX), y: Math.round(y), frame,
       facing: facing < 0 ? -1 : 1, alpha: Math.round(Math.min(1, alpha) * 1000) / 1000,
-      rotation: Math.round(rotation * 10000) / 10000, scaleX, scaleY });
+      rotation: Math.round(rotation * 10000) / 10000, scaleX, scaleY };
+    // Preserve the original heroine command byte-shape for wallpaper parity.
+    if (sheet) command.sheet = sheet;
+    if (fallback) command.fallback = fallback;
+    this.commands.push(command);
   }
 }
 

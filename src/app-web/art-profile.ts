@@ -1,4 +1,5 @@
 import type { Scene } from '../world/world.ts';
+import type { BossAtlas } from '../fighters/render-types.ts';
 
 export interface AssetCredit {
   readonly id: string;
@@ -31,6 +32,8 @@ export interface RenderAppearance {
   readonly water?: { readonly left: number; readonly right: number; readonly top: number; readonly bottom: number };
   /** Optional wide backdrop. When absent the renderer falls back to the old edge-stretched room. */
   readonly matte?: MatteInfo;
+  /** Local-only rival sheet geometry; absent/invalid means the original code-only fallback. */
+  readonly bossAtlas?: BossAtlas;
 }
 
 /** A selectable wallpaper background. All variants share the approved 480×270 room geometry. */
@@ -47,6 +50,8 @@ export interface ArtProfile extends RenderAppearance {
   readonly label: string;
   readonly backgroundUrl: string;
   readonly characterUrl: string;
+  /** Optional original rival image; no local file is required by the placeholder profile. */
+  readonly bossUrl?: string;
   /** Optional wallpaper matte image. Only the local production profile provides it. */
   readonly matteUrl?: string;
   /** Additional selectable backgrounds (e.g. night, rain) built from the same room. */

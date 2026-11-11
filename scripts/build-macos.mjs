@@ -50,13 +50,14 @@ await mkdir(resources, { recursive: true });
 for (const name of ['world.js', 'configuration.json', 'manifest.json', 'character/sheet.png', 'character/atlas.json', 'scene/seaside-room.png',
   ...(prepared.layout.matte ? ['scene/seaside-room-matte.png'] : []),
   ...(prepared.configuration.variants ?? []).flatMap(variant => [variant.scene, variant.matte]),
+  ...(prepared.configuration.boss ? [prepared.configuration.boss.sheet, prepared.configuration.boss.atlas] : []),
   'CREDITS.md', 'ART-LICENSE.md']) {
   const destination = resolve(resources, name);
   assert.ok(destination.startsWith(resources + sep));
   await mkdir(dirname(destination), { recursive: true });
   await copyFile(resolve(prepared.resources, name), destination);
 }
-await writeFile(resolve(resources, 'FIGHTERS-README.txt'), `くじらの散歩道 — DeepSeekちゃんファイターズ MVP\n\n初回はプレビューのみ。壁紙は「壁紙にする」で明示的にONにします。\n普段は静かな書斎。小事件は既定で帰還後3〜5分の待ち時間。自動の小事件は書斎の中で起き、カメラは動きません。「事件を見る」で今すぐ確認できます。\n「遊ぶ」で手動。WASD／矢印で移動、J/Zで3段攻撃、K/Xで回避、L/Cでゲージ100の必殺技、Escでゲームポーズ。\n「壁紙へ戻る」でオートへ。「もう一度遊ぶ」で再挑戦。手動入力は前面プレビューだけ。\n壁紙は全モードでクリック透過。手動ゲーム中の壁紙は静かな生活を表示します。\n元の壁紙設定は変更しません。停止・終了はメニューバーから。ログイン自動起動は登録しません。\n少なめ／通常／事件なし、控えめエフェクト、省電力をメニューから選べます。背景はツールバー／メニューバーから夕凪・月夜・雨音を切り替え（設定は保存）。音は常時無音です。\nOS Reduce Motionでは既存方針どおり静止。遊ぶにはその設定を人の判断でご確認ください。\n\nApple Silicon用・個人用のローカル試作、アドホック署名・未公証です。公開・第三者配布は未許諾。\n敵・技・左右背景は仮のピクセル図形。主人公の専用戦闘コマ、音、手動の操作感は後続調整。\n自動テスト／単体起動／ネイティブ描画器の検証は、可視キー操作・壁紙ON/OFF・Space・スリープ・実時間30分負荷の合格ではありません。\n旧版が起動中なら終了してからこの版を開いてください。\n`);
+await writeFile(resolve(resources, 'FIGHTERS-README.txt'), `くじらの散歩道 — DeepSeekちゃんファイターズ MVP\n\n初回はプレビューのみ。壁紙は「壁紙にする」で明示的にONにします。\n普段は静かな書斎。小事件は既定で帰還後3〜5分の待ち時間。自動の小事件は書斎の中で起き、カメラは動きません。「事件を見る」で今すぐ確認できます。\n「テラスで3連戦」で手動。横スクロールなし、雑魚戦2回のあと綴星リュミエと一騎打ち。各ラウンドはREADYのあとFIGHTで開始、90秒のアーケード時計つき。開戦準備・ラウンド間は安全に停止し、自動で次の相手へ進みます。WASD／矢印で間合いを調整、J/Zで3段攻撃、K/Xで回避、L/Cでゲージ100の必殺技、Escでゲームポーズ。\n命中・KO・コンボ倍率・クリアボーナスでSCOREが入り、被弾なし・継続なし・速さでランクが変わります。敗北やTIME UPはそのラウンドの得点を巻き戻して再挑戦（CONTINUE回数は残ります）。\n「壁紙へ戻る」でオートへ。敗北時は「このラウンドを再挑戦」、勝利後は「もう一戦」で最初から。手動入力は前面プレビューだけ。\n壁紙は全モードでクリック透過。手動ゲーム中の壁紙は静かな生活を表示します。\n元の壁紙設定は変更しません。停止・終了はメニューバーから。ログイン自動起動は登録しません。\n少なめ／通常／事件なし、控えめエフェクト、省電力をメニューから選べます。背景はツールバー／メニューバーから夕凪・月夜・雨音を切り替え（設定は保存）。音は常時無音です。\nOS Reduce Motionでは既存方針どおり静止。遊ぶにはその設定を人の判断でご確認ください。\n\nApple Silicon用・個人用のローカル試作、アドホック署名・未公証です。公開・第三者配布は未許諾。\n敵2種・技・戦闘背景は仮のピクセル図形。ボスはClaudeの文章・思考を着想にしたオリジナル美少女のローカル制作案（公式キャラ/Anthropic社の承認ではありません）。主人公の専用戦闘コマ、音、手動の操作感は後続調整。\n自動テスト／単体起動／ネイティブ描画器の検証は、可視キー操作・壁紙ON/OFF・Space・スリープ・実時間30分負荷の合格ではありません。\n旧版が起動中なら終了してからこの版を開いてください。\n`);
 const executable = resolve(macos, 'KujiraWallpaper');
 await copyFile(sourceBinary, executable); await chmod(executable, 0o755);
 run('/usr/bin/strip', ['-S', executable]);
@@ -71,7 +72,7 @@ await writeFile(resolve(contents, 'Info.plist'), `<?xml version="1.0" encoding="
 <key>CFBundleDisplayName</key><string>くじらの散歩道（個人用試作）</string>
 <key>CFBundlePackageType</key><string>APPL</string>
 <key>CFBundleShortVersionString</key><string>${xml(version)}</string>
-<key>CFBundleVersion</key><string>7</string>
+<key>CFBundleVersion</key><string>9</string>
 <key>CFBundleIconFile</key><string>AppIcon</string>
 <key>LSMinimumSystemVersion</key><string>14.0</string>
 <key>LSUIElement</key><false/>
@@ -108,9 +109,15 @@ for (const variant of prepared.configuration.variants ?? []) {
 }
 run(executable, ['--render-room-event', resolve(output, 'native-room-event.png'), '--time', '3']);
 run(executable, ['--render-room-event', resolve(output, 'native-room-event-wide.png'), '--time', '3', '--width', '2048', '--height', '864']);
-run(executable, ['--render-room-event', resolve(output, 'native-room-event-night-wide.png'), '--variant', 'night', '--time', '3', '--width', '2048', '--height', '864']);
-run(executable, ['--render-manual', resolve(output, 'native-manual.png'), '--time', '45']);
+if ((prepared.configuration.variants ?? []).some(variant => variant.id === 'night')) {
+  run(executable, ['--render-room-event', resolve(output, 'native-room-event-night-wide.png'), '--variant', 'night', '--time', '3', '--width', '2048', '--height', '864']);
+}
+run(executable, ['--render-manual', resolve(output, 'native-manual.png'), '--time', '5']);
 run(executable, ['--render-manual', resolve(output, 'native-boss.png'), '--capture-boss', '--time', '180']);
+const phasePreviews = ['intro', 'roundClear', 'bossIntro', 'victory', 'result'];
+for (const phase of phasePreviews) {
+  run(executable, ['--render-manual', resolve(output, `native-arena-${phase}.png`), '--capture-phase', phase, '--time', '180']);
+}
 const files = [];
 async function enumerate(directory, base = app, collection = files) {
   for (const name of await readdir(directory)) {
@@ -126,7 +133,7 @@ assert.ok(files.every(file => !/(^|\/)(node_modules|production|concepts|research
 const architecture = capture('/usr/bin/lipo', ['-archs', executable]);
 const libraries = capture('/usr/bin/otool', ['-L', executable]);
 const systemLibraries = systemLibraryPaths(libraries);
-const zip = resolve(output, `KujiraWallpaper-Wallpaper-Brushup-B7-${architecture.replaceAll(' ', '-')}-local-preview.zip`);
+const zip = resolve(output, `KujiraWallpaper-Arcade-B9-${architecture.replaceAll(' ', '-')}-local-preview.zip`);
 run('/usr/bin/ditto', ['-c', '-k', '--sequesterRsrc', '--keepParent', app, zip]);
 // Legacy unzip console output can corrupt Japanese names under C locales.
 // Validate the real archive more strictly: extract, compare every byte, verify and execute.
@@ -149,8 +156,10 @@ const report = { schemaVersion: 1, app: relative(root, app), zip: relative(root,
   profile: prepared.layout.id, version, signing: 'ad-hoc hardened runtime, bundled-code JIT entitlement only', notarized: false,
   localPreviewOnly: true, published: false, thirdPartyRightsVerified: false, originalWallpaperChangedDuringBuild: false,
   archiveVerified: true, relocatedStandaloneSelfTest: true, relocatedFightersSelfTest: true,
-  gameplay: 'wallpaper-brushup-v0.6-backgrounds', bundleBuild: '7',
-  gamePreviews: [relative(root, resolve(output, 'native-room-event.png')), relative(root, resolve(output, 'native-room-event-wide.png')), relative(root, resolve(output, 'native-room-event-night-wide.png')), relative(root, resolve(output, 'native-manual.png')), relative(root, resolve(output, 'native-boss.png'))],
+  gameplay: 'arena-v0.8-arcade-scoring', bundleBuild: '9',
+  gamePreviews: ['native-room-event.png', 'native-room-event-wide.png',
+     ...((prepared.configuration.variants ?? []).some(variant => variant.id === 'night') ? ['native-room-event-night-wide.png'] : []),
+     'native-manual.png', 'native-boss.png', ...phasePreviews.map(phase => `native-arena-${phase}.png`)].map(name => relative(root, resolve(output, name))),
   backgroundVariants: (prepared.configuration.variants ?? []).map(variant => variant.id),
   backgroundPreviews: (prepared.configuration.variants ?? []).map(variant => relative(root, resolve(output, `native-preview-${variant.id}-wide.png`))),
   autoStartEnabled: false, desktopAcceptance: 'manual-not-run', systemLibraries, files };

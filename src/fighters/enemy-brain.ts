@@ -1,4 +1,4 @@
-import { ENEMIES, LIMITS } from './definitions.ts';
+import { ARENA, ARENA_ROUNDS, ENEMIES, LIMITS } from './definitions.ts';
 import { damageHero, inBattle } from './combat.ts';
 import { decision, effect } from './events.ts';
 import { clamp, moveOnFloor } from './movement.ts';
@@ -7,6 +7,10 @@ import type { Enemy, EnemyKind, EnemyVariant, FightersGame } from './types.ts';
 export function spawnEnemy(game: FightersGame, kind: EnemyKind, variant: EnemyVariant, x: number, y: number,
   facing: -1 | 1, entering = true): Enemy | null {
   if (game.enemies.length >= LIMITS.enemies) return null;
+  // The arena's final roster is one boss, never summoned visitors or a duplicate boss.
+  if (game.route === 'arena' && ARENA_ROUNDS[game.section]?.boss
+    && (kind !== 'boss' || game.enemies.some(enemy => enemy.kind === 'boss'))) return null;
+  if (game.route === 'arena') { x = clamp(x, ARENA.left, ARENA.right); y = clamp(y, ARENA.top, ARENA.bottom); }
   const stats = ENEMIES[kind][variant];
   const camera = game.cameraX;
   const fromLeft = facing === 1;
@@ -58,7 +62,7 @@ export function updateEnemies(game: FightersGame): void {
     const stats = ENEMIES[enemy.kind][enemy.variant];
     const enraged = enemy.kind === 'boss' && enemy.hp <= enemy.maxHP / 2;
     if (enemy.state === 'move') {
-      const desiredRange = enemy.kind === 'slime' ? 30 : enemy.kind === 'popup' ? 106 : 92;
+      const desiredRange = enemy.kind === 'slime' ? 30 : game.route === 'arena' ? 48 : enemy.kind === 'popup' ? 106 : 92;
       moveOnFloor(enemy, Math.abs(dx) > desiredRange ? Math.sign(dx) * stats.speed / 60 : 0,
         Math.abs(dy) > 5 ? Math.sign(dy) * 14 / 60 : 0, game.stage);
       if (Math.abs(dx) <= desiredRange + 20 && Math.abs(dy) < 18 && game.combatTick >= enemy.readyAt) {
@@ -81,9 +85,16 @@ export function updateEnemies(game: FightersGame): void {
           const count = enraged ? 5 : 4;
           for (let i = 0; i < count; i++) shoot(game, enemy, (i - (count - 1) / 2) * 12, 90 + i * 6);
         } else if (phase === 1) {
-          spawnEnemy(game, 'slime', enraged ? 2 : 0, enemy.x - 60, 234, 1);
-          spawnEnemy(game, 'popup', enraged ? 1 : 0, enemy.x + 60, 246, -1);
-          if (enraged) spawnEnemy(game, 'slime', 1, enemy.x + 110, 244, -1);
+          if (game.route === 'arena') {
+            // 琥珀の連句: a faster fan replaces summoning, preserving the one-on-one.
+            const count = enraged ? 5 : 3;
+            for (let i = 0; i < count; i++) shoot(game, enemy, (i - (count - 1) / 2) * 18, 116);
+            effect(game, 'ring', enemy.x, enemy.y - 36, '', 32);
+          } else {
+            spawnEnemy(game, 'slime', enraged ? 2 : 0, enemy.x - 60, 234, 1);
+            spawnEnemy(game, 'popup', enraged ? 1 : 0, enemy.x + 60, 246, -1);
+            if (enraged) spawnEnemy(game, 'slime', 1, enemy.x + 110, 244, -1);
+          }
           effect(game, 'shock', enemy.x, enemy.y, '', 30);
         } else if (phase === 2) {
           enemy.vx = Math.sign(dx || 1) * (enraged ? 210 : 170); enemy.vy = clamp(dy, -16, 16);

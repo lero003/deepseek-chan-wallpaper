@@ -28,6 +28,14 @@ export const ENEMIES: Record<EnemyKind, Record<EnemyVariant, EnemyStats>> = {
   },
 };
 export const bossHP = ENEMIES.boss[0].hp;
+/** One original fictional opponent; visual assets remain local-preview only. */
+export const BOSS = { name: '綴星リュミエ', title: '琥珀の思考家', hp: bossHP,
+  patterns: ['星屑の栞', '琥珀の連句', '思索のステップ', '綴星の余白'] } as const;
+
+/** The manual fight never travels outside this single terrace camera. */
+export const ARENA = { cameraX: 960, arenaX: 1200, left: 978, right: 1422, top: 218, bottom: 254,
+  heroX: 1140, heroY: 238, enemyX: 1294, introTicks: 100, bossIntroTicks: 130, roundClearTicks: 100,
+  victoryTicks: 150, returnTicks: 150, teleportTick: 70 } as const;
 
 export interface AreaDefinition { id: 'study' | 'terrace' | 'promenade' | 'pier'; left: number; right: number; name: string; subtitle: string }
 export const AREAS: readonly AreaDefinition[] = [
@@ -41,7 +49,18 @@ export const STAGE_WIDTH = 3600;
 export interface SectionSpawn { kind: EnemyKind; variant: EnemyVariant }
 export interface SectionDefinition { at: number; arena: number; spawns: readonly SectionSpawn[]; second?: readonly SectionSpawn[]; boss?: boolean; label: string }
 
-/** Eight encounters spread across the three outdoor stretches. */
+/** Two small-enemy rounds, then the existing single boss slot in a strict one-on-one. */
+export const ARENA_ROUNDS: readonly SectionDefinition[] = [
+  { at: ARENA.arenaX, arena: ARENA.arenaX, label: '潮風の腕ならし', spawns: [
+    { kind: 'slime', variant: 0 }, { kind: 'popup', variant: 0 }, { kind: 'slime', variant: 1 },
+  ] },
+  { at: ARENA.arenaX, arena: ARENA.arenaX, label: 'テラスの挑戦者', spawns: [
+    { kind: 'popup', variant: 1 }, { kind: 'slime', variant: 2 }, { kind: 'popup', variant: 0 }, { kind: 'slime', variant: 1 },
+  ] },
+  { at: ARENA.arenaX, arena: ARENA.arenaX, label: BOSS.name, boss: true, spawns: [{ kind: 'boss', variant: 0 }] },
+];
+
+/** Twelve legacy encounters spread across the three outdoor stretches. */
 export const RUN_SECTIONS: readonly SectionDefinition[] = [
   { at: 250, arena: 390, spawns: [ { kind: 'slime', variant: 0 }, { kind: 'popup', variant: 0 }, { kind: 'slime', variant: 0 } ], label: '最初の一団' },
   { at: 520, arena: 660, spawns: [ { kind: 'popup', variant: 0 }, { kind: 'slime', variant: 1 }, { kind: 'slime', variant: 0 } ], second: [ { kind: 'slime', variant: 0 }, { kind: 'popup', variant: 0 } ], label: '横からわらわら' },
@@ -57,7 +76,7 @@ export const RUN_SECTIONS: readonly SectionDefinition[] = [
   { at: 3360, arena: 3360, spawns: [ { kind: 'boss', variant: 0 }, { kind: 'slime', variant: 2 }, { kind: 'popup', variant: 2 } ], boss: true, label: '桟橋の主' },
 ] as const;
 
-/** Route lengths kept for the startEpisode contract; only the full route and room incidents are triggered now. */
+/** Legacy route lengths stay available to startEpisode; play/demo trigger arena/room instead. */
 export const SHORT_SECTIONS: readonly SectionDefinition[] = RUN_SECTIONS.slice(0, 2);
 export const SKIRMISH_SECTIONS: readonly SectionDefinition[] = RUN_SECTIONS.slice(0, 5);
 /** Compact four-area route (legacy preview length); the demo and the wallpaper now use ROOM_SECTIONS. */
@@ -91,7 +110,14 @@ export function studyStage(scene: Scene): Stage {
     furniture: scene.obstacles.map(obstacle => ({ left: 120 + obstacle.left, right: 120 + obstacle.right, top: 190, bottom: 218 })) as Rect[],
   };
 }
+export function arenaStage(scene: Scene): Stage {
+  return { ...studyStage(scene), bounds: { left: ARENA.left, right: ARENA.right, top: ARENA.top, bottom: ARENA.bottom }, furniture: [] };
+}
 export const PHASE_NAMES = {
-  rest: '夕凪の書斎', intro: '出発', battle: '道中', bossIntro: '桟橋の主', boss: '最後の相手',
+  rest: '夕凪の書斎', intro: '出発', battle: '道中', roundClear: 'ラウンドクリア', bossIntro: BOSS.name, boss: '最後の相手',
   victory: '帰り道', return: '帰宅', result: 'おしまい', retry: 'もう一度',
+} as const;
+export const ARENA_PHASE_NAMES = {
+  rest: '夕凪の書斎', intro: 'ラウンド開始', battle: '対戦中', roundClear: 'ラウンドクリア',
+  bossIntro: `${BOSS.title}・${BOSS.name}`, boss: '最終ラウンド', victory: '対戦勝利', return: '帰宅', result: '対戦結果', retry: '再挑戦',
 } as const;

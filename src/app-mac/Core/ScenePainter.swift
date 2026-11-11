@@ -115,6 +115,12 @@ public final class ScenePainter {
     }
     private func drawCommands(_ commands: [DrawCommand], in context: CGContext) throws {
         for command in commands {
+            if command.kind == "sprite", command.sheet == "boss",
+               engine.assets.bossAtlas == nil || command.frame == nil || !engine.assets.bossFrames.indices.contains(command.frame ?? -1) {
+                // These fallback commands already have camera-relative coordinates.
+                try drawCommands(command.fallback ?? [], in: context)
+                continue
+            }
             context.saveGState()
             defer { context.restoreGState() }
             context.setAlpha(command.alpha); context.translateBy(x: command.x, y: command.y)
@@ -127,10 +133,16 @@ public final class ScenePainter {
                     context.fill(CGRect(x: -width / 2, y: -height / 2, width: width, height: height))
                 } else { context.fill(CGRect(x: 0, y: 0, width: width, height: height)) }
             case "sprite":
-                guard let frame = command.frame, (0..<engine.assets.frames.count).contains(frame), let facing = command.facing, abs(facing) == 1 else { throw KujiraError.invalid("ゲームのキャラコマが不正です。") }
+                let frames: [CGImage], anchor: Anchor, frameWidth: Int, frameHeight: Int
+                if command.sheet == "boss", let atlas = engine.assets.bossAtlas {
+                    frames = engine.assets.bossFrames; anchor = atlas.anchor; frameWidth = atlas.frameWidth; frameHeight = atlas.frameHeight
+                } else {
+                    let atlas = engine.assets.configuration.atlas
+                    frames = engine.assets.frames; anchor = atlas.anchor; frameWidth = atlas.frameWidth; frameHeight = atlas.frameHeight
+                }
+                guard let frame = command.frame, frames.indices.contains(frame), let facing = command.facing, abs(facing) == 1 else { throw KujiraError.invalid("ゲームのキャラコマが不正です。") }
                 context.rotate(by: command.rotation ?? 0); context.scaleBy(x: Double(facing) * (command.scaleX ?? 1), y: command.scaleY ?? 1)
-                let atlas = engine.assets.configuration.atlas
-                image(engine.assets.frames[frame], rect: CGRect(x: -atlas.anchor.x, y: -atlas.anchor.y, width: Double(atlas.frameWidth), height: Double(atlas.frameHeight)), context: context)
+                image(frames[frame], rect: CGRect(x: -anchor.x, y: -anchor.y, width: Double(frameWidth), height: Double(frameHeight)), context: context)
             case "text":
                 guard let text = command.text, let fill = command.color, let size = command.size, size >= 5, size <= 24 else { throw KujiraError.invalid("ゲームの文字が不正です。") }
                 let font: CTFont

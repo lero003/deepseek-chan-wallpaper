@@ -3,7 +3,7 @@ import KujiraCore
 
 private struct BotHero: Decodable { let x: Double; let y: Double; let gauge: Int; let state: String }
 private struct BotEnemy: Decodable { let x: Double; let y: Double; let hp: Int; let state: String }
-private struct BotState: Decodable { let hero: BotHero; let enemies: [BotEnemy] }
+private struct BotState: Decodable { let hero: BotHero; let enemies: [BotEnemy]; let phase: String; let phaseAge: Int }
 
 @main
 struct KujiraMain {
@@ -90,6 +90,10 @@ struct KujiraMain {
             let steps = Int(seconds * 60)
             let captureWave = arguments.contains("--capture-wave")
             let captureBoss = arguments.contains("--capture-boss")
+            let capturePhase = try value("--capture-phase")
+            if let capturePhase, ["intro", "roundClear", "bossIntro", "boss", "victory", "return", "result", "retry"].contains(capturePhase) == false {
+                throw KujiraError.invalid("書き出し対象のフェーズが不正です。")
+            }
             for step in 0..<steps {
                 if step % 6 == 0 {
                     let state = try JSONDecoder().decode(BotState.self, from: Data(engine.gameJSON().utf8))
@@ -100,11 +104,20 @@ struct KujiraMain {
                         if state.hero.gauge >= 100 { try engine.command("special") }
                         if target.state == "windup", abs(dx) < 62 { try engine.command("dodge") }
                     } else {
-                        // Walk toward the next encounter like a player would.
-                        try engine.setMovement(x: 1, y: 0)
+                        // Arena rounds advance themselves; no travel input is needed.
+                        try engine.setMovement(x: 0, y: 0)
                     }
                 }
                 _ = try engine.advance(1.0 / 60)
+                if let capturePhase, step % 6 == 0 {
+                    let state = try JSONDecoder().decode(BotState.self, from: Data(engine.gameJSON().utf8))
+                    if state.phase == capturePhase, state.phaseAge >= 24 {
+                        let (captureWidth, captureHeight) = try dimensions()
+                        try ScenePainter.writePNG(painter.bitmap(engine.snapshot(), width: captureWidth, height: captureHeight), to: URL(fileURLWithPath: output))
+                        print("NATIVE_MANUAL_RENDER_PASS: captured=\(capturePhase) at \(String(format: "%.2f", Double(step + 1) / 60))s. Native renderer export, not a desktop screenshot.")
+                        return
+                    }
+                }
                 // QA capture: stop on the first frame of the overdrive effect or the boss phase.
                 if captureBoss, step % 6 == 0, try engine.gameJSON().contains("\"phase\":\"boss\"") {
                     try engine.setMovement(x: 0, y: 0)

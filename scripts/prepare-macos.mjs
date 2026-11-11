@@ -10,6 +10,7 @@ import { parseAtlas } from '../src/render/atlas.ts';
 import { motesFor, scenePlan } from '../src/render/scene-plan.ts';
 import { createGame, advanceGame } from '../src/fighters/game.ts';
 import { STAGE_WIDTH } from '../src/fighters/definitions.ts';
+import { parseBossAtlas } from '../src/fighters/render-types.ts';
 
 export const projectRoot = fileURLToPath(new URL('../', import.meta.url));
 export const hash = bytes => createHash('sha256').update(bytes).digest('hex');
@@ -22,7 +23,7 @@ export async function prepareMacResources({ localPreview = false, output } = {})
   if (await realpath(dest) !== dest || (await lstat(dest)).isSymbolicLink()) throw new Error('Refuse symlinked output.');
   const source = resolve(root, localPreview ? 'private-art/runtime' : 'assets');
   if (localPreview && !existsSync(resolve(source, 'manifest.json'))) throw new Error('Local production art is missing. Use the placeholder profile or prepare authorized local art first.');
-  const layout = localPreview ? SUNSET_LAYOUT : PLACEHOLDER_LAYOUT;
+  let layout = localPreview ? SUNSET_LAYOUT : PLACEHOLDER_LAYOUT;
   const manifest = JSON.parse(await readFile(resolve(source, 'manifest.json'), 'utf8'));
   const atlas = parseAtlas(JSON.parse(await readFile(resolve(source, 'character/atlas.json'), 'utf8')));
   const paths = ['character/sheet.png', 'character/atlas.json', 'scene/seaside-room.png'];
@@ -44,6 +45,21 @@ export async function prepareMacResources({ localPreview = false, output } = {})
       variants.push({ id: item.id, label: item.label, scene: item.scene, matte: item.matte });
       paths.push(item.scene, item.matte);
     }
+  }
+  // Rival art is an optional ignored enhancement, only in explicit local-preview mode.
+  // The committed placeholder never imports or bundles private files.
+  let boss;
+  const bossPaths = { sheet: 'fighters/lumie/sheet.png', atlas: 'fighters/lumie/atlas.json' };
+  if (localPreview && Object.values(bossPaths).every(name => existsSync(resolve(source, name)))) {
+    for (const name of Object.values(bossPaths)) {
+      const input = resolve(source, name);
+      if (await realpath(input) !== input || !(await lstat(input)).isFile()) throw new Error(`Refuse linked or non-file rival asset: ${name}`);
+    }
+    const bossAtlas = parseBossAtlas(JSON.parse(await readFile(resolve(source, bossPaths.atlas), 'utf8')));
+    boss = bossPaths;
+    layout = { ...layout, bossAtlas,
+      provenance: `${layout.provenance} 綴星リュミエは文章・思考を着想にGPT Imageで新規制作した非公式オリジナルライバル。Claude／Anthropicの公式キャラクター・提携作品ではありません。公式ロゴ・第三者素材なし。8姿勢はローカル専用で、専用戦闘アニメーションの自然さは未確認です。` };
+    paths.push(boss.sheet, boss.atlas);
   }
   const assets = [];
   for (const name of paths) {
@@ -68,7 +84,7 @@ export async function prepareMacResources({ localPreview = false, output } = {})
   const core = Buffer.from(chunk.code);
   await writeFile(resolve(dest, 'world.js'), core);
   const configuration = { schemaVersion: 1, localPreviewOnly: true, coreSha256: hash(core), atlas, layout, stage: { width: STAGE_WIDTH },
-    ...(variants.length > 0 ? { variants } : {}) };
+    ...(variants.length > 0 ? { variants } : {}), ...(boss ? { boss } : {}) };
   await writeFile(resolve(dest, 'configuration.json'), JSON.stringify(configuration, null, 2) + '\n');
   await writeFile(resolve(dest, 'manifest.json'), JSON.stringify({ ...manifest, assets,
     localAppPreview: { userAuthorized: localPreview, publicationAuthorized: false, thirdPartyRightsVerified: false },

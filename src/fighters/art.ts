@@ -1,6 +1,9 @@
 import type { Enemy, Effect, FightersGame, Projectile } from './types.ts';
 import { Painter, ellipse, panel, screenPanel } from './art-kit.ts';
-import { ENEMIES } from './definitions.ts';
+import { BOSS, ENEMIES } from './definitions.ts';
+import type { RenderAppearance } from '../app-web/art-profile.ts';
+import { drawBoss as drawLumiereBoss } from './boss-art.ts';
+import { arcadeUI } from './arcade.ts';
 
 export const C = {
   ink: '#2f2b3d', inkSoft: '#453f52', paper: '#f3e8d4', paperShade: '#dfcfb2',
@@ -169,122 +172,14 @@ export function drawPopup(p: Painter, e: Enemy): void {
   }
 }
 
-export function drawBoss(p: Painter, e: Enemy, tick: number): void {
-  const u = 1.32;
-  const t = e.age;
-  const exit = e.state === 'exit';
-  const enraged = e.hp <= e.maxHP / 2;
-  const bob = Math.sin(tick * .07) * 1.2;
-  const lean = e.state === 'strike' && e.pattern % 4 === 2 ? e.facing * 11 : e.state === 'windup' ? -e.facing * 2 : 0;
-  const shake = e.state === 'stunned' ? Math.sin(t * 1.1) * 1.4 : 0;
-  const alpha = exit ? Math.max(0, 1 - t / 22) : 1;
-  if (alpha <= .02) return;
-  const cx = Math.round(e.x + lean + shake);
-  const baseY = e.y - bob;
-  const Y = (offset: number) => baseY + offset * u;
-
-  if (exit) {
-    // The gentleman is filed away as a single summary slip.
-    const fade = Math.max(0, 1 - t / 22);
-    const rise = Math.min(1, t / 14);
-    const sw = 40, sh = 28;
-    const sy = Math.round(baseY - 58 - rise * 30);
-    panel(p, cx - sw / 2, sy, sw, sh, C.paper, C.ink, fade);
-    p.rect(cx - sw / 2 + 4, sy + 5, 12, 2, C.rose, fade);
-    p.rect(cx - sw / 2 + 4, sy + 10, sw - 14, 1, '#a89c8c', fade);
-    p.rect(cx - sw / 2 + 4, sy + 15, sw - 20, 1, '#bcae9a', fade);
-    p.rect(cx + sw / 2 - 11, sy + 5, 6, 6, C.roseLight, fade);
-    p.rect(cx - sw / 2 + 4, sy + 20, 12, 2, '#a89c8c', fade);
-    if (t < 12) sparkle(p, cx + 16, sy - 5, 3, C.goldLight, fade);
-    return;
-  }
-
-  // Legs, shoes and coat tails.
-  p.rect(cx - 10 * u, Y(-18), 8 * u, 13 * u, C.ink, alpha);
-  p.rect(cx + 2 * u, Y(-18), 8 * u, 13 * u, C.ink, alpha);
-  p.rect(cx - 14 * u, Y(-6), 13 * u, 6 * u, C.hat, alpha);
-  p.rect(cx + 1 * u, Y(-6), 13 * u, 6 * u, C.hat, alpha);
-  p.rect(cx - 14 * u, Y(-7), 13 * u, 1.5 * u, '#4b4858', alpha);
-  p.rect(cx + 1 * u, Y(-7), 13 * u, 1.5 * u, '#4b4858', alpha);
-
-  // Long coat: stepped trapezoid, 2px rows, lighter hem.
-  const coatTop = Y(-62), coatBottom = Y(-18);
-  for (let y = coatTop; y < coatBottom; y += 2) {
-    const v = (y - coatTop) / (coatBottom - coatTop);
-    const half = (10 + v * 7.5) * u;
-    p.rect(cx - half, y, half * 2, 2, v > .8 ? C.bossCoatLight : C.bossCoat, alpha);
-  }
-  p.rect(cx - 11 * u, coatBottom - 2, 22 * u, 2, C.bossCoatLight, alpha);
-  // Shirt, tie, waistcoat buttons.
-  p.rect(cx - 5 * u, Y(-58), 10 * u, 26 * u, C.bossShirt, alpha);
-  p.rect(cx - 1.5 * u, Y(-54), 3 * u, 13 * u, C.bossTie, alpha);
-  p.rect(cx - 2 * u, Y(-58), 4 * u, 3 * u, C.roseLight, alpha);
-  for (let i = 0; i < 3; i++) p.rect(cx - .5 * u, Y(-38 + i * 5), 1.4 * u, 1.4 * u, C.gold, alpha * .9);
-  // Lapels.
-  p.rect(cx - 10 * u, Y(-59), 4.5 * u, 20 * u, C.bossCoatLight, alpha);
-  p.rect(cx + 5.5 * u, Y(-59), 4.5 * u, 20 * u, C.bossCoatLight, alpha);
-  // Arms with a slow idle sway.
-  const swing = e.state === 'windup' ? -4 : e.state === 'strike' ? 5 : Math.sin(tick * .09 + e.id) * 1.2;
-  p.rect(cx - 17 * u, Y(-55) + swing, 5.5 * u, 23 * u, C.bossCoat, alpha);
-  p.rect(cx + 11.5 * u, Y(-55) - swing, 5.5 * u, 23 * u, C.bossCoat, alpha);
-  p.rect(cx - 17 * u, Y(-34) + swing, 5.5 * u, 5 * u, C.skin, alpha);
-  p.rect(cx + 11.5 * u, Y(-34) - swing, 5.5 * u, 5 * u, C.skin, alpha);
-
-  // Head with sideburns, monocle and moustache.
-  const headY = Y(-72);
-  ellipse(p, cx, headY, 9.5 * u, 8 * u, C.skin, alpha);
-  p.rect(cx - 10 * u, headY - 7, 4 * u, 9 * u, C.hair, alpha);
-  p.rect(cx + 6 * u, headY - 7, 4 * u, 9 * u, C.hair, alpha);
-  p.rect(cx - 10 * u, headY - 9, 20 * u, 3 * u, C.hair, alpha);
-  const face = e.facing;
-  p.rect(cx - 5 * u + face, headY - 1, 2.2 * u, 2.4 * u, C.ink, alpha);
-  p.rect(cx + 4 * u + face, headY - 1, 2.2 * u, 2.4 * u, C.ink, alpha);
-  p.rect(cx + 2.6 * u + face, headY - 3, 4.6 * u, 1, C.gold, alpha);
-  p.rect(cx + 2.6 * u + face, headY + 2, 4.6 * u, 1, C.gold, alpha);
-  p.rect(cx + 2 * u + face, headY - 2, 1, 4, C.gold, alpha);
-  p.rect(cx + 7 * u + face, headY - 2, 1, 4, C.gold, alpha);
-  p.rect(cx - 4 * u, headY + 5, 8 * u, 1.4 * u, C.hair, alpha);
-  p.rect(cx - 1.5 * u, headY + 6.6 * u, 3 * u, 1.2 * u, C.ink, alpha);
-  if (e.state === 'windup') p.rect(cx - 2.5 * u, headY + 6.6 * u, 5 * u, 3.4 * u, C.ink, alpha);
-
-  // Top hat.
-  p.rect(cx - 14 * u, headY - 10 * u, 28 * u, 2.4 * u, C.hat, alpha);
-  p.rect(cx - 8 * u, headY - 24 * u, 16 * u, 14 * u, C.hat, alpha);
-  p.rect(cx - 8 * u, headY - 12 * u, 16 * u, 2.4 * u, C.hatBand, alpha);
-  p.rect(cx - 7 * u, headY - 22 * u, 2 * u, 6 * u, '#4a4759', alpha);
-
-  if (e.state === 'stunned' && e.age < 5) {
-    p.rect(cx - 15 * u, Y(-62), 30 * u, 45 * u, C.white, .28);
-    ellipse(p, cx, headY, 10 * u, 8.5 * u, C.white, .3);
-  }
-  // Floating documents orbit the gentleman instead of a speech bubble.
-  for (let i = 0; i < 4; i++) {
-    const angle = tick * .012 + i * 1.9;
-    const px = cx + Math.cos(angle) * (32 + (i % 2) * 7);
-    const py = Y(-42) + Math.sin(angle) * 15;
-    p.rect(px - 5, py - 8, 10, 15, C.paper, alpha * .9, angle * .22);
-    p.rect(px - 3, py - 5, 6, 1, '#a99a86', alpha * .9);
-    p.rect(px - 3, py - 2, 5, 1, '#bcae9a', alpha * .9);
-    p.rect(px - 3, py + 1, 6, 1, '#bcae9a', alpha * .7);
-  }
-  if (enraged) {
-    for (let i = 0; i < 3; i++) {
-      const angle = -tick * .02 + i * 2.1;
-      p.rect(cx + Math.cos(angle) * 50 - 1, headY - 12 + Math.sin(angle) * 16 - 1, 3, 3, C.danger, alpha * .8);
-    }
-  }
-  if (e.state === 'windup' || e.state === 'strike') {
-    for (let i = 0; i < 3; i++) p.rect(cx - e.facing * (26 + i * 9), baseY - 58 + i * 15, e.facing * 12, 1.4, C.goldLight, alpha * .32);
-  }
-  if (e.state === 'stunned') {
-    for (let i = 0; i < 3; i++) sparkle(p, cx - 12 + i * 12, headY - 30 - (i % 2) * 3, 2.6, C.goldLight, alpha * .85);
-  }
+export function drawBoss(p: Painter, e: Enemy, tick: number, appearance: RenderAppearance = {}): void {
+  drawLumiereBoss(p, e, tick, appearance);
 }
 
-export function drawEnemy(p: Painter, e: Enemy, tick: number): void {
+export function drawEnemy(p: Painter, e: Enemy, tick: number, appearance: RenderAppearance = {}): void {
   if (e.kind === 'slime') drawSlime(p, e, tick);
   else if (e.kind === 'popup') drawPopup(p, e);
-  else drawBoss(p, e, tick);
+  else drawBoss(p, e, tick, appearance);
 }
 
 export function drawProjectile(p: Painter, projectile: Projectile, tick: number): void {
@@ -556,7 +451,7 @@ export function drawBossBar(p: Painter, value: number, max: number, alpha = 1): 
   const width = 168, x = 240 - width / 2, y = 32;
   p.screen(x - 2, y - 12, width + 4, 24, C.ink, alpha * .78);
   p.screen(x - 1, y - 11, width + 2, 22, '#413c50', alpha);
-  p.screenText(x + 2, y - 9, 'キャプテン・トークナガ', C.paper, 7, alpha);
+  p.screenText(x + 2, y - 9, BOSS.name, C.paper, 7, alpha);
   p.screenText(x + width - 26, y - 9, '残り', C.goldLight, 6, alpha * .6);
   p.screen(x + 2, y + 3, width - 4, 5, '#5b5368', alpha);
   const ratio = Math.max(0, Math.min(1, value / max));
@@ -608,18 +503,26 @@ export function drawMessage(p: Painter, text: string, alpha = 1): void {
 
 export function drawResultPanel(p: Painter, game: FightersGame): void {
   // Kept on the left so the returning heroine stays visible on the right.
-  const width = 252, height = 116, x = 18, y = 82;
+  const arena = game.route === 'arena';
+  const width = 252, height = arena ? 138 : 116, x = 18, y = arena ? 70 : 82;
   p.screen(x - 3, y - 3, width + 6, height + 6, C.ink, .55);
   screenPanel(p, x, y, width, height, C.paper, C.ink);
   p.screen(x + 1, y + 1, width - 2, 3, C.gold, .8);
-  p.screenText(x + 16, y + 14, 'お片付け、おしまい', C.ink, 12);
-  p.screenText(x + 16, y + 32, '要約：静かにします。', C.inkSoft, 7);
-  const stats = game.stats;
-  p.screenText(x + 16, y + 50, `命中 ${stats.hits}　空振り ${stats.misses}　回避 ${stats.dodges}`, C.inkSoft, 6);
-  p.screenText(x + 16, y + 61, `必殺 ${stats.specials}　所要 ${Math.round(game.tick / 60)}秒`, C.inkSoft, 6);
-  p.screen(x + 16, y + 74, width - 32, 1, C.inkSoft, .3);
-  p.screenText(x + 16, y + 82, '「もう一度遊ぶ」でもう一戦', C.ink, 7);
-  p.screenText(x + 16, y + 94, '「壁紙へ戻る」で夕凪の書斎へ', C.inkSoft, 6);
+  p.screenText(x + 16, y + 14, arena ? '3連戦、おつかれさま。' : 'お片付け、おしまい', C.ink, 12);
+  p.screenText(x + 16, y + 32, arena ? `${BOSS.name}と、またいつか。` : '静かな書斎へ、おかえり。', C.inkSoft, 7);
+  const stats = arena ? game.runStats : game.stats;
+  const seconds = Math.round((arena ? game.runTicks : game.tick - game.routeTick) / 60);
+  const offset = arena ? 20 : 0;
+  if (arena) {
+    const a = arcadeUI(game);
+    p.screenText(x + 16, y + 46, `RANK ${a.rank}   SCORE ${a.score.toString().padStart(6, '0')}`, C.ink, 11);
+  }
+  p.screenText(x + 16, y + 50 + offset, `命中 ${stats.hits}　空振り ${stats.misses}　回避 ${stats.dodges}`, C.inkSoft, 6);
+  p.screenText(x + 16, y + 61 + offset, `必殺 ${stats.specials}　被弾 ${stats.damageTaken}　所要 ${seconds}秒`, C.inkSoft, 6);
+  if (arena) p.screenText(x + 16, y + 91, `最大コンボ ${game.arcade.bestCombo}　CONTINUE ${game.arcade.continues}`, C.inkSoft, 6);
+  p.screen(x + 16, y + 74 + offset + (arena ? 7 : 0), width - 32, 1, C.inkSoft, .3);
+  p.screenText(x + 16, y + 82 + offset + (arena ? 7 : 0), '「もう一戦」ではじめから', C.ink, 7);
+  p.screenText(x + 16, y + 94 + offset + (arena ? 7 : 0), '「壁紙へ戻る」で夕凪の書斎へ', C.inkSoft, 6);
 }
 
 export { clamp01, ellipse, screenPanel };

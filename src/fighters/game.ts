@@ -1,6 +1,6 @@
 import { advanceWorld, createWorld, SEASIDE, STEP_SECONDS, MAX_DELTA_SECONDS } from '../world/world.ts';
 import type { Scene } from '../world/world.ts';
-import { HERO, LIMITS, PHASE_NAMES, studyStage } from './definitions.ts';
+import { ARENA_PHASE_NAMES, HERO, LIMITS, PHASE_NAMES, studyStage } from './definitions.ts';
 import { updateHero, updateProjectiles, inBattle } from './combat.ts';
 import { updateEnemies } from './enemy-brain.ts';
 import { AREAS } from './definitions.ts';
@@ -8,6 +8,7 @@ import { autoIntent, desiredCamera, enterPhase, retrySection, returnHome, routeS
 import { clearInputs } from './events.ts';
 import { newHero, newStats } from './factory.ts';
 import { direction } from './movement.ts';
+import { arcadeUI, newArcade, spendArcadeTick } from './arcade.ts';
 import type { Action, FightersGame, Frequency, GameUI } from './types.ts';
 
 export function createGame(seed: number, scene: Scene = SEASIDE): FightersGame {
@@ -17,7 +18,7 @@ export function createGame(seed: number, scene: Scene = SEASIDE): FightersGame {
     nextEventAt: 0, restReactionAt: 0, eventStartedAt: 0, lastProgressAt: 0, graceUntil: 0, hitstop: 0,
     randomState: (world.seed ^ 0x7fa82b19) >>> 0 || 1, nextId: 1, episode: 'boss',
     route: 'full', section: 0, sectionLocked: false, wave: 0, routeTick: 0, areaIndex: 0, areaBannerUntil: 0, bossSpawned: false,
-    roomVariant: 0,
+    roomVariant: 0, runTicks: 0, runStats: newStats(), arcade: newArcade(),
     hero: newHero(world.actor.x + 120, world.floorY), enemies: [], projectiles: [], effects: [],
     input: { x: 0, y: 0 }, pendingDodge: false, pendingSpecial: false, cameraX: 120, firstWhiff: true, whiffAttackId: -1,
     message: '', messageUntil: 0, outcome: 'none', stats: newStats() };
@@ -30,10 +31,11 @@ export function setFocus(game: FightersGame, focused: boolean): void {
   if (focused && game.mode === 'manual') { game.graceUntil = game.combatTick + HERO.graceTicks; }
 }
 export function setMovement(game: FightersGame, x: number, y: number): void {
-  game.input = game.mode === 'manual' && game.focused && !game.paused ? direction(x, y) : { x: 0, y: 0 };
+  game.input = game.mode === 'manual' && game.focused && !game.paused
+    && (game.route !== 'arena' || inBattle(game)) ? direction(x, y) : { x: 0, y: 0 };
 }
 export function requestAction(game: FightersGame, action: Action): void {
-  if (game.mode !== 'manual' || !game.focused || game.paused || ['rest', 'result', 'retry', 'victory', 'return'].includes(game.phase)) return;
+  if (game.mode !== 'manual' || !game.focused || game.paused || !inBattle(game)) return;
   if (action === 'attack') { game.hero.attackQueue = Math.min(3, game.hero.attackQueue + 1); game.hero.queueUntil = game.combatTick + HERO.comboWindow; }
   else if (action === 'dodge') game.pendingDodge = true;
   else if (action === 'special') game.pendingSpecial = true;
@@ -42,17 +44,13 @@ export function command(game: FightersGame, name: string, value?: unknown): void
   switch (name) {
     case 'play':
       if (game.mode === 'manual' && !['result', 'retry'].includes(game.phase)) return;
-      // Taking over a wallpaper episode always continues as the full manual route. A room
-      // incident is restarted from the beginning so room coordinates never mix with the 3600px route.
-      if (game.route === 'room' && !['rest', 'result', 'retry', 'victory', 'return'].includes(game.phase)) startEpisode(game, 'full');
-      if (['rest', 'result', 'retry', 'victory', 'return'].includes(game.phase)) startEpisode(game, 'full');
-      game.episode = 'boss'; game.route = 'full'; game.section = Math.min(game.section, routeSections(game).length - 1);
-      game.sectionLocked = false; game.hero.hp = Math.max(4, game.hero.hp);
-      game.mode = 'manual'; game.paused = false;
+      // A new manual match never inherits wallpaper coordinates, counters or projectiles.
+      game.mode = 'manual'; game.paused = false; game.episode = 'boss';
+      startEpisode(game, 'arena');
       game.graceUntil = game.combatTick + HERO.graceTicks; clearInputs(game); break;
     case 'home': returnHome(game); break;
     case 'retry':
-      if (game.mode !== 'manual') return;
+      if (game.mode !== 'manual' || !['battle', 'boss', 'retry', 'result'].includes(game.phase)) return;
       retrySection(game); game.paused = false; break;
     case 'demo': if (game.mode === 'auto') startEpisode(game, 'room'); break;
     case 'pause':
@@ -74,6 +72,9 @@ function step(game: FightersGame): void {
   advanceWorld(game.world, STEP_SECONDS);
   game.tick = game.world.tick;
   if (game.mode === 'manual' && (!game.focused || game.paused)) return;
+  // This is actual active elapsed time, not combatTick (which intentionally omits hitstop).
+  if (!['rest', 'result', 'retry'].includes(game.phase)) game.runTicks++;
+  if (spendArcadeTick(game)) { updateDirector(game); return; }
   if (game.hitstop > 0) { game.hitstop--; return; }
   game.combatTick++; game.phaseAge++;
   for (const item of game.effects) {
@@ -83,7 +84,11 @@ function step(game: FightersGame): void {
     }
   }
   game.effects = game.effects.filter(item => item.age < item.ttl && item.y < 300);
-  if (['intro', 'battle', 'bossIntro', 'boss'].includes(game.phase)) {
+  if (game.route === 'arena') {
+    // Both actors and hostile projectiles are frozen outside a live round, not just input.
+    if (inBattle(game)) { updateHero(game); updateEnemies(game); updateProjectiles(game); }
+    else if (game.phase === 'victory') updateEnemies(game);
+  } else if (['intro', 'battle', 'bossIntro', 'boss'].includes(game.phase)) {
     if (game.mode === 'auto') autoIntent(game);
     if (game.phase !== 'bossIntro') { updateHero(game); updateEnemies(game); updateProjectiles(game); }
   } else if (game.phase === 'victory') updateEnemies(game);
@@ -91,11 +96,14 @@ function step(game: FightersGame): void {
   if (game.phase !== 'rest' && game.phase !== 'result') {
     const target = desiredCamera(game);
     const rate = game.phase === 'return' ? .16 : .08;
-    game.cameraX += (target - game.cameraX) * rate;
+    if (game.route === 'arena') game.cameraX = target;
+    else game.cameraX += (target - game.cameraX) * rate;
   }
-  game.stats.maxEnemies = Math.max(game.stats.maxEnemies, game.enemies.length);
-  game.stats.maxProjectiles = Math.max(game.stats.maxProjectiles, game.projectiles.length);
-  game.stats.maxEffects = Math.max(game.stats.maxEffects, game.effects.length);
+  for (const stats of [game.stats, game.runStats]) {
+    stats.maxEnemies = Math.max(stats.maxEnemies, game.enemies.length);
+    stats.maxProjectiles = Math.max(stats.maxProjectiles, game.projectiles.length);
+    stats.maxEffects = Math.max(stats.maxEffects, game.effects.length);
+  }
   if (game.enemies.length > LIMITS.enemies || game.projectiles.length > LIMITS.projectiles || game.effects.length > LIMITS.effects) throw new Error('Bounded scene collection exceeded.');
 }
 export function advanceGame(game: FightersGame, deltaSeconds: number): void {
@@ -108,14 +116,20 @@ export function advanceGame(game: FightersGame, deltaSeconds: number): void {
 export function gameUI(game: FightersGame): GameUI {
   const sections = routeSections(game);
   const total = sections.length;
-  const area = AREAS[game.areaIndex] ?? AREAS[AREAS.length - 1]!;
+  const arena = game.route === 'arena';
+  const area = AREAS[arena ? 1 : game.areaIndex] ?? AREAS[AREAS.length - 1]!;
   const boss = game.enemies.find(enemy => enemy.kind === 'boss');
-  const progress = total <= 1 ? 1 : Math.min(1, (game.section + (game.sectionLocked ? .5 : 0)) / total);
-  return { mode: game.mode, phase: game.phase, phaseLabel: PHASE_NAMES[game.phase], focused: game.focused, paused: game.paused, hp: game.hero.hp,
-    gauge: game.hero.gauge, combo: game.hero.hitCombo, dodgeReady: game.combatTick >= game.hero.dodgeReadyAt,
-    specialReady: game.hero.gauge >= 100, outcome: game.outcome, message: game.tick < game.messageUntil ? game.message : '',
+  const round = Math.min(total, game.section + 1);
+  const roundLabel = sections[round - 1]?.label ?? '';
+  const progress = total <= 1 ? 1 : Math.min(1, (game.section + (game.phase === 'roundClear' ? 1 : game.sectionLocked ? .5 : 0)) / total);
+  const ready = !arena || inBattle(game) && game.focused && !game.paused;
+  const phaseLabel = arena ? ARENA_PHASE_NAMES[game.phase] : PHASE_NAMES[game.phase];
+  return { mode: game.mode, phase: game.phase, phaseLabel, focused: game.focused, paused: game.paused, hp: game.hero.hp,
+    gauge: game.hero.gauge, combo: game.hero.hitCombo, dodgeReady: ready && game.combatTick >= game.hero.dodgeReadyAt,
+    specialReady: ready && game.hero.gauge >= 100, outcome: game.outcome, message: game.tick < game.messageUntil ? game.message : '',
     frequency: game.frequency, effectsLow: game.effectsLow, enemies: game.enemies.filter(enemy => enemy.hp > 0).length,
     bossHP: boss?.hp ?? 0, section: game.section, sections: total, locked: game.sectionLocked,
-    areaName: area.name, areaSubtitle: area.subtitle, progress };
+    areaName: area.name, areaSubtitle: arena ? `ラウンド ${round} / ${total}` : area.subtitle, progress,
+    route: game.route, round, rounds: total, roundLabel, elapsedSeconds: game.runTicks / 60, runStats: { ...game.runStats }, arcade: arcadeUI(game) };
 }
 export { inBattle, enterPhase };
