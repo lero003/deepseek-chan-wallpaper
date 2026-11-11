@@ -45,10 +45,10 @@
 
 ## ドラフトリリースとGit
 
-- 前回の同期（ユーザーの明示依頼）で `main` をpush済み：`018260a`（壁紙ブラッシュアップ）と `439fcaf`（同期記録）。既存の下書きリリース `fighters-mvp4-draft` と `wallpaper-brushup-build6` はDraft／Prereleaseのまま維持（Build 6のZIPはそのDraftに添付済み、公開はしていない）。
-- 今回のBuild 7（背景3種・メモリ表示・帰属表示）は**ローカルでコミット・未push**。下書きリリースも更新していない。次の同期はユーザーの明示依頼時に行い、Public化・可視性変更・Pages・既存タグの付替えはしない。
-- 別のMacで使う場合は、依頼に応じてBuild 7のZIPを新しいDraftリリースへ添付するか、`private-art/macos-out/20261111000218-7282e584/` から直接コピーする。Git管理外のローカル素材（背景3種・マット・キャラ）はソースpushに含まれないため、ソースだけをcloneした環境は既定仮素材になる。
-- 旧`fighters-mvp4-draft`（MVP4のDMG・ZIP）はそのまま。新しいタグは作成していない。
+- ユーザーの明示的なpush依頼により `main` をpush済み。壁紙ブラッシュアップ `018260a`、同期記録 `439fcaf`、Build 7の背景3種・メモリ表示・帰属表示 `7d05b4c`（本ドキュメントの同期記録コミットも続けてpush）。Public化・可視性変更・Pages・既存タグの付替えは行っていない。
+- **Build 7用の下書きリリース `wallpaper-brushup-build7` を作成**（Draft／Prerelease、untagged）。ZIPと`SHA256SUMS.txt`を添付した。ZIPは `KujiraWallpaper-Wallpaper-Brushup-B7-arm64-local-preview.zip`、SHA-256 `8ab1bb052dcac6d931619a06a4a8ff9321788dc30abc22922003192a123e1ca0`。アップロード後にリリース資産を再ダウンロードし、SHA-256の一致を確認した。
+- 既存の `wallpaper-brushup-build6`（Build 6）と `fighters-mvp4-draft`（MVP4のDMG・ZIP）はそのまま残している。いずれもDraftのみで、公開リリース・Pagesはない（Pages APIは404）。リポジトリはPrivateのまま。新規タグは作成していない（下書きはuntagged）。
+- 別のMacでは、リポジトリのReleases（権限者のみDraftが見える）からBuild 7のZIPを取得して展開する。直接の取得元：<https://github.com/lero003/deepseek-chan-wallpaper/releases>。Git管理外のローカル素材（背景3種・マット・キャラ）はソースpushに含まれないため、ソースだけをcloneした環境では既定仮素材になる。
 
 ## 権利・帰属・配布
 
