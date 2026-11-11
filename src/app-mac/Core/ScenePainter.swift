@@ -25,6 +25,8 @@ public final class ScenePainter {
     public func selectVariant(_ index: Int) throws {
         guard index >= 0, index <= engine.assets.variants.count else { throw KujiraError.invalid("背景の選択が不正です。") }
         if index == variantIndex { return }
+        // Keep the shared core's ambient palette and life rhythm in sync with the image.
+        try engine.setVariant(index)
         variantIndex = index
         backdrops.removeAll(keepingCapacity: false)
         wideBackdrops.removeAll(keepingCapacity: false)

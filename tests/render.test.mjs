@@ -5,6 +5,8 @@ import { frameAt, parseAtlas } from '../src/render/atlas.ts';
 import { SceneRenderer } from '../src/render/renderer.ts';
 import { viewportFor } from '../src/render/viewport.ts';
 import { createWorld } from '../src/world/world.ts';
+import { motesFor, scenePlan } from '../src/render/scene-plan.ts';
+import { resolveAppearance } from '../src/app-web/art-profile.ts';
 
 const atlasData = JSON.parse(await readFile(new URL('../assets/character/atlas.json', import.meta.url), 'utf8'));
 const atlas = parseAtlas(atlasData);
@@ -193,5 +195,72 @@ test('selectable backgrounds swap the room art and its matte, not the character'
       variants: [{ background: { naturalWidth: 10, naturalHeight: 10 }, matte: null }],
     }, atlas, 1);
     assert.equal(mixed.variantCount, 1, 'a mis-sized background is not offered');
+  } finally { globalThis.document = previousDocument; }
+});
+
+// --- Sleep bubbles and per-variant appearance ---
+
+const BUBBLE_COLOR = '#dfe7f2';
+function sleepingWorld(seed = 42) {
+  const world = createWorld(seed);
+  Object.assign(world.actor, { state: 'sleep', stateTicks: 0, durationTicks: 30 * 60 });
+  return world;
+}
+
+test('sleep bubbles rise only while asleep and only when decorations are on', () => {
+  const world = sleepingWorld();
+  const motes = motesFor(world.seed);
+  const asleep = scenePlan(world, atlas, motes, {}, true);
+  assert.ok(asleep.quads.some((quad) => quad.color === BUBBLE_COLOR), 'sleep bubbles appear while asleep');
+  const still = scenePlan(world, atlas, motes, {}, false);
+  assert.ok(!still.quads.some((quad) => quad.color === BUBBLE_COLOR), 'no bubbles in a still frame');
+  const awake = createWorld(42);
+  const awakePlan = scenePlan(awake, atlas, motesFor(awake.seed), {}, true);
+  assert.ok(!awakePlan.quads.some((quad) => quad.color === BUBBLE_COLOR), 'no bubbles while awake');
+});
+
+test('sleep bubbles are deterministic, translucent, and never mutate the world', () => {
+  const world = sleepingWorld(7);
+  const before = structuredClone(world);
+  Object.freeze(world.actor); Object.freeze(world);
+  const motes = motesFor(world.seed);
+  const first = scenePlan(world, atlas, motes, {}, true);
+  const second = scenePlan(world, atlas, motes, {}, true);
+  assert.deepEqual(first, second);
+  assert.deepEqual(world, before);
+  for (const quad of first.quads.filter((quad) => quad.color === BUBBLE_COLOR)) {
+    assert.ok(quad.alpha > 0 && quad.alpha <= 0.3, 'bubbles stay faint');
+    assert.ok(Number.isInteger(quad.x) && Number.isInteger(quad.y));
+  }
+});
+
+test('resolveAppearance merges only defined overrides and keeps the base otherwise', () => {
+  const base = { ceilingColor: '#111111', water: { left: 1, right: 2, top: 3, bottom: 4 }, ambience: { mood: 'sunset' } };
+  assert.equal(resolveAppearance(base), base);
+  assert.equal(resolveAppearance(base, undefined), base);
+  const merged = resolveAppearance(base, { ambience: { mood: 'night', bird: false } });
+  assert.equal(merged.ceilingColor, '#111111', 'unspecified fields keep the base');
+  assert.deepEqual(merged.water, base.water);
+  assert.deepEqual(merged.ambience, { mood: 'night', bird: false });
+  assert.deepEqual(base.ambience, { mood: 'sunset' }, 'the base is not mutated');
+  const waterOverride = resolveAppearance(base, { water: { left: 9, right: 10, top: 11, bottom: 12 } });
+  assert.deepEqual(waterOverride.water, { left: 9, right: 10, top: 11, bottom: 12 });
+});
+
+test('the renderer exposes the selected background appearance for plan building', () => {
+  const previousDocument = globalThis.document;
+  globalThis.document = { createElement: () => fakeCanvas() };
+  try {
+    const canvas = fakeCanvas();
+    const background = { naturalWidth: 480, naturalHeight: 270 };
+    const character = { naturalWidth: 192, naturalHeight: 256 };
+    const night = { background: { naturalWidth: 480, naturalHeight: 270 }, matte: null, appearance: { ambience: { mood: 'night', bird: false } } };
+    const renderer = new SceneRenderer(canvas, { background, character, variants: [night] }, atlas, 1, { water: { left: 115, right: 349, top: 120, bottom: 158 } });
+    assert.equal(renderer.activeAppearance.ambience, undefined, 'sunset has no ambient override');
+    renderer.setVariant(1);
+    assert.deepEqual(renderer.activeAppearance.ambience, { mood: 'night', bird: false });
+    assert.deepEqual(renderer.activeAppearance.water, { left: 115, right: 349, top: 120, bottom: 158 }, 'base water is kept');
+    renderer.setVariant(0);
+    assert.equal(renderer.activeAppearance.ambience, undefined);
   } finally { globalThis.document = previousDocument; }
 });

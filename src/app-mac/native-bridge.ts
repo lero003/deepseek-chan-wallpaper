@@ -1,14 +1,16 @@
-import { advanceWorld, seedFromText } from '../world/world.ts';
+import { advanceWorld, applyMood, seedFromText } from '../world/world.ts';
 import { parseAtlas } from '../render/atlas.ts';
 import { viewportFor } from '../render/viewport.ts';
 import { motesFor, scenePlan } from '../render/scene-plan.ts';
 import type { Scene } from '../world/world.ts';
-import type { RenderAppearance } from '../app-web/art-profile.ts';
+import type { RenderAppearance, VariantAppearance } from '../app-web/art-profile.ts';
+import { resolveAppearance } from '../app-web/art-profile.ts';
 import { createGame, advanceGame, command, setFocus, setMovement, gameUI } from '../fighters/game.ts';
 import { gamePlan } from '../fighters/render-plan.ts';
 import { sceneryQuads } from '../fighters/scenery.ts';
 
-interface NativeConfiguration { atlas: unknown; layout: RenderAppearance & { scene: Scene } }
+interface NativeVariant { id: string; label: string; scene: string; matte?: string; appearance?: VariantAppearance }
+interface NativeConfiguration { atlas: unknown; layout: RenderAppearance & { scene: Scene }; variants?: NativeVariant[] }
 
 // This IIFE runs in Apple's JavaScriptCore, NOT a browser/webview. Only bundled code.
 export function create(configurationJSON: string, seedText = 'seaside-v01') {
@@ -19,10 +21,13 @@ export function create(configurationJSON: string, seedText = 'seaside-v01') {
   const game = createGame(seedFromText(String(seedText).slice(0, 128)), config.layout.scene);
   const world = game.world;
   const motes = motesFor(world.seed);
-  const snapshot = (decorations: boolean) => JSON.stringify(scenePlan(world, atlas, motes, config.layout, decorations));
+  const variants = config.variants ?? [];
+  // The active appearance follows the selected background; sunset (index 0) is the base layout.
+  let appearance: RenderAppearance = config.layout;
+  const snapshot = (decorations: boolean) => JSON.stringify(scenePlan(world, atlas, motes, appearance, decorations));
   const gameSnapshot = (decorations = true, presentation = 'preview') => {
     if (presentation !== 'preview' && presentation !== 'wallpaper') throw new Error('Invalid presentation.');
-    return JSON.stringify(gamePlan(game, atlas, config.layout, decorations, presentation, motes));
+    return JSON.stringify(gamePlan(game, atlas, appearance, decorations, presentation, motes));
   };
   return {
     gameSnapshotJSON: gameSnapshot,
@@ -32,6 +37,12 @@ export function create(configurationJSON: string, seedText = 'seaside-v01') {
     movementJSON: (x: number, y: number) => { setMovement(game, x, y); return JSON.stringify(gameUI(game)); },
     gameJSON: () => JSON.stringify(game),
     sceneryJSON: () => JSON.stringify(sceneryQuads(config.layout)),
+    setVariantJSON: (index: number) => {
+      if (!Number.isInteger(index) || index < 0 || index > variants.length) throw new Error('Invalid background variant.');
+      appearance = index === 0 ? config.layout : resolveAppearance(config.layout, variants[index - 1]?.appearance);
+      applyMood(world, appearance.ambience?.mood);
+      return JSON.stringify({ variant: index, mood: world.mood });
+    },
     replayGameJSON: (frames: number, step: number) => {
       if (!Number.isInteger(frames) || frames < 0 || frames > 1000000 || !Number.isFinite(step) || step <= 0 || step > .25) throw new Error('Invalid replay.');
       for (let index = 0; index < frames; index++) advanceGame(game, step);

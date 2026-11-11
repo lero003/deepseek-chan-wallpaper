@@ -169,3 +169,91 @@ test('the calm parts stay translucent; only the tiny bird silhouette is near-opa
     }
   }
 });
+
+// --- Per-background profiles (night / rain). Sunset must stay byte-identical. ---
+
+const NIGHT = { ambience: { mood: 'night', bird: false, shootingStar: true, lampScale: 1.15 } };
+const RAIN = { ambience: { mood: 'rain', bird: false, rain: true, lampScale: 1.1 } };
+const isRainStreak = (quad) => quad.width === 1 && quad.height >= 3;
+
+test('no profile and an explicit sunset profile produce identical frames', () => {
+  const field = motesFor(77);
+  for (const seconds of [0, 5, 30, 60, 210.9, 400]) {
+    const implicit = ambienceQuads(seconds, field, { water: WATER });
+    const explicit = ambienceQuads(seconds, field, { water: WATER, ambience: { mood: 'sunset' } });
+    assert.deepEqual(implicit, explicit, `sunset default drifted at t=${seconds}`);
+  }
+});
+
+test('night swaps to a cool palette, drops the bird, and keeps the field deterministic', () => {
+  const field = motesFor(5);
+  const night = ambienceQuads(30, field, { water: WATER, ...NIGHT });
+  const sunset = ambienceQuads(30, field, { water: WATER });
+  assert.notDeepEqual(night, sunset);
+  assert.ok(night.some((quad) => quad.color === '#dfe4f2'), 'night uses cool moonlit motes');
+  assert.ok(!night.some((quad) => quad.color === '#f9edcf'), 'no warm sunset motes at night');
+  assert.ok(!night.some(isBirdPixel), 'the bird does not fly at night');
+  assert.deepEqual(night, ambienceQuads(30, field.map((m) => ({ ...m })), { water: { ...WATER }, ...NIGHT }));
+  for (const quad of night) assertQuadInvariants([quad], 'night');
+});
+
+test('the night shooting star is rare, stays in the upper pane, and avoids mullions', () => {
+  const starColor = '#f5f7ff';
+  const at = (seconds) => ambienceQuads(seconds, [], { water: WATER, ...NIGHT }).filter((quad) => quad.color === starColor);
+  assert.ok(at(210.9).length >= 1, 'a shooting star is present mid-episode');
+  assert.equal(at(100).length, 0, 'no star outside the episode');
+  assert.equal(at(211.9).length, 0, 'the star has finished after 1.8s');
+  let visible = 0;
+  for (let seconds = 0; seconds < 860; seconds += 0.25) {
+    const star = at(seconds);
+    if (star.length === 0) continue;
+    visible += 1;
+    for (const quad of star) {
+      assert.ok(quad.y >= 30 && quad.y <= 86, `star left the upper pane at y=${quad.y}`);
+      assert.ok(quad.x >= 110 && quad.x <= 350, `star left the window at x=${quad.x}`);
+      assert.ok(!(quad.x >= 196 && quad.x <= 201) && !(quad.x >= 288 && quad.x <= 293), 'star drawn over a mullion');
+    }
+  }
+  const ratio = visible / (860 / 0.25);
+  assert.ok(ratio < 0.02, `shooting star should be rare, visible ${ratio.toFixed(4)} of the time`);
+});
+
+test('rain falls inside the window panes, never across the transom or on a mullion', () => {
+  const quads = ambienceQuads(12, motesFor(3), { water: WATER, ...RAIN });
+  const streaks = quads.filter(isRainStreak);
+  assert.ok(streaks.length >= 12, `expected a field of rain, got ${streaks.length}`);
+  for (const streak of streaks) {
+    const inUpper = streak.y >= 32 && streak.y + streak.height <= 86;
+    const inLower = streak.y >= 93 && streak.y + streak.height <= 157;
+    assert.ok(inUpper || inLower, `rain streak at y=${streak.y}..${streak.y + streak.height} crosses the transom`);
+    assert.ok(!(streak.x >= 196 && streak.x <= 201) && !(streak.x >= 288 && streak.x <= 293), 'rain drawn over a mullion');
+    assert.ok(streak.alpha <= 0.2, `rain alpha ${streak.alpha} is too heavy`);
+  }
+  assert.ok(!quads.some(isBirdPixel), 'the bird does not fly in the rain');
+  assertQuadInvariants(quads, 'rain');
+});
+
+test('rain adds slow ripple dashes on the water and stays within the quad budget', () => {
+  const withWater = ambienceQuads(7, motesFor(500), { water: WATER, ...RAIN });
+  assert.ok(withWater.length <= MAX_AMBIENCE_QUADS, `rain exceeds the budget: ${withWater.length}`);
+  const ripples = withWater.filter((quad) => quad.color === '#e2eaf4');
+  assert.ok(ripples.length >= 1, 'ripples appear on the water while it rains');
+  for (const ripple of ripples) {
+    assert.ok(ripple.x >= WATER.left && ripple.x + ripple.width <= WATER.right, 'ripple escapes the water x range');
+    assert.ok(ripple.y >= WATER.top && ripple.y + ripple.height <= WATER.bottom, 'ripple escapes the water y range');
+  }
+  // Without a water rect rain still falls, but no ripples are emitted.
+  const noWater = ambienceQuads(7, [], { ...RAIN });
+  assert.ok(noWater.some(isRainStreak));
+  assert.ok(!noWater.some((quad) => quad.color === '#e2eaf4'));
+});
+
+test('night and rain lamp glow stay subtle even with a modest boost', () => {
+  for (const [profile, cap] of [[NIGHT, 0.10], [RAIN, 0.095]]) {
+    for (const seconds of [0, 2, 4, 6, 8]) {
+      const glows = ambienceQuads(seconds, [], { water: WATER, ...profile }).filter(isLampGlow);
+      assert.ok(glows.length >= 8);
+      for (const glow of glows) assert.ok(glow.alpha <= cap, `boosted lamp glow ${glow.alpha} exceeds ${cap}`);
+    }
+  }
+});

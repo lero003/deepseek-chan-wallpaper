@@ -42,7 +42,13 @@ export async function prepareMacResources({ localPreview = false, output } = {})
       if (typeof item.label !== 'string' || item.label.length === 0) throw new Error(`Invalid background variant label: ${item.id}`);
       if (!safeRelative(item.scene) || !safeRelative(item.matte)) throw new Error(`Unsafe background variant path: ${item.id}`);
       seen.add(item.id);
-      variants.push({ id: item.id, label: item.label, scene: item.scene, matte: item.matte });
+      const variant = { id: item.id, label: item.label, scene: item.scene, matte: item.matte };
+      if (item.appearance !== undefined) {
+        const mood = item.appearance?.ambience?.mood;
+        if (mood !== undefined && !['sunset', 'night', 'rain'].includes(mood)) throw new Error(`Invalid ambient mood for variant: ${item.id}`);
+        variant.appearance = item.appearance;
+      }
+      variants.push(variant);
       paths.push(item.scene, item.matte);
     }
   }

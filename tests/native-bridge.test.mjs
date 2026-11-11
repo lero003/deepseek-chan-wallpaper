@@ -4,8 +4,9 @@ import test from 'node:test';
 import { create } from '../src/app-mac/native-bridge.ts';
 import { PLACEHOLDER_LAYOUT, SUNSET_LAYOUT } from '../src/art/scene-profiles.ts';
 import { parseAtlas } from '../src/render/atlas.ts';
-import { createWorld, advanceWorld, seedFromText } from '../src/world/world.ts';
+import { createWorld, advanceWorld, applyMood, seedFromText } from '../src/world/world.ts';
 import { motesFor, scenePlan } from '../src/render/scene-plan.ts';
+import { resolveAppearance } from '../src/app-web/art-profile.ts';
 import { systemLibraryPaths } from '../scripts/macos-dependencies.mjs';
 import { appDirectoryName } from '../scripts/macos-archive.mjs';
 
@@ -23,6 +24,28 @@ test('native bridge and Web render commands share one world without browser APIs
   assert.deepEqual(JSON.parse(engine.worldJSON()), world);
   assert.deepEqual(JSON.parse(engine.snapshotJSON()), scenePlan(world, atlas, motesFor(world.seed), PLACEHOLDER_LAYOUT));
   assert.equal(JSON.parse(engine.snapshotJSON(false)).quads.length, 2);
+});
+
+test('native bridge variant selection swaps the ambient appearance and the life mood', () => {
+  const nightAppearance = { ambience: { mood: 'night', bird: false, shootingStar: true } };
+  const config = { atlas, layout: SUNSET_LAYOUT, variants: [
+    { id: 'night', label: '月夜', scene: 'scene/night.png', matte: 'scene/night-matte.png', appearance: nightAppearance },
+  ] };
+  const engine = create(JSON.stringify(config));
+  const world = createWorld(seedFromText('seaside-v01'), SUNSET_LAYOUT.scene);
+  const motes = motesFor(world.seed);
+  assert.deepEqual(JSON.parse(engine.snapshotJSON()), scenePlan(world, atlas, motes, SUNSET_LAYOUT));
+  const selected = JSON.parse(engine.setVariantJSON(1));
+  assert.equal(selected.variant, 1);
+  assert.equal(selected.mood, 'night');
+  applyMood(world, 'night');
+  const merged = resolveAppearance(SUNSET_LAYOUT, nightAppearance);
+  assert.deepEqual(JSON.parse(engine.snapshotJSON()), scenePlan(world, atlas, motes, merged));
+  assert.equal(JSON.parse(engine.worldJSON()).mood, 'night');
+  engine.setVariantJSON(0);
+  applyMood(world, 'sunset');
+  assert.deepEqual(JSON.parse(engine.snapshotJSON()), scenePlan(world, atlas, motes, SUNSET_LAYOUT));
+  for (const invalid of [2, -1, 0.5, NaN]) assert.throws(() => engine.setVariantJSON(invalid), `index ${invalid} must be rejected`);
 });
 
 test('native bridge rejects unsafe geometry or unbounded replay instead of executing paths', () => {

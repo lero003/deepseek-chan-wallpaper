@@ -71,6 +71,23 @@ public struct Scene: Codable, Sendable {
     public let obstacles: [FloorInterval]
 }
 public struct Water: Codable, Sendable { public let left: Double; public let right: Double; public let top: Double; public let bottom: Double }
+/// Per-background ambient palette/episodes. Mirrors the shared AmbienceProfile; all optional.
+public struct AmbienceProfile: Codable, Sendable {
+    public let mood: String?
+    public let waterColumn: Double?
+    public let bird: Bool?
+    public let rain: Bool?
+    public let shootingStar: Bool?
+    public let lampScale: Double?
+}
+/// The appearance subset a selectable background may override.
+public struct VariantAppearance: Codable, Sendable {
+    public let ceilingColor: String?
+    public let floorColor: String?
+    public let shadowColor: String?
+    public let water: Water?
+    public let ambience: AmbienceProfile?
+}
 /// The approved 480×270 room placed inside a wider/taller wallpaper canvas.
 public struct Matte: Codable, Sendable, Hashable { public let width: Int; public let height: Int; public let roomX: Int; public let roomY: Int }
 public struct Layout: Codable, Sendable {
@@ -81,11 +98,13 @@ public struct Layout: Codable, Sendable {
     public let water: Water?
     public let matte: Matte?
     public let bossAtlas: BossAtlas?
+    public let ambience: AmbienceProfile?
 }
 public struct StageInfo: Codable, Sendable { public let width: Int }
 public struct NativeVariant: Codable, Sendable {
     public let id: String; public let label: String
     public let scene: String; public let matte: String?
+    public let appearance: VariantAppearance?
 }
 public struct NativeConfiguration: Codable, Sendable {
     public let schemaVersion: Int
@@ -111,7 +130,7 @@ public struct AssetCredit: Decodable, Sendable {
 }
 public struct AssetManifest: Decodable, Sendable { public let assets: [AssetCredit]; public let note: String }
 
-public struct Quad: Codable, Sendable {
+public struct Quad: Codable, Sendable, Equatable {
     public let x: Double; public let y: Double; public let width: Double; public let height: Double
     public let color: String; public let alpha: Double
 }

@@ -100,6 +100,25 @@ struct CoreTests {
         }
         #expect(throws: KujiraError.self) { try painter.selectVariant(assets.variants.count + 1) }
     }
+    @Test func backgroundSelectionFollowsAmbientMoodAndPalette() throws {
+        let assets = try assets()
+        let engine = try SceneEngine(assets: assets)
+        let painter = ScenePainter(engine: engine)
+        #expect(try engine.worldJSON().contains("\"mood\":\"sunset\""), "the default life rhythm is sunset")
+        let sunsetQuads = try engine.snapshot().quads
+        for (index, variant) in (assets.configuration.variants ?? []).enumerated() {
+            try painter.selectVariant(index + 1)
+            let mood = variant.appearance?.ambience?.mood ?? "sunset"
+            #expect(try engine.worldJSON().contains("\"mood\":\"\(mood)\""), "selecting \(variant.id) sets the \(mood) life rhythm")
+            let plan = try engine.snapshot()
+            _ = try painter.bitmap(plan, width: 480, height: 270)
+            if mood != "sunset" {
+                #expect(plan.quads != sunsetQuads, "\(variant.id) must change the ambient overlay")
+            }
+        }
+        try painter.selectVariant(0)
+        #expect(try engine.worldJSON().contains("\"mood\":\"sunset\""), "returning to sunset restores the life rhythm")
+    }
     @Test func nativeBitmapAndIconAreComplete() throws {
         let engine = try SceneEngine(assets: assets())
         let painter = ScenePainter(engine: engine)

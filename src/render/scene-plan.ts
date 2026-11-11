@@ -38,9 +38,37 @@ export function scenePlan(world: Readonly<World>, atlas: SpriteAtlas, motes: rea
   if (decorations) quads.push(...ambienceQuads(seconds, motes, appearance));
   const actor = world.actor;
   const x = Math.round(actor.x);
+  // A few slow sleep bubbles rise above the resting head; skipped for still frames.
+  if (decorations && actor.state === 'sleep') quads.push(...sleepBubbles(seconds, x, world.floorY, actor.facing));
   const half = Math.round(atlas.frameWidth * (actor.state === 'sleep' ? .31 : .19));
   quads.push({ x: x - half, y: world.floorY - 1, width: half * 2 + 1, height: 2, color: appearance.shadowColor ?? '#314e50', alpha: .20 });
   quads.push({ x: x - half + 4, y: world.floorY - 2, width: half * 2 - 7, height: 4, color: appearance.shadowColor ?? '#314e50', alpha: .20 });
   return { tick: world.tick, state: actor.state, x, floorY: world.floorY, facing: actor.facing,
     frame: frameAt(atlas, actor.state, actor.stateTicks / TICKS_PER_SECOND), quads };
+}
+
+/**
+ * Three tiny bubbles on a slow staggered loop, drifting up and fading. Pure and
+ * deterministic in `seconds`; never touches the world. Kept translucent and slow
+ * so a sleeping wallpaper stays calm.
+ */
+function sleepBubbles(seconds: number, x: number, floorY: number, facing: number): Quad[] {
+  const quads: Quad[] = [];
+  const color = '#dfe7f2';
+  for (let index = 0; index < 3; index++) {
+    const cycle = 7.5;
+    const progress = ((seconds + index * 2.5) % cycle) / cycle;
+    // Each bubble lives for the first 70% of its cycle, then rests invisible.
+    if (progress > 0.7) continue;
+    const life = progress / 0.7;
+    const rise = Math.round(life * 26);
+    const drift = Math.round(Math.sin(life * Math.PI + index) * 3);
+    const bx = x + facing * (10 + index * 3) + drift;
+    const by = floorY - 56 - rise - index * 4;
+    const size = index === 0 ? 2 : 1;
+    const alpha = Math.round(Math.sin(life * Math.PI) * 0.30 * 1000) / 1000;
+    if (alpha <= 0) continue;
+    quads.push({ x: bx, y: by, width: size, height: size, color, alpha });
+  }
+  return quads;
 }

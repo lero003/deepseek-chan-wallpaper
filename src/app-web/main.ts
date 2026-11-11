@@ -1,5 +1,5 @@
 import art from '@kujira-art';
-import { ACTOR_HALF_WIDTH, seedFromText } from '../world/world.ts';
+import { ACTOR_HALF_WIDTH, applyMood, seedFromText } from '../world/world.ts';
 import { createGame, advanceGame } from '../fighters/game.ts';
 import { gamePlan } from '../fighters/render-plan.ts';
 import { motesFor } from '../render/scene-plan.ts';
@@ -7,6 +7,7 @@ import type { SpriteAtlas } from '../render/atlas.ts';
 import { FightersUI } from './fighters-ui.ts';
 import { parseAtlas } from '../render/atlas.ts';
 import { loadImage, SceneRenderer } from '../render/renderer.ts';
+import type { VariantImages } from '../render/renderer.ts';
 import { AnimationLoop, shouldAnimate, shouldPaintFrame } from './playback.ts';
 import type { PlaybackConditions } from './playback.ts';
 
@@ -67,7 +68,7 @@ for (const asset of manifest.assets) {
 }
 
 function draw(reason: 'animation' | 'resize' = 'animation'): void {
-  if (shouldPaintFrame(conditions, reason) && activeAtlas && renderer) renderer.drawPlan(gamePlan(game, activeAtlas, art, !conditions.reducedMotion && !conditions.still, 'preview', motes));
+  if (shouldPaintFrame(conditions, reason) && activeAtlas && renderer) renderer.drawPlan(gamePlan(game, activeAtlas, renderer.activeAppearance, !conditions.reducedMotion && !conditions.still, 'preview', motes));
   fightersUI?.sync();
 }
 
@@ -161,7 +162,7 @@ async function bootstrap(): Promise<void> {
       boss: boss.status === 'fulfilled' ? boss.value : null,
       // The wide matte is an enhancement: failing to load it falls back to the room-only backdrop.
       matte: matte.status === 'fulfilled' ? matte.value : null,
-      variants: [] as { background: HTMLImageElement; matte: HTMLImageElement | null }[],
+      variants: [] as VariantImages[],
     };
     if (art.matteUrl && matte.status === 'rejected') console.error('[kujira] Wallpaper matte failed to load; using the room-only backdrop.', matte.reason);
     if (art.bossUrl && boss.status === 'rejected') console.error('[kujira] Optional rival image failed to load; using the code-only rival.', boss.reason);
@@ -187,7 +188,7 @@ async function bootstrap(): Promise<void> {
         continue;
       }
       loadedVariants.push({ art: variant, background: backgroundImage, matte: matteImage });
-      images.variants.push({ background: backgroundImage, matte: matteImage });
+      images.variants.push({ background: backgroundImage, matte: matteImage, appearance: variant.appearance });
     }
     renderer = new SceneRenderer(canvas, images, atlas, world.seed, art);
     resize();
@@ -209,6 +210,7 @@ async function bootstrap(): Promise<void> {
       backgroundRow.hidden = false;
       backgroundSetting.addEventListener('change', () => {
         renderer?.setVariant(Number(backgroundSetting.value));
+        if (renderer) applyMood(world, renderer.activeAppearance.ambience?.mood);
         draw('resize');
       }, { signal });
     }

@@ -2,7 +2,8 @@ import type { World } from '../world/world.ts';
 import type { SpriteAtlas } from './atlas.ts';
 import type { Viewport } from './viewport.ts';
 import { viewportFor } from './viewport.ts';
-import type { RenderAppearance } from '../app-web/art-profile.ts';
+import type { RenderAppearance, VariantAppearance } from '../app-web/art-profile.ts';
+import { resolveAppearance } from '../app-web/art-profile.ts';
 import { motesFor, scenePlan } from './scene-plan.ts';
 import type { Mote, ScenePlan } from './scene-plan.ts';
 import { sceneryQuads } from '../fighters/scenery.ts';
@@ -13,6 +14,7 @@ import { parseBossAtlas } from '../fighters/render-types.ts';
 export interface VariantImages {
   background: HTMLImageElement;
   matte?: HTMLImageElement | null;
+  appearance?: VariantAppearance;
 }
 
 export interface SceneImages {
@@ -96,6 +98,12 @@ export class SceneRenderer {
   /** 0 = the approved sunset room; 1..n = additional backgrounds. */
   get variantCount(): number { return this.variants.length + 1; }
   get selectedVariant(): number { return this.variantIndex; }
+
+  /** Base appearance merged with the selected background's overrides (ambient palette, water). */
+  get activeAppearance(): RenderAppearance {
+    if (this.variantIndex === 0) return this.appearance;
+    return resolveAppearance(this.appearance, this.variants[this.variantIndex - 1]?.appearance);
+  }
 
   setVariant(index: number): void {
     if (!Number.isInteger(index) || index < 0 || index >= this.variantCount) throw new Error('Invalid background variant.');
@@ -220,7 +228,7 @@ export class SceneRenderer {
   }
 
   draw(world: Readonly<World>, decorations = true): void {
-    this.drawPlan(scenePlan(world, this.atlas, this.motes, this.appearance, decorations));
+    this.drawPlan(scenePlan(world, this.atlas, this.motes, this.activeAppearance, decorations));
   }
 
   drawPlan(plan: ScenePlan): void {

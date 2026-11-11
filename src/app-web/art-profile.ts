@@ -1,5 +1,6 @@
 import type { Scene } from '../world/world.ts';
 import type { BossAtlas } from '../fighters/render-types.ts';
+import type { AmbienceProfile } from '../render/ambience.ts';
 
 export interface AssetCredit {
   readonly id: string;
@@ -34,6 +35,24 @@ export interface RenderAppearance {
   readonly matte?: MatteInfo;
   /** Local-only rival sheet geometry; absent/invalid means the original code-only fallback. */
   readonly bossAtlas?: BossAtlas;
+  /** Per-background ambient palette/episodes; absent means the approved sunset overlay. */
+  readonly ambience?: AmbienceProfile;
+}
+
+/** The subset of appearance a selectable background may override. */
+export type VariantAppearance = Pick<RenderAppearance, 'ceilingColor' | 'floorColor' | 'shadowColor' | 'water' | 'ambience'>;
+
+/** Merge a background's overrides onto the base appearance; undefined keeps the base. */
+export function resolveAppearance(base: RenderAppearance, override?: VariantAppearance): RenderAppearance {
+  if (!override) return base;
+  return {
+    ...base,
+    ...(override.ceilingColor !== undefined ? { ceilingColor: override.ceilingColor } : {}),
+    ...(override.floorColor !== undefined ? { floorColor: override.floorColor } : {}),
+    ...(override.shadowColor !== undefined ? { shadowColor: override.shadowColor } : {}),
+    ...(override.water !== undefined ? { water: override.water } : {}),
+    ...(override.ambience !== undefined ? { ambience: override.ambience } : {}),
+  };
 }
 
 /** A selectable wallpaper background. All variants share the approved 480×270 room geometry. */
@@ -42,6 +61,8 @@ export interface SceneVariant {
   readonly label: string;
   readonly backgroundUrl: string;
   readonly matteUrl?: string;
+  /** Optional ambient/life-rhythm overrides for this background. */
+  readonly appearance?: VariantAppearance;
 }
 
 export interface ArtProfile extends RenderAppearance {

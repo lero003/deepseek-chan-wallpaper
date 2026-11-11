@@ -41,6 +41,8 @@ public final class SceneEngine {
     }
     public func setManualFocus(_ focused: Bool) throws { _ = try string("focusJSON", [focused]) }
     public func setMovement(x: Double, y: Double) throws { _ = try string("movementJSON", [x, y]) }
+    /// Select a background in the shared core so ambient palette and life rhythm follow the image.
+    public func setVariant(_ index: Int) throws { _ = try string("setVariantJSON", [index]) }
     public func gameJSON() throws -> String { try string("gameJSON", []) }
     public func replayGameJSON(frames: Int, step: Double) throws -> String { try string("replayGameJSON", [frames, step]) }
     public func sceneryQuads() throws -> [Quad] { try JSONDecoder().decode([Quad].self, from: Data(string("sceneryJSON", []).utf8)) }

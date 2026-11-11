@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { ACTOR_HALF_WIDTH, advanceWorld, createWorld, SEASIDE, seedFromText, STEP_SECONDS, walkingRange, WALK_SPEED } from '../src/world/world.ts';
+import { ACTOR_HALF_WIDTH, advanceWorld, applyMood, createWorld, SEASIDE, seedFromText, STEP_SECONDS, walkingRange, WALK_SPEED } from '../src/world/world.ts';
 
 function simulate(seconds, fps, seed = 18327) {
   const world = createWorld(seed);
@@ -145,4 +145,80 @@ test('invalid deltas do nothing, and unexpected gaps are bounded', () => {
   assert.deepEqual(world, original);
   advanceWorld(world, 100000);
   assert.equal(world.tick, 15);
+});
+
+// --- Gaze strolls and background-linked life rhythm ---
+
+test('applyMood accepts the three backgrounds and falls back to sunset otherwise', () => {
+  const world = createWorld(1);
+  assert.equal(world.mood, 'sunset');
+  applyMood(world, 'night'); assert.equal(world.mood, 'night');
+  applyMood(world, 'rain'); assert.equal(world.mood, 'rain');
+  for (const invalid of ['sunset', 'storm', '', null, undefined, 42]) {
+    applyMood(world, invalid);
+    assert.equal(world.mood, 'sunset', `${invalid} should fall back to sunset`);
+  }
+});
+
+test('a gaze stroll reaches its scenic spot and settles into a longer idle', () => {
+  const world = createWorld(42);
+  const target = (world.range.left + world.range.right) / 2;
+  Object.assign(world.actor, { state: 'walk', stateTicks: 0, durationTicks: 100000, walkTarget: target });
+  let arrived = false;
+  for (let index = 0; index < 3000; index += 1) {
+    advanceWorld(world, STEP_SECONDS);
+    if (world.actor.state === 'idle' && world.actor.walkTarget == null) { arrived = true; break; }
+  }
+  assert.ok(arrived, 'the gaze walk should arrive and transition to idle');
+  assert.ok(Math.abs(world.actor.x - target) < 1e-6, 'she stands exactly at the scenic spot');
+  assert.ok(world.actor.durationTicks >= 7 * 60, 'a gaze idle is longer than a normal idle');
+});
+
+test('gaze targets stay inside the walking range for every mood', () => {
+  for (const mood of ['sunset', 'night', 'rain']) {
+    for (const seed of [1, 19, 42, 1987, 65535]) {
+      const world = createWorld(seed); applyMood(world, mood);
+      for (let index = 0; index < 1800 * 30; index += 1) {
+        advanceWorld(world, 1 / 30);
+        const actor = world.actor;
+        assert.ok(actor.x >= world.range.left && actor.x <= world.range.right, `${mood}: actor escaped`);
+        if (actor.walkTarget != null) {
+          assert.ok(actor.walkTarget >= world.range.left && actor.walkTarget <= world.range.right, `${mood}: gaze target out of range`);
+          assert.ok(actor.gazeAllowedAtTick > world.tick, `${mood}: gaze should be on cooldown while strolling`);
+        }
+        assert.ok(['idle', 'walk', 'turn', 'sleep'].includes(actor.state), `${mood}: unexpected state`);
+        assert.ok(actor.stateTicks >= 0 && actor.stateTicks <= actor.durationTicks, `${mood}: stateTicks overflow`);
+      }
+    }
+  }
+});
+
+test('night leans toward sleep and rain toward window-gazing over thirty minutes', () => {
+  const seeds = [1, 7, 19, 42, 99, 1234, 65535];
+  const tally = (mood) => {
+    let sleep = 0, gaze = 0, total = 0;
+    for (const seed of seeds) {
+      const world = createWorld(seed); applyMood(world, mood);
+      for (let index = 0; index < 1800 * 30; index += 1) {
+        advanceWorld(world, 1 / 30); total += 1;
+        if (world.actor.state === 'sleep') sleep += 1;
+        if (world.actor.walkTarget != null) gaze += 1;
+      }
+    }
+    return { sleep, gaze, total };
+  };
+  const sunset = tally('sunset'), night = tally('night'), rain = tally('rain');
+  assert.ok(night.sleep / night.total > sunset.sleep / sunset.total, 'night should sleep more than sunset');
+  assert.ok(rain.gaze > sunset.gaze, 'rain should gaze at the window more than sunset');
+  assert.ok(sunset.gaze > 0 && night.gaze > 0 && rain.gaze > 0, 'gaze strolls occur in every mood');
+});
+
+test('mood does not break fixed-step determinism across frame rates', () => {
+  for (const mood of ['night', 'rain']) {
+    const a = createWorld(31); applyMood(a, mood);
+    const b = createWorld(31); applyMood(b, mood);
+    for (let index = 0; index < 1800 * 15; index += 1) advanceWorld(a, 1 / 15);
+    for (let index = 0; index < 1800 * 60; index += 1) advanceWorld(b, 1 / 60);
+    assert.deepEqual(a, b, `${mood}: 15fps and 60fps must agree`);
+  }
 });
