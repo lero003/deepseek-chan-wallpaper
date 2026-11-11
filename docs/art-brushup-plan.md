@@ -8,7 +8,7 @@
 - **加工／来歴**: [加工スクリプト](<../private-art/production/fighters/prepare_combat_art.py>)・[台帳登録](<../private-art/production/fighters/register_combat_art.py>)・[処理と生成参照SHA](<../private-art/production/fighters/combat-processing-report.json>)。二値alpha・共有80色・接地・透明余白・既存11素材のSHA不変を確認。全生成物はGit対象外、許諾はpendingのまま。
 - **検証**: Node185件、Swift25件（local-preview／placeholder両方）、Web／placeholderビルド、Macビルド・署名・ZIP再展開・移設起動を確認。44通りの[ネイティブ描画QA](<../tests/native/CombatArtTests.swift>)、36障害ケースで各シートの独立フォールバックを確認。記録と最新成果物は[current_status](<current_status.md>)。
 - **目視の範囲**: 生成／原寸／3xおよびネイティブ静止画は制作側で確認。8キー姿勢を完全な手描き連番アニメーションと呼ばず、連続動作・可視キー操作・壁紙ON/OFF・Space／スリープ・実時間30分負荷は未受け入れとして残す。
-- 制約は維持: 承認済み生活16コマ・背景3種・マットはbyte不変／戦闘コマ・雑魚は別シート+完全な元描画フォールバック／手動アリーナ専用・書斎／壁紙／legacy不変／敵2種+ボス1体・1舞台／ローカル専用・非公開／無音・依存追加なし・Playwrightなし。
+- 制約は維持: 承認済み生活16コマ・背景3種・マットはbyte不変／戦闘コマ・雑魚は別シート+完全な元描画フォールバック／手動アリーナと壁紙の自動対戦に適用（ユーザー指示で小事件から変更）・静かな生活／legacy不変／敵2種+ボス1体・1舞台／ローカル専用・非公開／無音・依存追加なし・Playwrightなし。
 
 ## 目的と順序
 
