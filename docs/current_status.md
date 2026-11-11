@@ -104,7 +104,7 @@
 
 ## GitHub同期（2026-11-12・ユーザー明示依頼）
 
-- ユーザーの明示依頼「github含めて更新しておいてほしい」により、B01〜B05 のソースを非公開リポジトリ `lero003/deepseek-chan-wallpaper` の `main` へ commit・push した。可視性変更・Pages・公開リリース・タグ作成はしていない。PRIVATEのまま。
+- ユーザーの明示依頼「github含めて更新しておいてほしい」により、B01〜B05 のソースを非公開リポジトリ `lero003/deepseek-chan-wallpaper` の `main` へ commit・push した（`2abe895`）。可視性変更・Pages・公開リリース・タグ作成はしていない。PRIVATEのまま（`gh repo view`で確認）。remoteツリーに `private-art/`・`dist/`・レポート類は含まれない（106ファイル）。
 - 同期対象はコード・テスト・ドキュメントのみ。`private-art/`（生成素材・マスター・QA画像・Mac成果物）、`dist/`、`habitat-report/`、`node_modules/` は従来どおりGit対象外で、force-add していない。
 - GitHub上の既存Draftリリース（Build 9）とアセットは**更新していない**。今回のソースpushはDraftの添付ZIPを差し替えるものではなく、Draftの対象コミットとも一致しない。新しい個人テスト用ビルド／リリース更新は、別途の明示依頼とローカル`mac:build --local-preview`の実行が必要。
 
