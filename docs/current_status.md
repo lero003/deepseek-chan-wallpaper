@@ -93,29 +93,29 @@
 - ボス8姿勢と新44姿勢の接地・透過・台帳SHA、既存素材hash不変を確認。新アートの適用前後で書斎・legacy・受動壁紙の描画コマンドはbyte同一。
 - 新演出のネイティブ描画QA：睡眠バブル・流れ星・雨筋を`--render-preview`で書き出し、 blended ピクセルを数値確認（流れ星は予測位置と一致）。**描画器の出力であり、可視アニメーションの合格ではない。**
 
-## ローカルMac成果物（Build 9 + 環境演出A + 生成アート3施策）
+## ローカルMac成果物（Build 10 = ブラッシュアップ B01〜B05）
 
-- `npm run mac:build -- --local-preview` 成功。アドホック署名＋Hardened Runtime、ZIP再展開の全ファイルbyte一致・移設後の最小PATHでの自己検証／Fighters検証に成功。テラスと新3シートを同梱。Developer ID署名・公証ではない。
-- [アプリ](<../private-art/macos-out/20261111211617-9d09b9ac/くじらの散歩道.app>) / [ZIP](<../private-art/macos-out/20261111211617-9d09b9ac/KujiraWallpaper-Arcade-B9-arm64-local-preview.zip>)
-  - ZIP SHA-256 `f8697169827ebdcee4496a50eb5d4bc3650eae53dcb7a0a8d73fa4832fa008ac`
-  - [ローカル台帳](<../private-art/macos-out/latest.json>)
-- 実描画QA：[戦闘](<../private-art/macos-out/20261111211617-9d09b9ac/native-manual.png>)・[ボス](<../private-art/macos-out/20261111211617-9d09b9ac/native-boss.png>)・[結果](<../private-art/macos-out/20261111211617-9d09b9ac/native-arena-result.png>)・[万年筆ポーズ](<../private-art/qa/brushup/native-combat/combat-attack2.png>)・[敵攻撃](<../private-art/qa/brushup/native-combat/popup-0-strike.png>)。Leadはテラスと新姿勢の静止画を目視し、接地・透過・武器重複がないことを確認。**ネイティブ描画器の出力であり、実デスクトップのスクリーンショット・可視キー操作・連続アニメーションの合格ではない。**
-- 環境演出AのQA（[睡眠バブル](<../private-art/qa/amb-sleep-bubbles.png>)・[流れ星](<../private-art/qa/amb-night-star-wide.png>)・[雨](<../private-art/qa/amb-rain-wide.png>)）と背景別ワイドプレビューは前Build（`20261111102451-66c9caa4`）の記録を参照。
+- `npm run mac:build -- --local-preview` 成功（`CFBundleVersion 10`）。アドホック署名＋Hardened Runtime、ZIP再展開の全ファイルbyte一致・移設後の最小PATHでの自己検証／Fighters検証に成功。Developer ID署名・公証ではない。
+- [アプリ](<../private-art/macos-out/20261111221723-f55741f8/くじらの散歩道.app>) / [ZIP](<../private-art/macos-out/20261111221723-f55741f8/KujiraWallpaper-Brushup-B10-arm64-local-preview.zip>)（3,094,476 bytes）
+  - ZIP SHA-256 `5ae0d0dc6de744495735cd325347414bbe68d9f7d58541bee6a04a8488fccc9a`
+- [DMG](<../private-art/macos-out/20261111221736-9b4609d1-dmg/KujiraWallpaper-Brushup-B10-draft-arm64.dmg>)（3,954,682 bytes・読み取り専用マウント検証済み）
+  - DMG SHA-256 `4c0a5b9495f0b3fc11152b73c86ebf45a15b8867014de8eb61eb6eca1567854f`
+  - [ローカル台帳](<../private-art/macos-out/latest.json>)／[DMGレポート](<../private-art/macos-out/20261111221736-9b4609d1-dmg/dmg-report.json>)
+- 今回の描画QAはビルド時のネイティブPNG（プレビュー・背景3種・戦闘・ボス・各フェーズ）。**ネイティブ描画器の出力であり、実デスクトップのスクリーンショット・可視キー操作・連続アニメーションの合格ではない。**
 
 ## GitHub同期（2026-11-12・ユーザー明示依頼）
 
-- ユーザーの明示依頼「github含めて更新しておいてほしい」により、B01〜B05 のソースを非公開リポジトリ `lero003/deepseek-chan-wallpaper` の `main` へ commit・push した（`2abe895`）。可視性変更・Pages・公開リリース・タグ作成はしていない。PRIVATEのまま（`gh repo view`で確認）。remoteツリーに `private-art/`・`dist/`・レポート類は含まれない（106ファイル）。
+- 1回目「github含めて更新しておいてほしい」: B01〜B05 のソースを非公開リポジトリ `lero003/deepseek-chan-wallpaper` の `main` へ commit・push（`2abe895`、続くdocs更新 `9b6f587`）。PRIVATEのまま。
+- 2回目「Draft差し替えもお願い。他のマシンでも動かしたい」: Build 10 をローカルでビルド・検証し、既存Draftリリースを **Build 10 の内容へ差し替え**（タイトル／本文／タグ名 `brushup-build10`／添付）。詳細は下節。
 - 同期対象はコード・テスト・ドキュメントのみ。`private-art/`（生成素材・マスター・QA画像・Mac成果物）、`dist/`、`habitat-report/`、`node_modules/` は従来どおりGit対象外で、force-add していない。
-- GitHub上の既存Draftリリース（Build 9）とアセットは**更新していない**。今回のソースpushはDraftの添付ZIPを差し替えるものではなく、Draftの対象コミットとも一致しない。新しい個人テスト用ビルド／リリース更新は、別途の明示依頼とローカル`mac:build --local-preview`の実行が必要。
+- 可視性変更・Pages・公開リリース・公開タグは行っていない。リポジトリはPRIVATE。
 
-## GitHub下書き（作成済み・未更新）
+## GitHub下書き（Build 10 へ差し替え済み）
 
-- 非公開リポジトリ `lero003/deepseek-chan-wallpaper` に **Draft／Prerelease** を作成した：[固定アリーナ・アーケード Build 9 ドラフト](<https://github.com/lero003/deepseek-chan-wallpaper/releases/tag/untagged-5895c003bdef1ecd0b46>)。リリース名は「固定アリーナ・アーケード Build 9 ドラフト（個人テスト用）」。
-- 添付は `KujiraWallpaper-Arcade-B9-arm64-local-preview.zip`（2,769,540 bytes、SHA-256 `7a2182ffc2dc1401ad558ae6e69a4f38c70816361d90e0ca84fdec4836457358`）と `SHA256SUMS.txt`。GitHub上のasset digestも同じSHA-256。
-- 作成後に再ダウンロードし、`shasum -a 256 -c SHA256SUMS.txt` がOK、`codesign --verify --deep --strict` が有効、ZIP展開後のアプリを最小PATHの`env -i`で起動する`--fighters-self-test`が成功することを確認した。
-- 下書きの`tagName`は`arena-arcade-build9`だが、Draftのためリモートにタグは作成されていない（`git ls-remote --tags`で0件）。公開・可視性変更・Pages・公開リリースは行っていない。リポジトリはPRIVATEのまま。
-- 下書き作成時のソースは未commitだったが、その後ローカルcommit `2b3171b` 以降へ保存し、2026-11-12に `main` をpush済み。ただし下書きの添付ZIPは更新していないため、Draftのアセットと現在のソースの最新状態は一致しない。混同しない。
-- 以前のBuild 7／Build 6／MVP4の下書きは変更していない。
+- [Draft Release](<https://github.com/lero003/deepseek-chan-wallpaper/releases/tag/untagged-5895c003bdef1ecd0b46>) を「**アプリ・ブラッシュアップ Build 10 ドラフト（個人テスト用）**」へ差し替えた。Draft／Prereleaseのまま。
+- 添付は [DMG](<../private-art/macos-out/release-b10/KujiraWallpaper-Brushup-B10-draft-arm64.dmg>)（他Mac向け・Applicationsショートカット付き）、[ZIP](<../private-art/macos-out/release-b10/KujiraWallpaper-Brushup-B10-arm64-local-preview.zip>)、[SHA256SUMS.txt](<../private-art/macos-out/release-b10/SHA256SUMS.txt>)。SHA-256は上節のとおり。
+- 差し替え後にGitHubのasset digestがローカルSHA-256と一致すること、再ダウンロードした`shasum -a 256 -c SHA256SUMS.txt`がOK、`codesign --verify --deep --strict`が有効であることを確認する（実行結果は下に追記）。
+- Draftのためリモートに公開タグは作成されない。旧Build 9のZIPは差し替えで削除した。Build 7／Build 6／MVP4の下書きは変更していない。
 
 ## 権利・次の受け入れ
 

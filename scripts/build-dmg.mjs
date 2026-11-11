@@ -17,12 +17,12 @@ const run = (command, args, options = {}) => {
 const capture = (command, args, options = {}) => run(command, args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'], ...options }).stdout.trim();
 
 export function dmgFileName(architecture) {
-  return `KujiraWallpaper-Fighters-MVP4-draft-${architecture}.dmg`;
+  return `KujiraWallpaper-Brushup-B10-draft-${architecture}.dmg`;
 }
 
 export function draftReadme({ version, zipSha256, architecture }) {
-  return `くじらの散歩道 — DeepSeekちゃんファイターズ MVP4（ドラフト）
-=========================================================
+  return `くじらの散歩道 — アプリ・ブラッシュアップ Build 10（個人用ドラフト）
+================================================================
 
 これは個人検証用の非公開ドラフトです。公開配布物・正式リリースではありません。
 素材の権利・公開許諾は未確認のため、再配布・公開アップロードをしないでください。
@@ -38,16 +38,25 @@ export function draftReadme({ version, zipSha256, architecture }) {
 1. 「くじらの散歩道.app」を Applications へドラッグ（任意）。
 2. 起動するとプレビューが開きます。壁紙は「壁紙にする」を選んだときだけ表示。
 3. 元の壁紙設定は変更しません。OFF・終了でアプリのウィンドウが消えます。
-4. 手動操作: WASD／矢印で移動、J/Zで3段コンボ、K/Xで回避、L/Cで必殺、
+4. シーン下の「背景」で夕凪・月夜・雨音を切り替え（「雨音」は景色で音は鳴りません）。
+   「呼んでみる」で、書斎で休んでいるDeepSeekちゃんが小さく応えます。
+5. 手動操作: WASD／矢印で移動、J/Zで3段コンボ、K/Xで回避、L/Cで必殺、
    Escでポーズ。メニューバーから「書斎へ戻る」「もう一度遊ぶ」。
-5. 音は常時無音。通信・解析・ログイン自動起動はありません。
+6. 音は常時無音。通信・解析・ログイン自動起動はありません。
+
+今回の変更（Build 10）
+- 「おっとり。ときどき、つよい。」のタグラインと、分かりやすい背景選択
+- プレビュー限定の「呼んでみる」（20秒に1回・書斎で休んでいる時だけ）
+- 生活・帰宅の小さなキャプション、About に正面の小さな姿
+- ゲームの帰宅は「書斎へ戻る」。壁紙ON/OFFとは別操作
 
 検証済み
 - 署名検証、DMGからの単体起動、同梱素材のハッシュ、自己テスト
-- 12セクションの自動完走（約150〜162秒）と30分シミュレーション
+- Node 200テスト、Swift 26テスト（両プロファイル）、Webビルド（通常・placeholder）
 未確認
 - 実画面でのキー操作の感触、壁紙ON/OFF、Space、スリープ復帰
 - 実時間30分のCPU・メモリ・発熱、別のMac／OS、Gatekeeperの挙動
+- 「呼んでみる」の実際の見え方・テンポ
 
 記録
 - アプリ版: ${version}
