@@ -4,7 +4,7 @@ import { ARENA_PHASE_NAMES, HERO, LIMITS, PHASE_NAMES, studyStage } from './defi
 import { updateHero, updateProjectiles, inBattle } from './combat.ts';
 import { updateEnemies } from './enemy-brain.ts';
 import { AREAS } from './definitions.ts';
-import { autoIntent, desiredCamera, enterPhase, retrySection, returnHome, routeSections, scheduleRest, startEpisode, updateDirector } from './director.ts';
+import { autoIntent, desiredCamera, enterPhase, retrySection, returnHome, routeSections, scheduleRest, startEpisode, startWallpaperBout, updateDirector } from './director.ts';
 import { clearInputs } from './events.ts';
 import { newHero, newStats } from './factory.ts';
 import { direction } from './movement.ts';
@@ -52,7 +52,7 @@ export function command(game: FightersGame, name: string, value?: unknown): void
     case 'retry':
       if (game.mode !== 'manual' || !['battle', 'boss', 'retry', 'result'].includes(game.phase)) return;
       retrySection(game); game.paused = false; break;
-    case 'demo': if (game.mode === 'auto') startEpisode(game, 'room'); break;
+    case 'demo': if (game.mode === 'auto') startWallpaperBout(game); break;
     case 'pause':
       if (game.mode !== 'manual') return;
       game.paused = !game.paused; clearInputs(game);
@@ -86,8 +86,11 @@ function step(game: FightersGame): void {
   game.effects = game.effects.filter(item => item.age < item.ttl && item.y < 300);
   if (game.route === 'arena') {
     // Both actors and hostile projectiles are frozen outside a live round, not just input.
-    if (inBattle(game)) { updateHero(game); updateEnemies(game); updateProjectiles(game); }
-    else if (game.phase === 'victory') updateEnemies(game);
+    // The passive wallpaper bout is auto-piloted; a manual round reads the user's input.
+    if (inBattle(game)) {
+      if (game.mode === 'auto') autoIntent(game);
+      updateHero(game); updateEnemies(game); updateProjectiles(game);
+    } else if (game.phase === 'victory') updateEnemies(game);
   } else if (['intro', 'battle', 'bossIntro', 'boss'].includes(game.phase)) {
     if (game.mode === 'auto') autoIntent(game);
     if (game.phase !== 'bossIntro') { updateHero(game); updateEnemies(game); updateProjectiles(game); }

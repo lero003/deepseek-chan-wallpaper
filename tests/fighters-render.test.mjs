@@ -45,9 +45,8 @@ test('the fixed arena flags its battle frame and never flags the wallpaper or ro
   const arena=gamePlan(g,atlas,SUNSET_LAYOUT);
   assert.equal(arena.battle.arena,true);
   assert.equal(gamePlan(g,atlas,SUNSET_LAYOUT,true,'wallpaper').battle,undefined);
-  const room=make();
-  let guard=0;while(room.route!=='room'&&guard<400*60){advanceGame(room,1/60);guard++;}
-  assert.equal(gamePlan(room,atlas,SUNSET_LAYOUT).battle.arena,undefined);
+  const room=make(); startEpisode(room,'room'); enterPhase(room,'battle');
+  assert.equal(gamePlan(room,atlas,SUNSET_LAYOUT).battle.arena,undefined,'the legacy room incident keeps the room backdrop');
   assert.equal(gamePlan(room,atlas,SUNSET_LAYOUT).battle.room,true);
 });
 test('a painted arena backdrop skips the code scenery ambience; without it the ambience remains',()=>{
@@ -194,28 +193,93 @@ test('the bundled bridge produces the same run, plan and scenery as the direct W
   assert.throws(()=>bridge.replayGameJSON(1000001,1/60));
 });
 
-test('automatic wallpaper incidents stay inside the accepted study room',()=>{
+test('the automatic wallpaper bout is a terrace skirmish with no HUD or banner cards',()=>{
   const g=make();
   let guard=0;
-  while(g.route!=='room'&&guard<400*60){advanceGame(g,1/60);guard++;}
-  assert.equal(g.route,'room','the quiet life eventually raises a room incident');
-  let battleGuard=0;
-  while(g.phase!=='battle'&&battleGuard<30*60){advanceGame(g,1/60);battleGuard++;}
-  assert.equal(g.phase,'battle');
-  assert.equal(g.cameraX,0,'a room incident never scrolls the camera');
-  assert.ok(g.hero.x>=0&&g.hero.x<=480,'the heroine stays in the accepted room');
-  for(const enemy of g.enemies)assert.ok(enemy.x>=0&&enemy.x<=480,'visitors stay in the accepted room');
+  while(g.route!=='arena'&&guard<400*60){advanceGame(g,1/60);guard++;}
+  assert.equal(g.route,'arena','the quiet life eventually raises a terrace bout');
+  assert.equal(g.phase,'battle','it is joined mid-fight');
+  assert.equal(g.cameraX,960,'the terrace camera is fixed');
+  assert.ok(g.hero.x>=978&&g.hero.x<=1422,'the heroine stays on the agreed terrace bound');
+  for(const enemy of g.enemies)assert.ok(enemy.x<=1440,'visitors walk in from the visible edge');
   const plan=gamePlan(g,atlas,SUNSET_LAYOUT);
   assert.ok(plan.battle);
-  assert.equal(plan.battle.room,true,'the renderer keeps the study backdrop');
-  assert.equal(plan.battle.cameraX,0);
-  assert.equal(plan.battle.commands.some(item=>item.kind==='text'),false,'no chapter banner or HUD over the wallpaper');
-  assert.ok(plan.battle.commands.some(item=>item.kind==='sprite'),'the room incident still draws the characters');
+  assert.equal(plan.battle.arena,true,'the painted terrace backdrop is used');
+  assert.equal(plan.battle.room,undefined);
+  assert.equal(plan.battle.cameraX,960);
+  assert.equal(plan.battle.commands.some(item=>item.kind==='text'),false,'no HUD, chapter banner or READY card');
+  assert.ok(plan.battle.commands.some(item=>item.kind==='sprite'),'the heroine and visitors are drawn');
   const wallpaper=gamePlan(g,atlas,SUNSET_LAYOUT,true,'wallpaper');
-  assert.equal(wallpaper.battle?.room,true,'the wallpaper itself shows the small incident');
+  assert.equal(wallpaper.battle?.arena,true,'the wallpaper itself shows the fight');
+  assert.equal(wallpaper.battle.commands.some(item=>item.kind==='text'),false,'the wallpaper stays silent');
   const started=g.tick;
   let endGuard=0;
-  while(g.phase!=='rest'&&endGuard<60*60){advanceGame(g,1/60);endGuard++;}
-  assert.equal(g.phase,'rest','the incident always returns to the quiet room');
-  assert.ok(g.tick-started<60*60,'the incident is short enough to watch');
+  while(g.phase!=='rest'&&endGuard<120*60){advanceGame(g,1/60);endGuard++;}
+  assert.equal(g.phase,'rest','the bout always returns to the quiet room');
+  assert.ok(g.tick-started<120*60,'the bout is bounded');
+});
+test('the Canvas host applies per-quad alpha instead of painting every scenery layer opaque',()=>{
+  const calls=[];
+  const fakeCanvas=()=>{
+    const ctx={globalAlpha:1,fillStyle:'',imageSmoothingEnabled:false,
+      fillRect(x,y,w,h){calls.push({x,y,w,h,alpha:this.globalAlpha,color:this.fillStyle});},
+      setTransform(){},globalAlpha:1,fillStyle:'',
+      drawImage(){},save(){},restore(){},translate(){},scale(){},rotate(){},fillText(){},set font(_){},get font(){return '';},set textBaseline(_){}};
+    return {width:0,height:0,getContext:()=>ctx};
+  };
+  const previous=globalThis.document;
+  globalThis.document={createElement:()=>fakeCanvas()};
+  try{
+    const g=make();command(g,'play');setFocus(g,true);advanceGame(g,.5);
+    const renderer=new SceneRenderer(fakeCanvas(),{background:null,character:null},atlas,1,SUNSET_LAYOUT);
+    renderer.resize(480,270);
+    renderer.drawPlan(gamePlan(g,atlas,SUNSET_LAYOUT));
+    const translucent=sceneryQuads(SUNSET_LAYOUT).filter(quad=>quad.alpha<.9);
+    assert.ok(translucent.length>0);
+    for(const quad of translucent.slice(0,6)){
+      assert.ok(calls.some(call=>call.color===quad.color&&Math.abs(call.alpha-quad.alpha)<1e-6),`alpha ${quad.alpha} for ${quad.color}`);
+    }
+  }finally{
+    if(previous===undefined)Reflect.deleteProperty(globalThis,'document');else globalThis.document=previous;
+  }
+});
+test('the legacy long route still builds a boss battle plan with ambience and no dialogue bubbles',()=>{
+  const g=make();startEpisode(g,'auto');
+  let sawBoss=false;
+  for(let i=0;i<200*60&&g.phase!=='rest';i++){
+    advanceGame(g,1/60);
+    if(g.phase==='boss'){sawBoss=true;break;}
+  }
+  assert.ok(sawBoss,'the long route still reaches the boss (manual/legacy route, not the wallpaper incident)');
+  const plan=gamePlan(g,atlas,SUNSET_LAYOUT);
+  assert.ok(plan.battle&&plan.battle.commands.length>220);
+  assert.ok(plan.battle.commands.filter(item=>item.kind==='rect'&&item.alpha<.2).length>40,'animated ambience must be present');
+  assert.equal(g.effects.some(item=>item.kind==='words'),false);
+  for(const item of plan.battle.commands){
+    assert.ok(Number.isFinite(item.x)&&Number.isFinite(item.y)&&Number.isFinite(item.alpha));
+    if(item.kind==='sprite')assert.ok(item.frame>=0&&item.frame<16);
+    if(item.kind==='text')assert.ok(item.size>=5&&item.size<=24);
+  }
+});
+test('the bundled bridge produces the same run, plan and scenery as the direct Web core',()=>{
+  const bridge=nativeBridge(JSON.stringify({atlas,layout:PLACEHOLDER_LAYOUT,stage:{width:STAGE_WIDTH}}),'fighters-run');
+  const g=make();
+  bridge.commandJSON('demo');command(g,'demo');
+  for(let i=0;i<900;i++){bridge.advanceGameJSON(1/30);advanceGame(g,1/30);}
+  assert.deepEqual(JSON.parse(bridge.gameJSON()),g);
+  assert.deepEqual(JSON.parse(bridge.gameSnapshotJSON()),gamePlan(g,atlas,PLACEHOLDER_LAYOUT));
+  assert.deepEqual(JSON.parse(bridge.gameSnapshotJSON(true,'wallpaper')),gamePlan(g,atlas,PLACEHOLDER_LAYOUT,true,'wallpaper'));
+  assert.deepEqual(JSON.parse(bridge.sceneryJSON()),sceneryQuads(PLACEHOLDER_LAYOUT));
+  assert.throws(()=>bridge.gameSnapshotJSON(true,'foreground-stealing'));
+  assert.throws(()=>bridge.replayGameJSON(1000001,1/60));
+});
+
+test('the legacy room incident path still keeps the study backdrop and camera',()=>{
+  const g=make(); startEpisode(g,'room'); enterPhase(g,'battle');
+  const plan=gamePlan(g,atlas,SUNSET_LAYOUT);
+  assert.equal(plan.battle.room,true,'the renderer keeps the study backdrop');
+  assert.equal(plan.battle.cameraX,0);
+  assert.equal(plan.battle.commands.some(item=>item.kind==='text'),false,'no chapter banner or HUD in the room');
+  const wallpaper=gamePlan(g,atlas,SUNSET_LAYOUT,true,'wallpaper');
+  assert.equal(wallpaper.battle?.room,true);
 });

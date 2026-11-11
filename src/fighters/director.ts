@@ -83,6 +83,51 @@ function prepareArenaRound(game: FightersGame, retry = false): void {
   game.cameraX = ARENA.cameraX; game.areaIndex = 1; game.areaBannerUntil = 0;
   enterPhase(game, ARENA_ROUNDS[game.section]?.boss ? 'bossIntro' : 'intro');
 }
+/**
+ * The wallpaper bout is a watchable skirmish, not the 90-second arcade match: one small
+ * enemy arrives at a time, so a glance at the desktop always catches a live exchange.
+ * `wave` counts arrivals in this bout; the arena path has no second-wave logic of its own.
+ */
+const SHOWCASE = { quota: 30, maxAlive: 3, gapTicks: 52, limitTicks: 80 * 60 } as const;
+
+/** The passive wallpaper's automatic scene: a terrace skirmish already in progress. */
+export function startWallpaperBout(game: FightersGame): void {
+  startEpisode(game, 'arena');
+  // Skip the READY card: the wallpaper cuts into an exchange that has already begun.
+  enterPhase(game, 'battle');
+  game.sectionLocked = true;
+  game.hero.hp = Math.max(2, HERO.hp - 2);
+  game.hero.gauge = 62;
+  game.hero.x = ARENA.heroX + 26;
+  game.hero.facing = 1;
+  game.hero.state = 'attack'; game.hero.age = 4; game.hero.combo = 2;
+  spawnBoutEnemy(game, 0);
+  spawnBoutEnemy(game, 1);
+  game.wave = 2;
+  game.enemies.forEach((enemy, index) => {
+    enemy.hp = index === 0 ? 2 : 1;
+    enemy.state = 'move'; enemy.age = 10 + index * 7;
+    enemy.targetX = game.hero.x;
+  });
+  game.graceUntil = game.combatTick + 24;
+  for (let index = 0; index < 3; index++) {
+    effect(game, 'spark', ARENA.enemyX - 16 + index * 17, ARENA.heroY - 28 - index * 8, '', 16);
+  }
+}
+
+/** One arrival from the terrace's right edge; both approved small species, all variants. */
+function spawnBoutEnemy(game: FightersGame, index: number): void {
+  const kind = index % 2 === 0 ? 'slime' : 'popup';
+  const variant = index % 5 === 3 ? 2 : index % 3 === 2 ? 1 : 0;
+  const span = ARENA.bottom - ARENA.top - 8;
+  const y = ARENA.top + 4 + (index * 13) % span;
+  const enemy = spawnEnemy(game, kind, variant, ARENA.right - 16, y, -1, true);
+  if (!enemy) return;
+  enemy.readyAt = game.combatTick + 24;
+  enemy.targetX = ARENA.heroX + 70;
+  enemy.age = 6;
+}
+
 function beginArenaBattle(game: FightersGame): void {
   const round = ARENA_ROUNDS[game.section];
   if (!round) { victory(game); return; }
@@ -120,6 +165,7 @@ function updateArenaRound(game: FightersGame): void {
       break;
     case 'battle':
     case 'boss':
+      if (game.mode === 'auto' && game.phase === 'battle') { updateWallpaperBout(game); break; }
       if (!game.enemies.some(enemy => enemy.hp > 0 && enemy.state !== 'exit')) {
         game.projectiles = []; game.hitstop = 0; game.sectionLocked = false;
         clearArcadeRound(game);
@@ -137,6 +183,20 @@ function updateArenaRound(game: FightersGame): void {
       break;
     default: break;
   }
+}
+
+/** Reinforcements keep the wallpaper skirmish moving, then everyone goes home. */
+function updateWallpaperBout(game: FightersGame): void {
+  const elapsed = game.tick - game.eventStartedAt;
+  const alive = game.enemies.filter(enemy => enemy.hp > 0 && enemy.state !== 'exit').length;
+  // An empty terrace refills at once; otherwise arrivals follow the pacing schedule.
+  if (game.wave < SHOWCASE.quota && alive < SHOWCASE.maxAlive
+    && elapsed >= game.wave * SHOWCASE.gapTicks) {
+    spawnBoutEnemy(game, game.wave);
+    game.wave++;
+  }
+  if (alive === 0 && game.wave >= SHOWCASE.quota) { game.enemies = []; victory(game); }
+  else if (elapsed > SHOWCASE.limitTicks) { game.enemies = []; victory(game); }
 }
 
 function roomIncident(game: FightersGame): RoomIncident {
@@ -274,8 +334,9 @@ function clampi(value: number, min: number, max: number): number { return Math.m
 export function updateDirector(game: FightersGame): void {
   if (game.phase === 'rest') {
     if (game.frequency !== 'off' && game.tick >= game.nextEventAt && game.mode === 'auto') {
-      // Every automatic wallpaper event is now a small incident inside the study room.
-      startEpisode(game, 'room');
+      // The wallpaper's periodic action is a short auto-piloted terrace bout, not a
+      // study-room incident: the user asked to see fighting while the desktop is idle.
+      startWallpaperBout(game);
     } else if (game.tick >= game.restReactionAt) {
       effect(game, 'spark', 330 + decision(game) * 90, 96 + decision(game) * 30, '', 34);
       game.restReactionAt = game.tick + Math.round((22 + decision(game) * 22) * 60);

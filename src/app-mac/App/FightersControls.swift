@@ -16,7 +16,7 @@ final class FightersControls: NSObject {
         modeLabel.lineBreakMode = .byTruncatingTail
         health.font = .monospacedSystemFont(ofSize: 10, weight: .regular)
         health.setContentHuggingPriority(.required, for: .horizontal)
-        let modeRow = NSStackView(views: [modeLabel, NSView(), button("事件を見る", "demo"), button("テラスで3連戦", "play"), button("もう一戦", "retry"), button("壁紙へ戻る", "home")])
+        let modeRow = NSStackView(views: [modeLabel, NSView(), button("対戦を見る", "demo"), button("テラスで3連戦", "play"), button("もう一戦", "retry"), button("壁紙へ戻る", "home")])
         modeRow.orientation = .horizontal; modeRow.spacing = 9; modeRow.alignment = .centerY
         manualRow.orientation = .horizontal; manualRow.spacing = 9; manualRow.alignment = .centerY
         for child in [health, NSView(), button("攻撃 J", "attack"), button("回避 K", "dodge"), button("必殺 L", "special"), button("ポーズ Esc", "pause")] { manualRow.addArrangedSubview(child) }
@@ -52,8 +52,8 @@ final class FightersControls: NSObject {
         buttons["special"]?.isEnabled = enabled && !state.paused && fighting && state.specialReady
         modeLabel.stringValue = manual
             ? "R\(state.round)/\(state.rounds) · \(state.roundLabel) · \(state.paused ? "ひと休み中" : state.phaseLabel)"
-            : state.phase == "rest" ? "静かな書斎。気分転換に、テラスで3連戦。" : "小事件：\(state.phaseLabel)"
+            : state.phase == "rest" ? "静かな書斎。気分転換に、テラスで3連戦。" : "自動対戦：\(state.phaseLabel)"
         health.stringValue = "HP \(state.hp)/5  夕凪 \(state.gauge)/100  SCORE \(state.arcade.score)  TIME \(state.arcade.secondsLeft)"
-        modeLabel.toolTip = manual ? "WASD / 矢印で間合いを調整 · J/Z 攻撃 · K/X 回避 · L/C 必殺" : "雑魚戦2回 → 綴星リュミエとの一騎打ち → 書斎へ。壁紙の小事件にはボスは現れません。"
+        modeLabel.toolTip = manual ? "WASD / 矢印で間合いを調整 · J/Z 攻撃 · K/X 回避 · L/C 必殺" : "雑魚戦2回 → 綴星リュミエとの一騎打ち → 書斎へ。壁紙の自動対戦にはボスは現れません。"
     }
 }

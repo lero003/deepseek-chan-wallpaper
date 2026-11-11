@@ -156,7 +156,7 @@ struct KujiraMain {
         }
         if let output = try value("--render-room-event") {
             let seconds = Double(try value("--time") ?? "6") ?? 6
-            guard seconds.isFinite, seconds >= 0, seconds <= 120 else { throw KujiraError.invalid("小事件の書き出し時間が不正です。") }
+            guard seconds.isFinite, seconds >= 0, seconds <= 120 else { throw KujiraError.invalid("自動対戦の書き出し時間が不正です。") }
             // Wait for the first automatic in-room incident, then advance into its battle.
             var waited = 0.0
             while waited < 400 {

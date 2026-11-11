@@ -252,9 +252,9 @@ final class AppController: NSObject, NSWindowDelegate {
         menu.addItem(.separator())
         playItem = add("ファイターズを遊ぶ", #selector(startPlaying(_:)))
         homeItem = add("壁紙へ戻る", #selector(goHome(_:)))
-        let frequencyMenu = NSMenu(title: "小事件の頻度"); frequencyMenu.autoenablesItems = false
-        let frequencyParent = add("小事件の頻度", nil); frequencyParent.submenu = frequencyMenu
-        for (value, title) in [("low", "少なめ（3〜5分）"), ("normal", "通常（1.5〜2.5分）"), ("off", "小事件なし")] {
+        let frequencyMenu = NSMenu(title: "自動対戦の頻度"); frequencyMenu.autoenablesItems = false
+        let frequencyParent = add("自動対戦の頻度", nil); frequencyParent.submenu = frequencyMenu
+        for (value, title) in [("low", "少なめ（3〜5分）"), ("normal", "通常（1.5〜2.5分）"), ("off", "対戦なし")] {
             let entry = NSMenuItem(title: title, action: #selector(setFrequency(_:)), keyEquivalent: "")
             entry.target = self; entry.representedObject = value; frequencyMenu.addItem(entry); frequencyItems[value] = entry
         }

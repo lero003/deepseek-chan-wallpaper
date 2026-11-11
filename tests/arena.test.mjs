@@ -335,7 +335,7 @@ test('wallpaper counters cannot leak into arena results and home restores the ac
   assert.equal(game.cameraX, 0); assert.equal(game.stage.bounds.left, 40); assert.equal(game.stage.width, STAGE_WIDTH);
   assert.equal(game.enemies.length, 0); assert.equal(game.projectiles.length, 0); assert.equal(game.hero.attackQueue, 0);
   assert.equal(game.frequency, 'off'); assert.equal(game.effectsLow, false);
-  command(game, 'demo'); assert.equal(game.route, 'room'); assert.equal(game.cameraX, 0);
+  command(game, 'demo'); assert.equal(game.route, 'arena'); assert.equal(game.phase, 'battle'); assert.equal(game.cameraX, ARENA.cameraX);
 });
 
 test('manual play/demo cannot replace a live match, and home can safely leave every match phase', () => {

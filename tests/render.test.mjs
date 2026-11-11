@@ -7,7 +7,7 @@ import { viewportFor } from '../src/render/viewport.ts';
 import { createWorld, seedFromText } from '../src/world/world.ts';
 import { motesFor, scenePlan } from '../src/render/scene-plan.ts';
 import { resolveAppearance } from '../src/app-web/art-profile.ts';
-import { createGame, command, setFocus } from '../src/fighters/game.ts';
+import { createGame, advanceGame, command, setFocus } from '../src/fighters/game.ts';
 import { gamePlan } from '../src/fighters/render-plan.ts';
 import { SUNSET_LAYOUT } from '../src/art/scene-profiles.ts';
 
@@ -323,5 +323,26 @@ test('the passive wallpaper never paints the arena backdrop even when it is load
     const images = canvas.context.calls.filter(call => call[0] === 'drawImage');
     // Room backdrop + character only. An incorrectly painted arena cache would add a third image.
     assert.equal(images.length, 2, 'the wallpaper keeps the room presentation, never the arena backdrop');
+  } finally { globalThis.document = previousDocument; }
+});
+
+test('the passive wallpaper paints the automatic bout on the terrace without HUD text', () => {
+  const previousDocument = globalThis.document;
+  globalThis.document = { createElement: () => fakeCanvas() };
+  try {
+    const game = createGame(seedFromText('wallpaper-bout-render'));
+    game.nextEventAt = game.tick; advanceGame(game, 1 / 60);
+    assert.equal(game.mode, 'auto'); assert.equal(game.route, 'arena');
+    const plan = gamePlan(game, atlas, { ...SUNSET_LAYOUT, arenaArt: true }, true, 'wallpaper');
+    assert.equal(plan.battle?.arena, true, 'the wallpaper itself shows the bout');
+    assert.equal(plan.battle.commands.some(command => command.kind === 'text'), false, 'no HUD, banner or READY card');
+    assert.ok(plan.battle.commands.some(command => command.kind === 'sprite'), 'the fighters are drawn');
+    const canvas = fakeCanvas();
+    const renderer = new SceneRenderer(canvas, { background: null, character: null, arena: { naturalWidth: 480, naturalHeight: 270 } }, atlas, 1, SUNSET_LAYOUT);
+    renderer.resize(480, 270);
+    renderer.drawPlan(plan);
+    const images = canvas.context.calls.filter(call => call[0] === 'drawImage');
+    assert.equal(images[1][1].width, 480, 'the terrace backdrop is viewport-sized, not the scrolling stage');
+    assert.equal(canvas.context.calls.some(call => call[0] === 'fillText'), false, 'the wallpaper surface stays silent');
   } finally { globalThis.document = previousDocument; }
 });

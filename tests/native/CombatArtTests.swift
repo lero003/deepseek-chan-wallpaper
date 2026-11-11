@@ -147,6 +147,27 @@ struct CombatArtTests {
         #expect(try engine.snapshot().battle != nil)
     }
 
+    @Test func wallpaperBoutRendersAsAFullSilentTerraceScene() throws {
+        let assets = try prepared()
+        let engine = try SceneEngine(assets: assets)
+        try engine.command("demo")
+        #expect(try engine.snapshot(presentation: "wallpaper").battle != nil, "the bout starts immediately")
+        _ = try engine.replayGameJSON(frames: 90, step: 1.0 / 60)
+        let wallpaper = try engine.snapshot(presentation: "wallpaper")
+        let battle = try #require(wallpaper.battle)
+        #expect(battle.arena == true, "the wallpaper paints the terrace instead of the scrolling stage")
+        #expect(battle.commands.contains { $0.kind == "text" } == false, "no HUD, banner or READY card on the desktop surface")
+        #expect(battle.commands.contains { $0.kind == "sprite" } == true, "the fighters are visible")
+        let painter = ScenePainter(engine: engine)
+        let image = try painter.bitmap(wallpaper, width: 1440, height: 810)
+        #expect(image.width == 1440)
+        if assets.configuration.layout.kind != "placeholder" {
+            let output = project().appendingPathComponent("private-art/qa/brushup/native-combat", isDirectory: true)
+            try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
+            try ScenePainter.writePNG(image, to: output.appendingPathComponent("wallpaper-bout.png"))
+        }
+    }
+
     @Test func nativeArenaUsesHostValidatedAvailabilityInsteadOfConfiguredPresence() throws {
         let original = try prepared()
         guard let arena = original.configuration.arena else {

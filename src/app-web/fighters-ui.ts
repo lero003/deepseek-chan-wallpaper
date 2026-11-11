@@ -78,7 +78,7 @@ export class FightersUI {
       this.lastAnnouncement = announcement;
     }
     this.element('scene-thought').textContent = ui.phase === 'rest'
-      ? 'ただ、ここにいる。気分転換に、テラスで3連戦。' : manual ? ui.phaseLabel : '書斎の小さな事件';
+      ? 'ただ、ここにいる。気分転換に、テラスで3連戦。' : manual ? ui.phaseLabel : 'テラスで自動対戦';
     if (!enabled) { this.input.clear(); setFocus(this.game, false); }
     document.documentElement.dataset.gameMode = ui.mode;
   }

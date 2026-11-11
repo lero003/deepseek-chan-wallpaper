@@ -233,9 +233,16 @@ export function gamePlan(game: FightersGame, atlas: SpriteAtlas, appearance: Ren
     p.screen(0, 260, 480, 10, C.ink, .10);
   }
 
+  // Cutting from the quiet desktop straight into a live exchange needs a short warm
+  // fade-in; it also tells the eye that this scene is ambient, not a new modal card.
+  if (game.mode === 'auto' && game.route === 'arena' && game.phase === 'battle' && game.phaseAge < 20) {
+    p.screen(0, 0, 480, 270, '#f6dcb4', (1 - game.phaseAge / 20) * .85);
+  }
+
   // Progress pips and the "GO" cue belong to the manual HUD only.
   if (game.mode === 'manual') drawManualHud();
-  else drawAutoBanners();
+  // The wallpaper bout is a silent scene: no chapter or victory banner cards either.
+  else if (game.route !== 'arena') drawAutoBanners();
   drawVignette(p);
   drawReturnFade(p);
 
