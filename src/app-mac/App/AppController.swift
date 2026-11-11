@@ -430,7 +430,7 @@ final class AppController: NSObject, NSWindowDelegate {
         text.isEditable = false; text.isSelectable = true
         text.font = .systemFont(ofSize: 12); text.textColor = .labelColor
         text.autoresizingMask = [.width]; text.textContainer?.widthTracksTextView = true
-        text.string = "ファイターズ：海辺のテラスで雑魚戦2回 → 綴星リュミエとの一騎打ち → 決着と帰宅。移動で先へ進む必要はありません。主人公の承認済み16コマは変更せず再利用しています。ボスはClaudeの文章・思考を着想にしたオリジナルのAI擬人化案で、公式キャラクターではなくAnthropic社の提携・承認もありません。制作アートはローカル専用、素材がない環境は独自の仮ピクセル描画です。敵2種・技・戦闘背景は仮ピクセル図形。音はありません。\n\n" + assets.configuration.layout.provenance + "\n\n" + assets.manifest.note + "\n\n" + assets.manifest.assets.map {
+        text.string = "ファイターズ：海辺のテラスで雑魚戦2回 → 綴星リュミエとの一騎打ち → 決着と帰宅。移動で先へ進む必要はありません。主人公の承認済み16コマは変更せず再利用しています。ボスはClaudeの文章・思考を着想にしたオリジナルのAI擬人化案で、公式キャラクターではなくAnthropic社の提携・承認もありません。制作アートはローカル専用、素材がない環境は独自の仮ピクセル描画です。ローカル版ではテラス背景・主人公の戦闘8キー姿勢・既存敵2種の6姿勢を生成素材として追加し、元の生活16コマは不変です。画像なし／読込失敗時は従来描画へ戻ります。連続動作の自然さ・操作感・実時間負荷の実機受け入れとは別です。音はありません。\n\n" + assets.configuration.layout.provenance + "\n\n" + assets.manifest.note + "\n\n" + assets.manifest.assets.map {
             "\($0.id) — \($0.name)\n\($0.author)\n\($0.dimensions) · \($0.license)\n\($0.permission.status)\n"
         }.joined(separator: "\n")
         scroll.documentView = text

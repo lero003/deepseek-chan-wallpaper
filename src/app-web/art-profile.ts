@@ -1,6 +1,7 @@
 import type { Scene } from '../world/world.ts';
 import type { BossAtlas } from '../fighters/render-types.ts';
 import type { AmbienceProfile } from '../render/ambience.ts';
+import type { PoseAtlas, PoseSheet } from '../fighters/pose-art.ts';
 
 export interface AssetCredit {
   readonly id: string;
@@ -35,6 +36,10 @@ export interface RenderAppearance {
   readonly matte?: MatteInfo;
   /** Local-only rival sheet geometry; absent/invalid means the original code-only fallback. */
   readonly bossAtlas?: BossAtlas;
+  /** Optional arena-only combat/mob sheets, independent of the approved life atlas. */
+  readonly combatAtlas?: PoseAtlas;
+  readonly slimeAtlas?: PoseAtlas;
+  readonly popupAtlas?: PoseAtlas;
   /** Per-background ambient palette/episodes; absent means the approved sunset overlay. */
   readonly ambience?: AmbienceProfile;
   /**
@@ -87,6 +92,8 @@ export interface ArtProfile extends RenderAppearance {
    * passive wallpaper and in-room incidents never use it.
    */
   readonly arenaBackdropUrl?: string;
+  /** Missing or failed optional sheets independently retain their original drawing. */
+  readonly spriteUrls?: Partial<Readonly<Record<PoseSheet, string>>>;
   /** Additional selectable backgrounds (e.g. night, rain) built from the same room. */
   readonly variants?: readonly SceneVariant[];
   readonly atlas: unknown;

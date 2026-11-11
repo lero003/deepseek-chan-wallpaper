@@ -13,7 +13,7 @@ interface NativeVariant { id: string; label: string; scene: string; matte?: stri
 interface NativeConfiguration { atlas: unknown; layout: RenderAppearance & { scene: Scene }; variants?: NativeVariant[]; arena?: { scene: string } }
 
 // This IIFE runs in Apple's JavaScriptCore, NOT a browser/webview. Only bundled code.
-export function create(configurationJSON: string, seedText = 'seaside-v01') {
+export function create(configurationJSON: string, seedText = 'seaside-v01', arenaAvailable = false) {
   const config = JSON.parse(configurationJSON) as NativeConfiguration;
   const atlas = parseAtlas(config.atlas);
   if (config.layout.scene.width !== 480 || config.layout.scene.height !== 270) throw new Error('Unsupported scene size.');
@@ -24,13 +24,13 @@ export function create(configurationJSON: string, seedText = 'seaside-v01') {
   const variants = config.variants ?? [];
   // The active appearance follows the selected background; sunset (index 0) is the base layout.
   let appearance: RenderAppearance = config.layout;
-  // A configured arena backdrop is hash-verified at prepare time; the host paints it for
-  // the manual arena and the shared plan skips the code scenery's ambience over the art.
-  const arenaArt = config.arena != null;
+  // Only the host's runtime-validated image enables painted-scene overlay suppression.
+  // A configured but missing/corrupt image must keep the complete code-stage ambience.
+  const arenaArt = arenaAvailable === true;
   const snapshot = (decorations: boolean) => JSON.stringify(scenePlan(world, atlas, motes, appearance, decorations));
   const gameSnapshot = (decorations = true, presentation = 'preview') => {
     if (presentation !== 'preview' && presentation !== 'wallpaper') throw new Error('Invalid presentation.');
-    const planAppearance = arenaArt ? { ...appearance, arenaArt: true } : appearance;
+    const planAppearance = { ...appearance, arenaArt };
     return JSON.stringify(gamePlan(game, atlas, planAppearance, decorations, presentation, motes));
   };
   return {

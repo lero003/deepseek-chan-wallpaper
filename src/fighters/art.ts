@@ -4,6 +4,7 @@ import { BOSS, ENEMIES } from './definitions.ts';
 import type { RenderAppearance } from '../app-web/art-profile.ts';
 import { drawBoss as drawLumiereBoss } from './boss-art.ts';
 import { arcadeUI } from './arcade.ts';
+import { enemyPose, parsePoseAtlas } from './pose-art.ts';
 
 export const C = {
   ink: '#2f2b3d', inkSoft: '#453f52', paper: '#f3e8d4', paperShade: '#dfcfb2',
@@ -177,9 +178,17 @@ export function drawBoss(p: Painter, e: Enemy, tick: number, appearance: RenderA
 }
 
 export function drawEnemy(p: Painter, e: Enemy, tick: number, appearance: RenderAppearance = {}): void {
-  if (e.kind === 'slime') drawSlime(p, e, tick);
-  else if (e.kind === 'popup') drawPopup(p, e);
-  else drawBoss(p, e, tick, appearance);
+  if (e.kind === 'boss') { drawBoss(p, e, tick, appearance); return; }
+  const fallback = new Painter(p.cameraX);
+  if (e.kind === 'slime') drawSlime(fallback, e, tick);
+  else drawPopup(fallback, e);
+  let atlas;
+  try { atlas = appearance[`${e.kind}Atlas`] ? parsePoseAtlas(appearance[`${e.kind}Atlas`], e.kind) : null; } catch { atlas = null; }
+  if (!atlas) { p.commands.push(...fallback.commands); return; }
+  const alpha = e.state === 'exit' ? Math.max(0, 1 - e.age / 26) : 1;
+  const frame = atlas.poses[enemyPose(e)]! + e.variant * atlas.variantStride!;
+  // Sizes/colors are baked into rows; don't fractionally scale the new pixel grid.
+  p.sprite(e.x, e.y, frame, e.facing, alpha, 0, 1, 1, e.kind, fallback.commands);
 }
 
 export function drawProjectile(p: Painter, projectile: Projectile, tick: number): void {

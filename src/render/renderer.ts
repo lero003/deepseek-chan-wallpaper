@@ -9,6 +9,8 @@ import type { Mote, ScenePlan } from './scene-plan.ts';
 import { sceneryQuads } from '../fighters/scenery.ts';
 import type { BossAtlas, DrawCommand } from '../fighters/render-types.ts';
 import { parseBossAtlas } from '../fighters/render-types.ts';
+import { parsePoseAtlas } from '../fighters/pose-art.ts';
+import type { PoseAtlas, PoseSheet } from '../fighters/pose-art.ts';
 
 /** One selectable background: the approved room art plus its optional wide matte. */
 export interface VariantImages {
@@ -28,6 +30,8 @@ export interface SceneImages {
   variants?: readonly VariantImages[];
   /** Optional painted terrace backdrop for the fixed manual arena (480×270). */
   arena?: HTMLImageElement | null;
+  /** Independently optional combat/mob sheets; one failure never substitutes heroine art. */
+  sprites?: Partial<Record<PoseSheet, HTMLImageElement | null>>;
 }
 
 export function loadImage(url: string): Promise<HTMLImageElement> {
@@ -53,6 +57,7 @@ export class SceneRenderer {
   private readonly atlas: SpriteAtlas;
   private readonly bossAtlas: BossAtlas | null;
   private readonly bossImage: HTMLImageElement | null;
+  private readonly poseImages: Partial<Record<PoseSheet, { image: HTMLImageElement; atlas: PoseAtlas }>> = {};
   private readonly appearance: RenderAppearance;
   private readonly motes: readonly Mote[];
   private readonly matte: HTMLImageElement | null;
@@ -101,6 +106,14 @@ export class SceneRenderer {
     this.images = images; this.atlas = atlas; this.bossAtlas = bossAtlas; this.bossImage = bossImage;
     this.appearance = appearance; this.motes = motesFor(seed);
     this.matte = matte; this.variants = variants; this.arenaImage = arenaImage;
+    for (const key of ['combat', 'slime', 'popup'] as const) {
+      try {
+        const atlas = parsePoseAtlas(appearance[`${key}Atlas`], key), image = images.sprites?.[key];
+        if (image && image.naturalWidth === atlas.frameWidth * atlas.columns && image.naturalHeight === atlas.frameHeight * atlas.rows) {
+          this.poseImages[key] = { image, atlas };
+        }
+      } catch { /* Optional malformed metadata/image falls back independently. */ }
+    }
   }
 
   /** 0 = the approved sunset room; 1..n = additional backgrounds. */
@@ -236,10 +249,15 @@ export class SceneRenderer {
     const ctx = this.context;
     const { originX, originY } = this.viewport;
     for (const command of commands) {
-      if (command.kind === 'sprite' && command.sheet === 'boss'
-        && (!this.bossImage || !this.bossAtlas || !Number.isInteger(command.frame)
-          || command.frame < 0 || command.frame >= this.bossAtlas.columns * this.bossAtlas.rows)) {
-        // Fallback is already camera-relative, not relative to the missing sprite.
+      const optional = command.kind === 'sprite' && command.sheet && command.sheet !== 'hero';
+      const resource = command.kind === 'sprite' && optional
+        ? command.sheet === 'boss' ? { image: this.bossImage, atlas: this.bossAtlas }
+          : this.poseImages[command.sheet as PoseSheet] : null;
+      if (command.kind === 'sprite' && optional
+        && (!resource?.image || !resource.atlas || !Number.isInteger(command.frame)
+          || command.frame < 0 || command.frame >= resource.atlas.columns * resource.atlas.rows)) {
+        // Fallback is already camera-relative. Recurse BEFORE translating/setting alpha,
+        // so it cannot inherit the failed sprite's transform or duplicate the heroine.
         this.drawCommands(command.fallback ?? []);
         continue;
       }
@@ -254,8 +272,8 @@ export class SceneRenderer {
         ctx.font = `${command.size}px "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif`;
         ctx.fillText(command.text, 0, 0);
       } else {
-        const image = command.sheet === 'boss' ? this.bossImage : this.images.character;
-        const atlas = command.sheet === 'boss' ? this.bossAtlas : this.atlas;
+        const image = optional ? resource?.image : this.images.character;
+        const atlas = optional ? resource?.atlas : this.atlas;
         if (image && atlas && Number.isInteger(command.frame) && command.frame >= 0 && command.frame < atlas.columns * atlas.rows) {
           ctx.rotate(command.rotation); ctx.scale(command.facing * command.scaleX, command.scaleY);
           const sx = command.frame % atlas.columns * atlas.frameWidth;
@@ -273,7 +291,7 @@ export class SceneRenderer {
   }
 
   drawPlan(plan: ScenePlan): void {
-    if (!plan.battle && this.wideBackdrop) this.wideBackdrop = null;
+    if (!plan.battle) { this.wideBackdrop = null; this.arenaBackdrop = null; }
     const ctx = this.context;
     const viewport = this.viewport;
     const { originX, originY, scale, offsetX, offsetY, pixelWidth, pixelHeight } = viewport;

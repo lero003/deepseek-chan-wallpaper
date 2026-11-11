@@ -9,6 +9,7 @@ import { gameUI } from './game.ts';
 import { clamp } from './movement.ts';
 import type { FightersGame } from './types.ts';
 import { Painter } from './art-kit.ts';
+import { combatPose, parsePoseAtlas } from './pose-art.ts';
 import {
   C, drawShadow, drawEnemy, drawProjectile, drawEffect, drawBookSwing, drawQuillThrust, drawSpinStars,
   drawSpecialAura, sparkle, drawHeart, drawGauge, drawBossBar, drawCombo, drawStageBanner,
@@ -55,6 +56,10 @@ export function gamePlan(game: FightersGame, atlas: SpriteAtlas, appearance: Ren
   const tick = game.tick;
   const low = game.effectsLow;
   const shadowColor = appearance.shadowColor ?? C.shadow;
+  // New combat/mob art belongs only to the manual arena. Quiet room incidents and
+  // legacy routes retain their original command streams, even with all sheets loaded.
+  const castAppearance = game.route === 'arena' ? appearance
+    : { ...appearance, combatAtlas: undefined, slimeAtlas: undefined, popupAtlas: undefined };
 
   /** Actors, projectiles and hit effects shared by the long route and the in-room incident. */
   function drawCast(painter: Painter): void {
@@ -64,7 +69,7 @@ export function gamePlan(game: FightersGame, atlas: SpriteAtlas, appearance: Ren
       drawShadow(painter, ARENA.enemyX, ARENA.heroY, 24, .24);
       drawEnemy(painter, { id: 0, kind: 'boss', variant: 0, facing: -1, x: ARENA.enemyX, y: ARENA.heroY,
         hp: BOSS.hp, maxHP: BOSS.hp, state: 'move', age: game.phaseAge, readyAt: 0, pattern: 0, hit: false,
-        targetX: ARENA.enemyX, vx: 0, vy: 0 }, tick, appearance);
+        targetX: ARENA.enemyX, vx: 0, vy: 0 }, tick, castAppearance);
     }
     const visible = game.enemies.filter(enemy => enemy.x > camera - 90 && enemy.x < camera + 570);
     const enemiesById = new Map(visible.map(enemy => [enemy.id, enemy] as const));
@@ -78,7 +83,7 @@ export function gamePlan(game: FightersGame, atlas: SpriteAtlas, appearance: Ren
       if (!enemy) continue;
       drawShadow(painter, enemy.x, enemy.y, enemy.kind === 'boss' ? 27 : enemy.kind === 'popup' ? 14 : 13,
         enemy.state === 'exit' ? .14 : .24);
-      drawEnemy(painter, enemy, tick, appearance);
+      drawEnemy(painter, enemy, tick, castAppearance);
       // 思索のステップ is a straight lunge: mark the floor lane it will take, so the
       // dash is a reaction test rather than an unreadable hit.
       if (game.route === 'arena' && enemy.kind === 'boss' && enemy.state === 'windup' && enemy.pattern % 4 === 2) {
@@ -92,6 +97,27 @@ export function gamePlan(game: FightersGame, atlas: SpriteAtlas, appearance: Ren
   }
 
   function drawHero(painter: Painter): void {
+    let combat;
+    try { combat = castAppearance.combatAtlas ? parsePoseAtlas(castAppearance.combatAtlas, 'combat') : null; } catch { combat = null; }
+    const pose = combatPose(hero);
+    if (!combat || !pose || game.phase === 'victory' || game.phase === 'return') { drawOriginalHero(painter); return; }
+    const blink = game.combatTick < hero.invulnerableUntil && game.combatTick % 8 < 3;
+    const fallback = new Painter(painter.cameraX);
+    // Include the complete original body/props, but shared slash/aura FX are emitted
+    // once outside the optional sprite. Failed sheet loads cannot double weapons/FX.
+    drawOriginalHero(fallback, false);
+    if (hero.state === 'special') drawSpecialAura(painter, hero.x, hero.y, Math.min(1, hero.age / 26), low);
+    painter.sprite(hero.x, hero.y, combat.poses[pose]!, hero.facing, blink ? .45 : 1, 0, 1, 1, 'combat', fallback.commands);
+    if (hero.state === 'attack') {
+      const attack = ATTACKS[clamp(hero.combo - 1, 0, 2)]!;
+      if (hero.age >= attack.windup) drawSlash(painter, hero.x, hero.y, hero.facing,
+        clamp(hero.age / (attack.windup + attack.active), 0, 1), hero.combo === 1 ? 44 : hero.combo === 2 ? 52 : 60,
+        hero.combo === 1 ? C.goldLight : hero.combo === 2 ? C.paper : C.white, blink ? .45 : 1);
+    }
+    if (hero.state === 'dodge' && !low) painter.rect(hero.x - hero.facing * 4 - 6, hero.y - 4, 12, 2, C.paper, .2);
+  }
+
+  function drawOriginalHero(painter: Painter, sharedEffects = true): void {
     const blink = game.combatTick < hero.invulnerableUntil && game.combatTick % 8 < 3;
     const alpha = blink ? .45 : 1;
     let state: 'idle' | 'walk' | 'turn' | 'sleep' = hero.state === 'walk' ? 'walk' : hero.state === 'down' ? 'sleep' : 'idle';
@@ -117,13 +143,13 @@ export function gamePlan(game: FightersGame, atlas: SpriteAtlas, appearance: Ren
     if (hero.state === 'dodge') {
       for (let i = 1; i <= 2; i++) painter.sprite(x - hero.facing * i * 9, hero.y - z, frame, hero.facing, .16 - i * .05, rotation, 1, scaleY);
     }
-    if (hero.state === 'special') drawSpecialAura(painter, x, hero.y, Math.min(1, hero.age / 26), low);
+    if (hero.state === 'special' && sharedEffects) drawSpecialAura(painter, x, hero.y, Math.min(1, hero.age / 26), low);
     painter.sprite(x, hero.y - z, frame, hero.facing, alpha, rotation, 1, scaleY);
     if (hero.state === 'attack') {
       const attack = ATTACKS[clamp(hero.combo - 1, 0, 2)]!;
       const total = attack.windup + attack.active;
       const progress = clamp(hero.age / total, 0, 1);
-      if (hero.age >= attack.windup) {
+      if (hero.age >= attack.windup && sharedEffects) {
         if (hero.combo === 1) drawSlash(painter, x, hero.y, hero.facing, progress, 44, C.goldLight, alpha);
         else if (hero.combo === 2) drawSlash(painter, x, hero.y, hero.facing, progress, 52, C.paper, alpha);
         else drawSlash(painter, x, hero.y, hero.facing, progress, 60, C.white, alpha);
@@ -132,7 +158,7 @@ export function gamePlan(game: FightersGame, atlas: SpriteAtlas, appearance: Ren
       else if (hero.combo === 2) drawQuillThrust(painter, x, hero.y, hero.facing, progress, alpha);
       else if (hero.age >= attack.windup) drawSpinStars(painter, x, hero.y, hero.facing, progress, alpha);
     }
-    if (hero.state === 'dodge' && !low) painter.rect(x - hero.facing * 4 - 6, hero.y - 4, 12, 2, C.paper, .2);
+    if (hero.state === 'dodge' && !low && sharedEffects) painter.rect(x - hero.facing * 4 - 6, hero.y - 4, 12, 2, C.paper, .2);
   }
 
   function drawCombatEffects(painter: Painter): void {
@@ -197,8 +223,7 @@ export function gamePlan(game: FightersGame, atlas: SpriteAtlas, appearance: Ren
   // animated sky/sea/foreground so nothing misaligns over the art. Without the
   // image (or on the legacy route) the original ambience is preserved.
   const paintedArena = game.route === 'arena' && appearance.arenaArt === true;
-  drawStudyAmbience(p, tick);
-  if (!paintedArena) drawSceneryAmbience(p, camera, tick);
+  if (!paintedArena) { drawStudyAmbience(p, tick); drawSceneryAmbience(p, camera, tick); }
   drawCast(p);
   drawCombatEffects(p);
   if (!paintedArena) {

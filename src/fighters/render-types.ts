@@ -33,7 +33,7 @@ export type DrawCommand =
   | { kind: 'rect'; x: number; y: number; width: number; height: number; color: string; alpha: number; rotation?: number }
   | { kind: 'sprite'; x: number; y: number; frame: number; facing: number; alpha: number; rotation: number; scaleX: number; scaleY: number;
       /** Omitted means the unchanged heroine sheet. */
-      sheet?: 'hero' | 'boss';
+      sheet?: 'hero' | 'boss' | 'combat' | 'slime' | 'popup';
       /** Camera-relative commands used only when the optional sheet is unavailable. */
       fallback?: readonly DrawCommand[] }
   | { kind: 'text'; x: number; y: number; text: string; color: string; alpha: number; size: number };

@@ -145,11 +145,15 @@ public final class ScenePainter {
     }
     private func drawCommands(_ commands: [DrawCommand], in context: CGContext) throws {
         for command in commands {
-            if command.kind == "sprite", command.sheet == "boss",
-               engine.assets.bossAtlas == nil || command.frame == nil || !engine.assets.bossFrames.indices.contains(command.frame ?? -1) {
-                // These fallback commands already have camera-relative coordinates.
-                try drawCommands(command.fallback ?? [], in: context)
-                continue
+            if command.kind == "sprite", let sheet = command.sheet, sheet != "hero" {
+                let available = sheet == "boss"
+                    ? engine.assets.bossAtlas != nil && engine.assets.bossFrames.indices.contains(command.frame ?? -1)
+                    : engine.assets.poseSprites[sheet]?.frames.indices.contains(command.frame ?? -1) == true
+                if !available {
+                    // Recurse before translating/setting alpha: fallback is already camera-relative.
+                    try drawCommands(command.fallback ?? [], in: context)
+                    continue
+                }
             }
             context.saveGState()
             defer { context.restoreGState() }
@@ -166,6 +170,8 @@ public final class ScenePainter {
                 let frames: [CGImage], anchor: Anchor, frameWidth: Int, frameHeight: Int
                 if command.sheet == "boss", let atlas = engine.assets.bossAtlas {
                     frames = engine.assets.bossFrames; anchor = atlas.anchor; frameWidth = atlas.frameWidth; frameHeight = atlas.frameHeight
+                } else if let name = command.sheet, let sprite = engine.assets.poseSprites[name] {
+                    frames = sprite.frames; anchor = sprite.atlas.anchor; frameWidth = sprite.atlas.frameWidth; frameHeight = sprite.atlas.frameHeight
                 } else {
                     let atlas = engine.assets.configuration.atlas
                     frames = engine.assets.frames; anchor = atlas.anchor; frameWidth = atlas.frameWidth; frameHeight = atlas.frameHeight

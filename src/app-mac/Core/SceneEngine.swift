@@ -15,7 +15,8 @@ public final class SceneEngine {
         context.evaluateScript(assets.coreSource)
         if let error = context.exception { throw KujiraError.invalid("共有コアの初期化に失敗しました：\(error.toString() ?? "unknown")") }
         guard let module = context.objectForKeyedSubscript("KujiraNative"), !module.isUndefined,
-              let scene = module.invokeMethod("create", withArguments: [assets.configurationJSON, String(seed.prefix(128))]),
+              let scene = module.invokeMethod("create", withArguments: [assets.configurationJSON, String(seed.prefix(128)),
+                  assets.arenaBackdrop != nil]),
               context.exception == nil, !scene.isUndefined else { throw KujiraError.invalid("共通の世界を作成できません。") }
         self.scene = scene
     }

@@ -11,6 +11,8 @@ import { motesFor, scenePlan } from '../src/render/scene-plan.ts';
 import { createGame, advanceGame } from '../src/fighters/game.ts';
 import { STAGE_WIDTH } from '../src/fighters/definitions.ts';
 import { parseBossAtlas } from '../src/fighters/render-types.ts';
+import { parsePoseAtlas } from '../src/fighters/pose-art.ts';
+import { combatArtFixtures } from './combat-art-fixtures.mjs';
 
 export const projectRoot = fileURLToPath(new URL('../', import.meta.url));
 export const hash = bytes => createHash('sha256').update(bytes).digest('hex');
@@ -77,6 +79,23 @@ export async function prepareMacResources({ localPreview = false, output } = {})
     arena = { scene: arenaScene };
     paths.push(arenaScene);
   }
+  const sprites = {};
+  for (const [key, directory] of [['combat', 'character/combat'], ['slime', 'fighters/slime'], ['popup', 'fighters/popup']]) {
+    const candidate = { sheet: `${directory}/sheet.png`, atlas: `${directory}/atlas.json` };
+    if (!localPreview || !Object.values(candidate).every(name => existsSync(resolve(source, name)))) continue;
+    for (const name of Object.values(candidate)) {
+      const input = resolve(source, name);
+      if (await realpath(input) !== input || !(await lstat(input)).isFile()) throw new Error(`Refuse linked optional combat asset: ${name}`);
+    }
+    let atlas;
+    try { atlas = parsePoseAtlas(JSON.parse(await readFile(resolve(source, candidate.atlas), 'utf8')), key); }
+    catch { console.warn(`[kujira] Optional ${key} atlas invalid; keeping original drawing.`); continue; }
+    layout = { ...layout, [`${key}Atlas`]: atlas };
+    sprites[key] = candidate;
+    paths.push(candidate.sheet, candidate.atlas);
+  }
+  if (Object.keys(sprites).length) layout = { ...layout,
+    provenance: `${layout.provenance} 主人公戦闘8キー姿勢と既存雑魚2種の6姿勢×3バリエーションは、GPT Image生成・二値透過・足元整列・共有80色による別シートです。手動アリーナ専用で、生活16コマ・背景3種・各マットは不変。途中のデザイン確認はユーザーが省略して制作統合を委任しましたが、公開再配布の権利確認や連続動作・実機操作の受け入れではありません。` };
   const assets = [];
   for (const name of paths) {
     const input = resolve(source, name);
@@ -100,14 +119,15 @@ export async function prepareMacResources({ localPreview = false, output } = {})
   const core = Buffer.from(chunk.code);
   await writeFile(resolve(dest, 'world.js'), core);
   const configuration = { schemaVersion: 1, localPreviewOnly: true, coreSha256: hash(core), atlas, layout, stage: { width: STAGE_WIDTH },
-    ...(variants.length > 0 ? { variants } : {}), ...(boss ? { boss } : {}), ...(arena ? { arena } : {}) };
+    ...(variants.length > 0 ? { variants } : {}), ...(boss ? { boss } : {}), ...(arena ? { arena } : {}), ...(Object.keys(sprites).length ? { sprites } : {}) };
   await writeFile(resolve(dest, 'configuration.json'), JSON.stringify(configuration, null, 2) + '\n');
   await writeFile(resolve(dest, 'manifest.json'), JSON.stringify({ ...manifest, assets,
     localAppPreview: { userAuthorized: localPreview, publicationAuthorized: false, thirdPartyRightsVerified: false },
     note: `${manifest.note} 個人用ローカルアプリの検証用。公開・第三者配布・一般的なMac同梱許諾を確認した意味ではありません。` }, null, 2) + '\n');
   for (const name of ['CREDITS.md', 'ART-LICENSE.md']) await copyFile(resolve(root, name), resolve(dest, name));
   const fixtureAtlas = parseAtlas(atlas);
-  const fixture = { seed: 'seaside-v01', initial: null, replays: [], gameReplays: [] };
+  const fixture = { seed: 'seaside-v01', initial: null, replays: [], gameReplays: [],
+    artPlans: combatArtFixtures(fixtureAtlas, layout, arena != null) };
   const initial = createWorld(seedFromText(fixture.seed), layout.scene);
   fixture.initial = scenePlan(initial, fixtureAtlas, motesFor(initial.seed), layout, true);
   for (const fps of [15, 30, 60]) {

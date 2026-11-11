@@ -63,6 +63,34 @@ public struct BossAtlas: Codable, Equatable, Sendable {
     }
 }
 
+/// Optional combat/mob metadata, decoded only inside the per-sheet recovery boundary.
+public struct PoseAtlas: Codable, Equatable, Sendable {
+    public let version: Int
+    public let frameWidth: Int; public let frameHeight: Int; public let columns: Int; public let rows: Int
+    public let anchor: Anchor
+    public let poses: [String: Int]
+    public let variantStride: Int?
+    public func validate(sheet: String) throws {
+        let combat = sheet == "combat"
+        let keys = combat ? ["idle", "attack1", "attack2", "attack3", "dodge", "special", "hurt", "down"]
+                          : ["idle", "move", "windup", "strike", "hurt", "exit"]
+        guard ["combat", "slime", "popup"].contains(sheet), version == 1,
+              (16...256).contains(frameWidth), (16...256).contains(frameHeight),
+              (1...8).contains(columns), (1...8).contains(rows), columns * rows == (combat ? 8 : 18),
+              anchor.x.isFinite, anchor.y.isFinite, anchor.x.rounded() == anchor.x, anchor.y.rounded() == anchor.y,
+              (0...Double(frameWidth)).contains(anchor.x), (0...Double(frameHeight)).contains(anchor.y),
+              combat ? variantStride == nil : variantStride == 6 else {
+            throw KujiraError.invalid("オプション戦闘シートの寸法・足元が不正です。")
+        }
+        var indices = Set<Int>()
+        for key in keys {
+            guard let index = poses[key], (0..<keys.count).contains(index), indices.insert(index).inserted else {
+                throw KujiraError.invalid("オプション戦闘姿勢の欠落・重複があります。")
+            }
+        }
+    }
+}
+
 public struct NativeBoss: Codable, Sendable { public let sheet: String; public let atlas: String }
 /// Optional painted terrace backdrop for the fixed manual arena only (480×270).
 public struct NativeArena: Codable, Sendable { public let scene: String }

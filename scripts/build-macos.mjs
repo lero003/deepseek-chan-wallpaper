@@ -52,13 +52,14 @@ for (const name of ['world.js', 'configuration.json', 'manifest.json', 'characte
   ...(prepared.configuration.variants ?? []).flatMap(variant => [variant.scene, variant.matte]),
   ...(prepared.configuration.boss ? [prepared.configuration.boss.sheet, prepared.configuration.boss.atlas] : []),
   ...(prepared.configuration.arena ? [prepared.configuration.arena.scene] : []),
+  ...Object.values(prepared.configuration.sprites ?? {}).flatMap(sprite => [sprite.sheet, sprite.atlas]),
   'CREDITS.md', 'ART-LICENSE.md']) {
   const destination = resolve(resources, name);
   assert.ok(destination.startsWith(resources + sep));
   await mkdir(dirname(destination), { recursive: true });
   await copyFile(resolve(prepared.resources, name), destination);
 }
-await writeFile(resolve(resources, 'FIGHTERS-README.txt'), `くじらの散歩道 — DeepSeekちゃんファイターズ MVP\n\n初回はプレビューのみ。壁紙は「壁紙にする」で明示的にONにします。\n普段は静かな書斎。小事件は既定で帰還後3〜5分の待ち時間。自動の小事件は書斎の中で起き、カメラは動きません。「事件を見る」で今すぐ確認できます。\n「テラスで3連戦」で手動。横スクロールなし、雑魚戦2回のあと綴星リュミエと一騎打ち。各ラウンドはREADYのあとFIGHTで開始、90秒のアーケード時計つき。開戦準備・ラウンド間は安全に停止し、自動で次の相手へ進みます。WASD／矢印で間合いを調整、J/Zで3段攻撃、K/Xで回避、L/Cでゲージ100の必殺技、Escでゲームポーズ。\n命中・KO・コンボ倍率・クリアボーナスでSCOREが入り、被弾なし・継続なし・速さでランクが変わります。敗北やTIME UPはそのラウンドの得点を巻き戻して再挑戦（CONTINUE回数は残ります）。\n「壁紙へ戻る」でオートへ。敗北時は「このラウンドを再挑戦」、勝利後は「もう一戦」で最初から。手動入力は前面プレビューだけ。\n壁紙は全モードでクリック透過。手動ゲーム中の壁紙は静かな生活を表示します。\n元の壁紙設定は変更しません。停止・終了はメニューバーから。ログイン自動起動は登録しません。\n少なめ／通常／事件なし、控えめエフェクト、省電力をメニューから選べます。背景はツールバー／メニューバーから夕凪・月夜・雨音を切り替え（設定は保存）。音は常時無音です。\nOS Reduce Motionでは既存方針どおり静止。遊ぶにはその設定を人の判断でご確認ください。\n\nApple Silicon用・個人用のローカル試作、アドホック署名・未公証です。公開・第三者配布は未許諾。\n敵2種・技・戦闘背景は仮のピクセル図形。ボスはClaudeの文章・思考を着想にしたオリジナル美少女のローカル制作案（公式キャラ/Anthropic社の承認ではありません）。主人公の専用戦闘コマ、音、手動の操作感は後続調整。\n自動テスト／単体起動／ネイティブ描画器の検証は、可視キー操作・壁紙ON/OFF・Space・スリープ・実時間30分負荷の合格ではありません。\n旧版が起動中なら終了してからこの版を開いてください。\n`);
+await writeFile(resolve(resources, 'FIGHTERS-README.txt'), `くじらの散歩道 — DeepSeekちゃんファイターズ MVP\n\n初回はプレビューのみ。壁紙は「壁紙にする」で明示的にONにします。\n普段は静かな書斎。小事件は既定で帰還後3〜5分の待ち時間。自動の小事件は書斎の中で起き、カメラは動きません。「事件を見る」で今すぐ確認できます。\n「テラスで3連戦」で手動。横スクロールなし、雑魚戦2回のあと綴星リュミエと一騎打ち。各ラウンドはREADYのあとFIGHTで開始、90秒のアーケード時計つき。開戦準備・ラウンド間は安全に停止し、自動で次の相手へ進みます。WASD／矢印で間合いを調整、J/Zで3段攻撃、K/Xで回避、L/Cでゲージ100の必殺技、Escでゲームポーズ。\n命中・KO・コンボ倍率・クリアボーナスでSCOREが入り、被弾なし・継続なし・速さでランクが変わります。敗北やTIME UPはそのラウンドの得点を巻き戻して再挑戦（CONTINUE回数は残ります）。\n「壁紙へ戻る」でオートへ。敗北時は「このラウンドを再挑戦」、勝利後は「もう一戦」で最初から。手動入力は前面プレビューだけ。\n壁紙は全モードでクリック透過。手動ゲーム中の壁紙は静かな生活を表示します。\n元の壁紙設定は変更しません。停止・終了はメニューバーから。ログイン自動起動は登録しません。\n少なめ／通常／事件なし、控えめエフェクト、省電力をメニューから選べます。背景はツールバー／メニューバーから夕凪・月夜・雨音を切り替え（設定は保存）。音は常時無音です。\nOS Reduce Motionでは既存方針どおり静止。遊ぶにはその設定を人の判断でご確認ください。\n\nApple Silicon用・個人用のローカル試作、アドホック署名・未公証です。公開・第三者配布は未許諾。\nローカル版には生成テラス背景、主人公戦闘8キー姿勢、既存雑魚2種の6姿勢×3バリエーションを追加。生活16コマ・背景3種・各マットは不変。別シートの読込失敗時は従来描画へ戻ります。placeholderには制作画像を含めません。ボスはClaudeの文章・思考を着想にしたオリジナル美少女のローカル制作案（公式キャラ/Anthropic社の承認ではありません）。連続動作の自然さ・手動の操作感・実機負荷は未受け入れです。\n自動テスト／単体起動／ネイティブ描画器の検証は、可視キー操作・壁紙ON/OFF・Space・スリープ・実時間30分負荷の合格ではありません。\n旧版が起動中なら終了してからこの版を開いてください。\n`);
 const executable = resolve(macos, 'KujiraWallpaper');
 await copyFile(sourceBinary, executable); await chmod(executable, 0o755);
 run('/usr/bin/strip', ['-S', executable]);
@@ -158,6 +159,7 @@ const report = { schemaVersion: 1, app: relative(root, app), zip: relative(root,
   localPreviewOnly: true, published: false, thirdPartyRightsVerified: false, originalWallpaperChangedDuringBuild: false,
   archiveVerified: true, relocatedStandaloneSelfTest: true, relocatedFightersSelfTest: true,
   gameplay: 'arena-v0.8-arcade-scoring', bundleBuild: '9',
+  bundledCombatSheets: Object.keys(prepared.configuration.sprites ?? {}),
   gamePreviews: ['native-room-event.png', 'native-room-event-wide.png',
      ...((prepared.configuration.variants ?? []).some(variant => variant.id === 'night') ? ['native-room-event-night-wide.png'] : []),
      'native-manual.png', 'native-boss.png', ...phasePreviews.map(phase => `native-arena-${phase}.png`)].map(name => relative(root, resolve(output, name))),

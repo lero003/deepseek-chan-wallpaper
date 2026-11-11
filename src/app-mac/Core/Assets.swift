@@ -20,6 +20,12 @@ public final class Assets {
     public let variants: [BackgroundVariant]
     /// Optional painted terrace backdrop for the fixed manual arena. nil = code-drawn stage.
     public let arenaBackdrop: CGImage?
+    public struct PoseSprite {
+        public let atlas: PoseAtlas
+        public let frames: [CGImage]
+    }
+    /// Every optional sheet has its own hash/decode/dimension recovery boundary.
+    public let poseSprites: [String: PoseSprite]
 
     public struct BackgroundVariant: Sendable {
         public let id: String
@@ -168,6 +174,48 @@ public final class Assets {
                 NSLog("[kujira] Optional arena backdrop unavailable; using code-drawn terrace: %@", error.localizedDescription)
             }
         }
+        var loadedSprites: [String: PoseSprite] = [:]
+        // Read optional metadata independently, not as required fields of the main
+        // configuration decoder. A malformed sheet can never prevent room startup.
+        let raw = try JSONSerialization.jsonObject(with: configurationData) as? [String: Any]
+        let entries = raw?["sprites"] as? [String: Any] ?? [:]
+        let layout = raw?["layout"] as? [String: Any] ?? [:]
+        for name in ["combat", "slime", "popup"] {
+            guard let entry = entries[name] else { continue }
+            do {
+                guard let paths = entry as? [String: Any], let sheetPath = paths["sheet"] as? String,
+                      let atlasPath = paths["atlas"] as? String, let configured = layout[name + "Atlas"] as? [String: Any] else {
+                    throw KujiraError.invalid("オプション戦闘素材の設定が不正です。")
+                }
+                for path in [sheetPath, atlasPath] {
+                    let matches = manifest.assets.filter { $0.path == path }
+                    guard matches.count == 1, let record = matches.first,
+                          Self.sha(try bytes(path)) == record.sha256, !record.author.isEmpty, !record.license.isEmpty else {
+                        throw KujiraError.invalid("オプション戦闘素材のハッシュ・出典が不正です。")
+                    }
+                }
+                let info = try JSONDecoder().decode(PoseAtlas.self, from: bytes(atlasPath))
+                let expected = try JSONDecoder().decode(PoseAtlas.self, from: JSONSerialization.data(withJSONObject: configured))
+                try info.validate(sheet: name)
+                guard info == expected else { throw KujiraError.invalid("戦闘アトラスと設定が一致しません。") }
+                let sheet = try image(sheetPath)
+                guard sheet.width == info.frameWidth * info.columns, sheet.height == info.frameHeight * info.rows else {
+                    throw KujiraError.invalid("戦闘シートの寸法が不正です。")
+                }
+                var extracted: [CGImage] = []
+                for i in 0..<(info.columns * info.rows) {
+                    guard let frame = sheet.cropping(to: CGRect(x: i % info.columns * info.frameWidth, y: i / info.columns * info.frameHeight,
+                                                              width: info.frameWidth, height: info.frameHeight)) else {
+                        throw KujiraError.invalid("戦闘姿勢を切り出せません。")
+                    }
+                    extracted.append(frame)
+                }
+                loadedSprites[name] = PoseSprite(atlas: info, frames: extracted)
+            } catch {
+                NSLog("[kujira] Optional %@ sheet unavailable; using original drawing: %@", name, error.localizedDescription)
+            }
+        }
+        self.poseSprites = loadedSprites
         self.arenaBackdrop = loadedArena
         self.bossFrames = loadedBossFrames
         self.bossAtlas = loadedBossAtlas

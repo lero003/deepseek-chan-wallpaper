@@ -1,12 +1,14 @@
 # アートブラッシュアップ計画（2）— 生成アート方針
 
-状態: **2-1テラス背景はA案で統合済み（commit `531ecc8`）／2-2・2-3は生成プロンプト確定済み・画像対応モデル待ち**。0とAと2-1の実装・自動検証は完了（commit `2b3171b`, `b73a258`, `531ecc8`）。実機受け入れと2-1の最終目視はユーザー/画像モデルで実施（未完了）。
+状態: **2-1／2-2／2-3の生成・加工・統合・自動検証は完了**。ユーザーが「施策の承認はスキップして、完成まで」と明示し、2-2以降の個別デザイン承認は省略して制作・統合を委任。以下の当初案にある承認ゲートより、この変更を優先する。権利確認・実機受け入れを省略／合格にする意味ではない。
 
-- **2-1完了**: ユーザーが**A / v01（雲と海面の描き込み重視）**を選択。`runtime/scene/arena/terrace.png`（480×270・192色）を手動アリーナ専用背景として統合。壁紙・書斎の小事件・legacyは不変、画像なしはコード描画へフォールバック。承認済み8ファイルはSHA不変。詳細は[current_status](<current_status.md>)。試作時の[B / v02案](<../private-art/qa/brushup/terrace/terrace-proposal-v02-characters-3x.png>)・[比較](<../private-art/qa/brushup/terrace/terrace-proposals-characters-comparison.png>)・[レビュー記録](<../private-art/qa/brushup/terrace/proposal-review.json>)は参照として保存。
-- **2-2/2-3準備済み**: 生成プロンプトを確定して保存（未生成・未統合）。画像対応モデルへ再切り替え後、これらを `imagegen` に渡して試作→ユーザー承認→加工→統合する。
-  - 2-2 主人公戦闘コマ: [generation-prompt.md](<../private-art/qa/brushup/hero-combat/generation-prompt.md>)
-  - 2-3 雑魚2種: [generation-prompt.md](<../private-art/qa/brushup/enemies/generation-prompt.md>)
-- 制約: 承認済み主人公16コマ・背景3種・マットはbyte不変／戦闘コマ・雑魚は別シート+コードフォールバック／敵2種+ボス1体・1舞台／ローカル専用・公開再配布未許諾／無音・依存追加なし・Playwrightなし。未承認アートをruntimeへ統合しない。
+- **2-1**: 選択済みA案の[夕暮れテラス](<../private-art/runtime/scene/arena/terrace.png>)を維持（commit `531ecc8`）。
+- **2-2**: [生成マスター](<../private-art/qa/brushup/hero-combat/combat-master-v01.png>)から8キー姿勢を別シート化。[原寸](<../private-art/runtime/character/combat/sheet.png>)・[3xレビュー](<../private-art/qa/brushup/hero-combat-review-3x.png>)。実際は**160×128セル・足元80/124**に変更し、武器・尾の横余白を確保（通常立ち姿の実体約104px、当たり判定は不変）。生活・歩行は元の16コマ。予備／有効／回復時間に対応し、武器の重複を抑制しつつslash／水オーラは共有する。
+- **2-3**: [生成マスター](<../private-art/qa/brushup/enemies/enemies-master-v01.png>)から**被弾を含む各6姿勢×3バリエーション**へ具体化。[スライム](<../private-art/qa/brushup/slime-review-3x.png>)・[ポップアップ](<../private-art/qa/brushup/popup-review-3x.png>)。各96×64セル・足元48/60、既存色／大きさ比を整数ピクセルに焼き込み、2種のまま・バランス不変。
+- **加工／来歴**: [加工スクリプト](<../private-art/production/fighters/prepare_combat_art.py>)・[台帳登録](<../private-art/production/fighters/register_combat_art.py>)・[処理と生成参照SHA](<../private-art/production/fighters/combat-processing-report.json>)。二値alpha・共有80色・接地・透明余白・既存11素材のSHA不変を確認。全生成物はGit対象外、許諾はpendingのまま。
+- **検証**: Node185件、Swift25件（local-preview／placeholder両方）、Web／placeholderビルド、Macビルド・署名・ZIP再展開・移設起動を確認。44通りの[ネイティブ描画QA](<../tests/native/CombatArtTests.swift>)、36障害ケースで各シートの独立フォールバックを確認。記録と最新成果物は[current_status](<current_status.md>)。
+- **目視の範囲**: 生成／原寸／3xおよびネイティブ静止画は制作側で確認。8キー姿勢を完全な手描き連番アニメーションと呼ばず、連続動作・可視キー操作・壁紙ON/OFF・Space／スリープ・実時間30分負荷は未受け入れとして残す。
+- 制約は維持: 承認済み生活16コマ・背景3種・マットはbyte不変／戦闘コマ・雑魚は別シート+完全な元描画フォールバック／手動アリーナ専用・書斎／壁紙／legacy不変／敵2種+ボス1体・1舞台／ローカル専用・非公開／無音・依存追加なし・Playwrightなし。
 
 ## 目的と順序
 
@@ -16,7 +18,7 @@ Fighters の見た目を「仮のピクセル図形」から世界観に合う�
 2. **主人公の専用戦闘コマ**（別シート）
 3. **雑魚2種（スライム／ポップアップ）のアート**
 
-各タスクは **生成 → ユーザーのデザイン承認 → 加工 → 統合 → 検証 → docs更新・commit** の順。承認前に統合しない。
+当初は **生成 → ユーザーのデザイン承認 → 加工 → 統合 → 検証 → docs更新・commit**。テラスA案の選択後、ユーザーの明示指示により残りは **生成 → 制作側の品質確認 → 加工 → 統合 → 検証 → docs更新・commit** へ変更した。以下は着手時の方針・プロンプト案として残し、実装の具体値は冒頭と[アート方針](<art-direction.md>)を正とする。
 
 ## 絶対に守る制約
 
@@ -44,7 +46,7 @@ Fighters の見た目を「仮のピクセル図形」から世界観に合う�
 
 ## 2-1. テラス戦闘背景
 
-### 現状
+### 着手時の状態
 - アリーナ背景はコード描画（[scenery.ts](<../src/fighters/scenery.ts>) `terraceArea`）。3600pxスクロールステージの一部で、アリーナはカメラ960固定。
 - 構図定数: `HORIZON=132`, `RAIL_TOP=172`, `RAIL_BOTTOM=196`, `DECK_TOP=196`, `SUN_X=1046`, `SUN_Y=84`（ステージ座標）。
 - アリーナ表示（カメラ960）では太陽は画面x≈86・y84、水平線y132、手すりy172-196、デッキy196-270。**キャラはy218-254（足元238）に立つ**。
@@ -88,7 +90,7 @@ Fighters の見た目を「仮のピクセル図形」から世界観に合う�
 
 ## 2-2. 主人公の専用戦闘コマ
 
-### 現状
+### 着手時の状態
 - 承認済み16コマを流用し、回転・スケール+武器オーバーレイ（[render-plan.ts](<../src/fighters/render-plan.ts>)`drawHero`、[art.ts](<../src/fighters/art.ts>)`drawBookSwing`/`drawQuillThrust`/`drawSpinStars`/`drawSlash`）で戦闘を表現。
 
 ### 目標
@@ -132,7 +134,7 @@ Fighters の見た目を「仮のピクセル図形」から世界観に合う�
 
 ## 2-3. 雑魚2種（スライム／ポップアップ）のアート
 
-### 現状
+### 着手時の状態
 - コード描画（[art.ts](<../src/fighters/art.ts>)`drawSlime`/`drawPopup`）。variants（normal/fast/tough）は tint・scaleで表現。
 
 ### 目標
@@ -173,7 +175,4 @@ Fighters の見た目を「仮のピクセル図形」から世界観に合う�
 
 ## 次のアクション
 
-1. 本計画と `docs/current_status.md` を読む。2-1は統合済み。
-2. **画像対応モデルへの再切り替えを待つ**（現セッションがテキスト専用なら生成不可）。切替後、2-2の[確定プロンプト](<../private-art/qa/brushup/hero-combat/generation-prompt.md>)を `imagegen` に参照画像付きで渡して試作する。
-3. 生成案（原寸+3x・承認済みデザインとの並置）を提示し**ユーザー承認**を得る。未回答／スキップは承認として扱わず、統合や次タスクを自動で進めない。
-4. 承認後に加工・統合・検証（check/build/mac:test/local-preview+ネイティブQA）・docs更新・commit。次いで2-3も同様に別承認を得て進める。
+制作・統合・自動検証は完了。モデル切替／中間デザイン承認待ちは解消済み。実機の操作感・連続動作・壁紙ON/OFF・Space／スリープ・実時間30分負荷は、[未受け入れチェックリスト](<current_status.md#権利次の受け入れ>)を使ってユーザーが確認する。今後の調整でも既存の人数・舞台・権利・非公開・素材保全の境界を広げない。
