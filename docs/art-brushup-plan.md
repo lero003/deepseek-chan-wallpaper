@@ -1,11 +1,12 @@
 # アートブラッシュアップ計画（2）— 生成アート方針
 
-状態: **2-1のテラス背景2案を試作済み・ユーザー承認待ち／アプリ未統合**。画像対応モデルへの切り替え後、承認済み書斎を参照して生成し、レビュー用の480×270・192色以下とキャラ合成を作成した。0とAの実装・自動検証は完了済み（commit `2b3171b`, `b73a258`）だが、実機受け入れは未完了。
+状態: **2-1テラス背景はA案で統合済み（commit `531ecc8`）／2-2・2-3は生成プロンプト確定済み・画像対応モデル待ち**。0とAと2-1の実装・自動検証は完了（commit `2b3171b`, `b73a258`, `531ecc8`）。実機受け入れと2-1の最終目視はユーザー/画像モデルで実施（未完了）。
 
-- **A / v01**：[背景原寸](<../private-art/qa/brushup/terrace/terrace-proposal-v01-480.png>)・[背景3x](<../private-art/qa/brushup/terrace/terrace-proposal-v01-3x.png>)・[キャラ合成3x](<../private-art/qa/brushup/terrace/terrace-proposal-v01-characters-3x.png>)。夕景の雲と海面のきらめきを豊かに残す。
-- **B / v02（推奨）**：[背景原寸](<../private-art/qa/brushup/terrace/terrace-proposal-v02-480.png>)・[背景3x](<../private-art/qa/brushup/terrace/terrace-proposal-v02-3x.png>)・[キャラ合成3x](<../private-art/qa/brushup/terrace/terrace-proposal-v02-characters-3x.png>)。中央の雲・波・床の細部を抑え、対戦キャラを見分けやすくした同じテラスの別案。
-- [比較画像](<../private-art/qa/brushup/terrace/terrace-proposals-characters-comparison.png>)・[加工／検証記録](<../private-art/qa/brushup/terrace/proposal-review.json>)。既存の主人公／ライバルを足元y238・開始位置x180/334で静的合成した**デザイン検討画像**であり、実アプリ・ネイティブ描画・可視操作の検証ではない。
-- 承認済み主人公／アトラス・背景3種／各マットの計8ファイルについて台帳SHA一致・加工前後不変を確認。生成物はレビュー領域のみで、runtime・配線・ゲーム挙動は変更していない。承認後の統合時は生成絵の実際の太陽／水平線／手すり位置に合わせて環境演出を調整する（プロンプトの座標指定だけでは一致を保証しない）。
+- **2-1完了**: ユーザーが**A / v01（雲と海面の描き込み重視）**を選択。`runtime/scene/arena/terrace.png`（480×270・192色）を手動アリーナ専用背景として統合。壁紙・書斎の小事件・legacyは不変、画像なしはコード描画へフォールバック。承認済み8ファイルはSHA不変。詳細は[current_status](<current_status.md>)。試作時の[B / v02案](<../private-art/qa/brushup/terrace/terrace-proposal-v02-characters-3x.png>)・[比較](<../private-art/qa/brushup/terrace/terrace-proposals-characters-comparison.png>)・[レビュー記録](<../private-art/qa/brushup/terrace/proposal-review.json>)は参照として保存。
+- **2-2/2-3準備済み**: 生成プロンプトを確定して保存（未生成・未統合）。画像対応モデルへ再切り替え後、これらを `imagegen` に渡して試作→ユーザー承認→加工→統合する。
+  - 2-2 主人公戦闘コマ: [generation-prompt.md](<../private-art/qa/brushup/hero-combat/generation-prompt.md>)
+  - 2-3 雑魚2種: [generation-prompt.md](<../private-art/qa/brushup/enemies/generation-prompt.md>)
+- 制約: 承認済み主人公16コマ・背景3種・マットはbyte不変／戦闘コマ・雑魚は別シート+コードフォールバック／敵2種+ボス1体・1舞台／ローカル専用・公開再配布未許諾／無音・依存追加なし・Playwrightなし。未承認アートをruntimeへ統合しない。
 
 ## 目的と順序
 
@@ -172,6 +173,7 @@ Fighters の見た目を「仮のピクセル図形」から世界観に合う�
 
 ## 次のアクション
 
-1. 本計画と `docs/current_status.md` を読む。
-2. **2-1のユーザー承認を待つ**。A/Bの選択または修正依頼を確認する。未回答／スキップを承認として扱わず、追加生成や統合を自動で進めない。
-3. 承認された案だけを本番用に加工・統合・検証・commitする。次いで2-2、2-3もそれぞれ別のデザイン承認を得て進める。
+1. 本計画と `docs/current_status.md` を読む。2-1は統合済み。
+2. **画像対応モデルへの再切り替えを待つ**（現セッションがテキスト専用なら生成不可）。切替後、2-2の[確定プロンプト](<../private-art/qa/brushup/hero-combat/generation-prompt.md>)を `imagegen` に参照画像付きで渡して試作する。
+3. 生成案（原寸+3x・承認済みデザインとの並置）を提示し**ユーザー承認**を得る。未回答／スキップは承認として扱わず、統合や次タスクを自動で進めない。
+4. 承認後に加工・統合・検証（check/build/mac:test/local-preview+ネイティブQA）・docs更新・commit。次いで2-3も同様に別承認を得て進める。
