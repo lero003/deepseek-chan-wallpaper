@@ -1,6 +1,6 @@
 import {
   AREAS, ARENA, ARENA_ROUNDS, AUTO_SECTIONS, HERO, LIMITS, ROOM_INCIDENTS, ROOM_PADDING, ROOM_SECTIONS, RUN_SECTIONS,
-  SHORT_SECTIONS, SKIRMISH_SECTIONS, STAGE_WIDTH, arenaStage, studyStage,
+  SHORT_SECTIONS, SKIRMISH_SECTIONS, STAGE_WIDTH, arenaStage, studyStage, isFixedArena,
 } from './definitions.ts';
 import type { RoomIncident, SectionDefinition } from './definitions.ts';
 import { inBattle } from './combat.ts';
@@ -9,6 +9,7 @@ import { spawnEnemy } from './enemy-brain.ts';
 import { newHero, newStats, recordStat } from './factory.ts';
 import { clearArcadeRound, newArcade, startArcadeRound } from './arcade.ts';
 import { HOME_CAPTION, REST_CAPTION, settleHome } from '../companion/companion.ts';
+import { startEndlessBattle, updateEndless } from './endless.ts';
 import { clamp } from './movement.ts';
 import type { FightersGame, Phase, Route } from './types.ts';
 
@@ -19,6 +20,7 @@ import type { FightersGame, Phase, Route } from './types.ts';
 const ROOM_TICKS = { intro: 90, victory: 180, teleport: 70, return: 150 } as const;
 
 export function routeSections(game: FightersGame): readonly SectionDefinition[] {
+  if (game.route === 'endless') return [];
   if (game.route === 'arena') return ARENA_ROUNDS;
   if (game.route === 'full') return RUN_SECTIONS;
   if (game.route === 'auto') return AUTO_SECTIONS;
@@ -29,7 +31,7 @@ export function isRoomRoute(game: FightersGame): boolean { return game.route ===
 
 export function enterPhase(game: FightersGame, phase: Phase): void {
   game.phase = phase; game.phaseAge = 0; game.lastProgressAt = game.tick;
-  if (game.route === 'arena' && !inBattle(game)) {
+  if (isFixedArena(game.route) && !inBattle(game)) {
     clearInputs(game);
     if (phase !== 'retry') { game.hero.state = 'idle'; game.hero.age = 0; }
   }
@@ -41,6 +43,8 @@ export function scheduleRest(game: FightersGame): void {
   game.restReactionAt = game.tick + Math.round((20 + decision(game) * 24) * 60);
 }
 export function startEpisode(game: FightersGame, route: Route): void {
+  if (route === 'endless') { startEndlessBattle(game); return; }
+  game.endless = null;
   clearInputs(game);
   const room = route === 'room';
   game.stage = route === 'arena' ? arenaStage(game.scene) : studyStage(game.scene);
@@ -65,7 +69,9 @@ export function startEpisode(game: FightersGame, route: Route): void {
 export function returnHome(game: FightersGame): void {
   const won = game.outcome === 'win';
   clearInputs(game); game.projectiles = []; game.enemies = []; game.paused = false; game.mode = 'auto'; game.focused = false;
-  if (game.route === 'arena') { game.effects = []; game.hitstop = 0; }
+  if (isFixedArena(game.route)) { game.effects = []; game.hitstop = 0; }
+  if (game.route === 'endless') game.route = 'full';
+  game.endless = null;
   const homeOffset = game.route === 'room' ? 0 : game.stage.homeOffset;
   game.stage = studyStage(game.scene);
   game.cameraX = 0; game.hero = newHero(game.world.actor.x + homeOffset, game.world.floorY);
@@ -336,6 +342,7 @@ export function autoIntent(game: FightersGame): void {
 function clampi(value: number, min: number, max: number): number { return Math.max(min, Math.min(max, value)); }
 
 export function updateDirector(game: FightersGame): void {
+  if (game.route === 'endless') { constrainArenaActors(game); updateEndless(game); return; }
   if (game.phase === 'rest') {
     if (game.frequency !== 'off' && game.tick >= game.nextEventAt && game.mode === 'auto') {
       // The wallpaper's periodic action is a short auto-piloted terrace bout, not a
@@ -450,6 +457,7 @@ export function updateDirector(game: FightersGame): void {
 /** Where the camera wants to be: locked arenas win, otherwise follow the heroine. */
 export function desiredCamera(game: FightersGame): number {
   // Room incidents use the room's own art coordinates and never scroll.
+  if (game.route === 'endless') return ARENA.cameraX;
   if (game.route === 'room') return 0;
   if (game.route === 'arena') return ['rest', 'result'].includes(game.phase)
     || game.phase === 'return' && game.phaseAge >= ARENA.teleportTick ? 0 : ARENA.cameraX;

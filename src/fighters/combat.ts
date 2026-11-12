@@ -1,4 +1,4 @@
-import { ATTACKS, HERO } from './definitions.ts';
+import { ATTACKS, HERO, isFixedArena } from './definitions.ts';
 import { effect, say } from './events.ts';
 import { direction, moveOnFloor, clamp } from './movement.ts';
 import { recordStat } from './factory.ts';
@@ -8,7 +8,7 @@ import type { Enemy, FightersGame } from './types.ts';
 export const inBattle = (game: FightersGame): boolean => game.phase === 'battle' || game.phase === 'boss';
 
 export function damageEnemy(game: FightersGame, enemy: Enemy, amount: number, knockback: number): void {
-  if (game.route === 'arena' && !inBattle(game) || enemy.hp <= 0 || enemy.state === 'exit') return;
+  if (isFixedArena(game.route) && !inBattle(game) || enemy.hp <= 0 || enemy.state === 'exit') return;
   const before = enemy.hp;
   enemy.hp = Math.max(0, enemy.hp - amount);
   // Small hits do not erase a boss telegraph; the third hit/special can interrupt it.
@@ -42,7 +42,7 @@ export function damageEnemy(game: FightersGame, enemy: Enemy, amount: number, kn
 
 export function damageHero(game: FightersGame, fromX: number): void {
   const hero = game.hero;
-  if (game.route === 'arena' && !inBattle(game) || game.combatTick < game.graceUntil || game.combatTick < hero.invulnerableUntil || hero.hp <= 0) return;
+  if (isFixedArena(game.route) && !inBattle(game) || game.combatTick < game.graceUntil || game.combatTick < hero.invulnerableUntil || hero.hp <= 0) return;
   hero.hp = Math.max(game.mode === 'auto' ? 1 : 0, hero.hp - 1);
   recordStat(game, 'damageTaken'); arcadeDamage(game);
   hero.gauge = Math.min(100, hero.gauge + 5); hero.state = hero.hp === 0 ? 'down' : 'hurt'; hero.age = 0;

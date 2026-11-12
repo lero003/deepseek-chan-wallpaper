@@ -2,9 +2,21 @@ import type { World, Scene, Facing } from '../world/world.ts';
 import type { ArcadeState, ArcadeUI } from './arcade.ts';
 import type { CompanionCue } from '../companion/companion.ts';
 
-export type Mode = 'auto' | 'manual';
-export type Phase = 'rest' | 'intro' | 'battle' | 'roundClear' | 'bossIntro' | 'boss' | 'victory' | 'return' | 'result' | 'retry';
-export type Route = 'short' | 'skirmish' | 'auto' | 'full' | 'room' | 'arena';
+export type Mode = 'auto' | 'manual' | 'endless';
+export type Phase = 'rest' | 'intro' | 'battle' | 'roundClear' | 'bossIntro' | 'boss' | 'interlude' | 'victory' | 'return' | 'result' | 'retry';
+export type Route = 'short' | 'skirmish' | 'auto' | 'full' | 'room' | 'arena' | 'endless';
+export type BossId = 'lumie' | 'shio' | 'yume';
+export type StageId = 'terrace' | 'terrace-night' | 'terrace-rain' | 'pier-dawn';
+export interface EndlessState {
+  active: boolean; cycle: number; defeated: number; downs: number;
+  bossId: BossId | null; stageId: StageId; bossBag: BossId[]; stageBag: StageId[];
+  lastBossId: BossId | null; lastStageId: StageId | null;
+}
+export interface EndlessUI {
+  active: boolean; cycle: number; defeated: number; downs: number;
+  bossId: BossId; bossName: string; bossTitle: string; bossHP: number; bossMaxHP: number;
+  stageId: StageId; stageLabel: string; phaseLabel: string;
+}
 export type Frequency = 'off' | 'low' | 'normal';
 export type EnemyKind = 'slime' | 'popup' | 'boss';
 export type Action = 'attack' | 'dodge' | 'special';
@@ -25,6 +37,7 @@ export interface Hero extends Point {
   vx: number; vy: number; hitCombo: number; hitComboUntil: number;
 }
 export interface Enemy extends Point {
+  bossId?: BossId;
   id: number; kind: EnemyKind; variant: EnemyVariant; facing: Facing; hp: number; maxHP: number;
   state: EnemyState; age: number; readyAt: number; pattern: number; hit: boolean;
   targetX: number; vx: number; vy: number;
@@ -47,7 +60,7 @@ export interface FightersGame {
   randomState: number; nextId: number; episode: 'quiet' | 'skirmish' | 'boss';
   route: Route; section: number; sectionLocked: boolean; wave: number; routeTick: number;
   /** Unpaused/focused elapsed steps, including hitstop; retry/result screens do not count. */
-  runTicks: number; runStats: GameStats; arcade: ArcadeState;
+  runTicks: number; runStats: GameStats; arcade: ArcadeState; endless: EndlessState | null;
   /** Which ROOM_INCIDENTS composition the current room event picked. Unused on the long routes. */
   roomVariant: number;
   areaIndex: number; areaBannerUntil: number; bossSpawned: boolean;
@@ -59,6 +72,7 @@ export interface FightersGame {
   cue: CompanionCue | null; cueReadyAt: number; homeLine: string; homeLineUntil: number;
 }
 export interface GameUI {
+  endless: EndlessUI | null;
   mode: Mode; phase: Phase; phaseLabel: string; paused: boolean; focused: boolean; hp: number; gauge: number;
   combo: number; dodgeReady: boolean; specialReady: boolean; outcome: string;
   message: string; frequency: Frequency; effectsLow: boolean; enemies: number; bossHP: number;

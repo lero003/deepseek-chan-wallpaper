@@ -1,3 +1,5 @@
+import { BOSSES, BOSS_PALETTES } from './definitions.ts';
+import type { BossPalette } from './definitions.ts';
 import type { Enemy } from './types.ts';
 import type { RenderAppearance } from '../app-web/art-profile.ts';
 import type { BossPose } from './render-types.ts';
@@ -5,11 +7,7 @@ import { parseBossAtlas } from './render-types.ts';
 import { Painter, ellipse } from './art-kit.ts';
 
 /** An original, non-official writing/thought-inspired rival; never a company mascot. */
-export const LUMIE_COLORS = {
-  ink: '#332b2d', inkLight: '#51403a', hairDark: '#9e6947', hair: '#d7a765', hairLight: '#f1cc8e',
-  amber: '#b9762f', amberLight: '#e6b45f', paper: '#f5e3bb', paperShade: '#d3b589',
-  skin: '#f3ceb2', cheek: '#d99b81', white: '#fff2d3',
-} as const;
+export const LUMIE_COLORS = BOSS_PALETTES.lumie;
 
 /** Poses are keys, not a claim that these generated poses are a validated animation. */
 export function bossPose(enemy: Readonly<Enemy>): BossPose {
@@ -22,15 +20,16 @@ export function bossPose(enemy: Readonly<Enemy>): BossPose {
   return enemy.age % 60 < 18 ? 'move' : 'idle';
 }
 
-function glint(p: Painter, x: number, y: number, alpha: number): void {
-  p.rect(x, y - 2, 1, 5, LUMIE_COLORS.amberLight, alpha);
-  p.rect(x - 2, y, 5, 1, LUMIE_COLORS.amberLight, alpha);
-  p.rect(x, y, 1, 1, LUMIE_COLORS.white, alpha);
+function glint(p: Painter, x: number, y: number, alpha: number, palette: BossPalette = LUMIE_COLORS): void {
+  const c = palette;
+  p.rect(x, y - 2, 1, 5, c.amberLight, alpha);
+  p.rect(x - 2, y, 5, 1, c.amberLight, alpha);
+  p.rect(x, y, 1, 1, c.white, alpha);
 }
 
 /** Complete code-only girl fallback: no local images, official marks, or old male boss. */
 function drawFallback(p: Painter, enemy: Readonly<Enemy>, pose: BossPose, alpha: number): void {
-  const c = LUMIE_COLORS;
+  const c = BOSSES[enemy.bossId ?? 'lumie'].palette;
   const facing = enemy.facing;
   const hurt = pose === 'hurt', bow = pose === 'exit';
   const crouch = pose === 'strike' || pose === 'move' ? 4 : hurt ? 7 : bow ? 3 : 0;
@@ -51,6 +50,10 @@ function drawFallback(p: Painter, enemy: Readonly<Enemy>, pose: BossPose, alpha:
     rect(hx, -59 + i * 2, 4, 23 - i * 2, c.hairLight);
     rect(hx - 1, -34 + i * 2, 7, 5, c.hairDark);
     rect(hx + 1, -35 + i * 2, 4, 3, c.hair);
+  }
+  if (enemy.bossId === 'shio') {
+    // A short tide-cut silhouette instead of the writer's long locks.
+    rect(-29, -40, 36, 12, c.ink); rect(-24, -38, 27, 6, c.paperShade);
   }
   // Opaque tights and ankle boots always meet the same ground line.
   rect(-10, -23, 7, 19 - crouch, c.inkLight);
@@ -98,6 +101,15 @@ function drawFallback(p: Painter, enemy: Readonly<Enemy>, pose: BossPose, alpha:
     rect(16, bow ? -5 : -64, 5, 6, c.amberLight);
   }
   rect(-21, -55, 7, 17, c.amber); rect(-21, -39, 7, 5, c.paper); rect(-20, -34, 6, 6, c.skin);
+  if (enemy.bossId === 'shio') {
+    // Short silver blade and a wave-shaped guard.
+    rect(21, -45, 5, 29, c.white); rect(17, -19, 13, 3, c.amberLight); rect(22, -16, 3, 8, c.ink);
+  } else if (enemy.bossId === 'yume') {
+    // Paper lantern with a warm window, distinct even in a still frame.
+    rect(25, -48, 1, 12, c.ink); rect(19, -37, 14, 20, c.ink);
+    rect(21, -35, 10, 15, c.amberLight); rect(25, -35, 2, 15, c.amber);
+    rect(19, -19, 14, 3, c.hairDark);
+  }
   // Large chibi face and sweeping fringe; deliberately no moustache, hat or monocle.
   oval(3, -79, 16, 17, c.ink);
   oval(4, -78, 14, 15, c.skin);
@@ -123,29 +135,33 @@ function drawFallback(p: Painter, enemy: Readonly<Enemy>, pose: BossPose, alpha:
 
 /** Lead's art.ts wrapper delegates here; appearance never changes world state. */
 export function drawBoss(p: Painter, enemy: Readonly<Enemy>, tick: number, appearance: RenderAppearance = {}): void {
+  const definition = BOSSES[enemy.bossId ?? 'lumie'];
+  const c = definition.palette;
+  const key = definition.atlasKey ?? definition.id;
   const pose = bossPose(enemy);
   const alpha = enemy.state === 'exit' ? Math.max(0, 1 - enemy.age / 26) : 1;
   if (alpha <= .02) return;
   const fallback = new Painter(p.cameraX);
   drawFallback(fallback, enemy, pose, alpha);
   let atlas;
-  try { atlas = appearance.bossAtlas ? parseBossAtlas(appearance.bossAtlas) : null; } catch { atlas = null; }
-  if (atlas) p.sprite(enemy.x, enemy.y, atlas.poses[pose], enemy.facing, alpha, 0, 1, 1, 'boss', fallback.commands);
+  const candidate = appearance.bossAtlases?.[key] ?? (key === 'lumie' ? appearance.bossAtlas : undefined);
+  try { atlas = candidate ? parseBossAtlas(candidate) : null; } catch { atlas = null; }
+  if (atlas) p.sprite(enemy.x, enemy.y, atlas.poses[pose], enemy.facing, alpha, 0, 1, 1, 'boss', fallback.commands, enemy.bossId);
   else p.commands.push(...fallback.commands);
 
   // Restrained code-only paper/glint tells remain shared on Web and native.
   if (enemy.state === 'windup' || (enemy.state === 'strike' && enemy.pattern % 4 !== 2)) {
     for (let i = 0; i < 3; i++) {
       const x = enemy.x + enemy.facing * (26 + i * 7), y = enemy.y - 62 - i * 10;
-      p.rect(x - 3, y - 4, 6, 8, LUMIE_COLORS.paper, alpha * .72, Math.sin(tick * .04 + i) * .16);
-      p.rect(x - 2, y - 1, 4, 1, LUMIE_COLORS.amber, alpha * .6);
+      p.rect(x - 3, y - 4, 6, 8, c.paper, alpha * .72, Math.sin(tick * .04 + i) * .16);
+      p.rect(x - 2, y - 1, 4, 1, c.amber, alpha * .6);
     }
   }
   if (enemy.hp <= enemy.maxHP / 2 && enemy.state !== 'exit') {
     for (let i = 0; i < 2; i++) {
       const angle = tick * .018 + i * Math.PI;
-      glint(p, enemy.x + Math.cos(angle) * 34, enemy.y - 67 + Math.sin(angle) * 15, .65);
+      glint(p, enemy.x + Math.cos(angle) * 34, enemy.y - 67 + Math.sin(angle) * 15, .65, c);
     }
   }
-  if (enemy.state === 'stunned') glint(p, enemy.x - 14, enemy.y - 104, alpha * .85);
+  if (enemy.state === 'stunned') glint(p, enemy.x - 14, enemy.y - 104, alpha * .85, c);
 }

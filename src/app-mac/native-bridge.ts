@@ -30,6 +30,10 @@ export function create(configurationJSON: string, seedText = 'seaside-v01', aren
   const snapshot = (decorations: boolean) => JSON.stringify(scenePlan(world, atlas, motes, appearance, decorations));
   const gameSnapshot = (decorations = true, presentation = 'preview') => {
     if (presentation !== 'preview' && presentation !== 'wallpaper') throw new Error('Invalid presentation.');
+    // The shared wallpaper presentation also serves DSH. Mac's passive desktop stays quiet.
+    if (presentation === 'wallpaper' && game.mode === 'endless') {
+      return JSON.stringify({ ...scenePlan(world, atlas, motes, appearance, decorations), game: gameUI(game) });
+    }
     const planAppearance = { ...appearance, arenaArt };
     return JSON.stringify(gamePlan(game, atlas, planAppearance, decorations, presentation, motes));
   };

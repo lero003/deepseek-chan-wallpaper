@@ -1,5 +1,10 @@
 import { HERO } from './definitions.ts';
-import type { FightersGame, Hero, GameStats } from './types.ts';
+import type { EndlessState, FightersGame, Hero, GameStats } from './types.ts';
+
+export function newEndlessState(): EndlessState {
+  return { active: true, cycle: 1, defeated: 0, downs: 0, bossId: null, stageId: 'terrace',
+    bossBag: [], stageBag: [], lastBossId: null, lastStageId: null };
+}
 
 export function newHero(x: number, y = 236): Hero {
   return { x, y, facing: 1, hp: HERO.hp, gauge: 0, state: 'idle', age: 0, combo: 0, comboUntil: 0,

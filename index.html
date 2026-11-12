@@ -31,7 +31,7 @@
           <p class="scene-error" id="scene-error" role="alert" hidden></p>
           <noscript><p class="scene-error">静かな背景を表示しています。クジラ娘を動かすにはJavaScriptを有効にしてください。</p></noscript>
         </figure>
-        <section class="game-controls" id="game-controls" data-game-input aria-label="手動プレイの操作" hidden>
+        <section class="game-controls" id="game-controls" data-game-input aria-label="対戦の状態と操作" hidden>
           <div class="game-readout"><p class="game-round" id="game-round">ROUND 01 / 03 · 潮風の腕ならし</p><p id="game-health">HP 5 / 5　夕凪 0 / 100</p><p id="game-instruction">WASD / 矢印で間合いを調整 · J/Z 攻撃 · K/X 回避 · L/C 必殺</p></div>
           <div class="game-actions">
             <button id="game-attack" type="button">攻撃 <kbd>J</kbd></button><button id="game-dodge" type="button">回避 <kbd>K</kbd></button><button id="game-special" type="button">必殺 <kbd>L</kbd></button>
@@ -64,6 +64,7 @@
           <div class="control-row secondary-row">
             <p id="playback-status" class="playback-status" role="status" aria-live="polite">準備中</p>
             <button class="text-button game-demo" id="demo-button" type="button" disabled>対戦を見る</button>
+            <button class="text-button" id="endless-button" type="button" disabled>無限ボスラッシュ</button>
             <button class="text-button bout-link" id="play-button" type="button" aria-describedby="bout-description" disabled>テラスで3連戦</button>
           </div>
         </div>

@@ -1,3 +1,6 @@
+import { ARENA_STAGES, BOSSES } from '../fighters/definitions.ts';
+import { arenaStageQuads } from '../fighters/endless-art.ts';
+import type { BossId, StageId } from '../fighters/types.ts';
 import type { World } from '../world/world.ts';
 import type { SpriteAtlas } from './atlas.ts';
 import type { Viewport } from './viewport.ts';
@@ -25,6 +28,8 @@ export interface SceneImages {
   character: HTMLImageElement | null;
   /** Optional local rival; missing/corrupt images never block the scene. */
   boss?: HTMLImageElement | null;
+  bosses?: Partial<Record<BossId, HTMLImageElement | null>>;
+  arenas?: Partial<Record<StageId, HTMLImageElement | null>>;
   /** Optional wallpaper matte (wide/tall continuation of the room). */
   matte?: HTMLImageElement | null;
   /** Additional backgrounds; index 0 is always the default profile background. */
@@ -58,6 +63,9 @@ export class SceneRenderer {
   private readonly atlas: SpriteAtlas;
   private readonly bossAtlas: BossAtlas | null;
   private readonly bossImage: HTMLImageElement | null;
+  private readonly bosses: Partial<Record<BossId, { image: HTMLImageElement; atlas: BossAtlas }>> = {};
+  private readonly arenas: Partial<Record<StageId, HTMLImageElement>> = {};
+  private arenaStageId?: StageId;
   private readonly poseImages: Partial<Record<PoseSheet, { image: HTMLImageElement; atlas: PoseAtlas }>> = {};
   private readonly appearance: RenderAppearance;
   private readonly motes: readonly Mote[];
@@ -107,6 +115,18 @@ export class SceneRenderer {
     this.images = images; this.atlas = atlas; this.bossAtlas = bossAtlas; this.bossImage = bossImage;
     this.appearance = appearance; this.motes = motesFor(seed);
     this.matte = matte; this.variants = variants; this.arenaImage = arenaImage;
+    for (const id of Object.keys(BOSSES) as BossId[]) {
+      const key = BOSSES[id].atlasKey ?? id;
+      try {
+        const atlas = parseBossAtlas(appearance.bossAtlases?.[key] ?? (key === 'lumie' ? appearance.bossAtlas : undefined));
+        const image = images.bosses?.[key] === undefined ? (key === 'lumie' ? images.boss : null) : images.bosses[key];
+        if (image && image.naturalWidth === atlas.frameWidth * atlas.columns && image.naturalHeight === atlas.frameHeight * atlas.rows) this.bosses[id] = { image, atlas };
+      } catch { /* Each rival falls back independently. */ }
+    }
+    for (const id of Object.keys(ARENA_STAGES) as StageId[]) {
+      const image = images.arenas?.[id];
+      if (image?.naturalWidth === 480 && image.naturalHeight === 270) this.arenas[id] = image;
+    }
     for (const key of ['combat', 'slime', 'popup'] as const) {
       try {
         const atlas = parsePoseAtlas(appearance[`${key}Atlas`], key), image = images.sprites?.[key];
@@ -221,18 +241,27 @@ export class SceneRenderer {
    * stays whole; any margins get one flat frame colour instead of a stretched edge
    * column, matching the native CoreGraphics painter.
    */
-  private cacheArenaBackground(): HTMLCanvasElement | null {
-    if (!this.arenaImage) return null;
-    if (this.arenaBackdrop) return this.arenaBackdrop;
+  private cacheArenaBackground(stageId?: StageId): HTMLCanvasElement | null {
+    const image = stageId ? this.arenas[stageId] ?? (stageId === 'terrace' ? this.arenaImage : null) : this.arenaImage;
+    if (!image && !stageId) return null;
+    if (this.arenaBackdrop && this.arenaStageId === stageId) return this.arenaBackdrop;
+    this.arenaStageId = stageId;
     const canvas = document.createElement('canvas');
     const { width, height, originX, originY } = this.viewport;
     canvas.width = width; canvas.height = height;
     const ctx = canvas.getContext('2d', { alpha: false });
     if (!ctx) throw new Error('Canvas 2D is unavailable.');
     ctx.imageSmoothingEnabled = false;
-    ctx.fillStyle = this.appearance.arenaFrameColor ?? ARENA_FRAME_COLOR;
+    ctx.fillStyle = stageId ? ARENA_STAGES[stageId].frameColor : this.appearance.arenaFrameColor ?? ARENA_FRAME_COLOR;
     ctx.fillRect(0, 0, width, height);
-    ctx.drawImage(this.arenaImage, originX, originY);
+    if (image) ctx.drawImage(image, originX, originY);
+    else if (stageId) {
+      for (const quad of arenaStageQuads(stageId)) {
+        ctx.globalAlpha = quad.alpha; ctx.fillStyle = quad.color;
+        ctx.fillRect(originX + quad.x, originY + quad.y, quad.width, quad.height);
+      }
+      ctx.globalAlpha = 1;
+    }
     this.arenaBackdrop = canvas;
     return canvas;
   }
@@ -243,7 +272,7 @@ export class SceneRenderer {
     for (const command of commands) {
       const optional = command.kind === 'sprite' && command.sheet && command.sheet !== 'hero';
       const resource = command.kind === 'sprite' && optional
-        ? command.sheet === 'boss' ? { image: this.bossImage, atlas: this.bossAtlas }
+        ? command.sheet === 'boss' ? command.bossId ? this.bosses[command.bossId] : { image: this.bossImage, atlas: this.bossAtlas }
           : this.poseImages[command.sheet as PoseSheet] : null;
       if (command.kind === 'sprite' && optional
         && (!resource?.image || !resource.atlas || !Number.isInteger(command.frame)
@@ -298,7 +327,7 @@ export class SceneRenderer {
     // Room incidents keep the study backdrop. The fixed manual arena paints its local
     // terrace backdrop when available; otherwise (and for legacy routes) scroll the stage.
     if (plan.battle && !plan.battle.room) {
-      const arena = plan.battle.arena ? this.cacheArenaBackground() : null;
+      const arena = plan.battle.arena ? this.cacheArenaBackground(plan.battle.stageId) : null;
       if (arena) ctx.drawImage(arena, 0, 0);
       else ctx.drawImage(this.cacheWideBackground(), originX - plan.battle.cameraX, 0);
     }

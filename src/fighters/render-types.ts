@@ -1,4 +1,4 @@
-import type { GameUI } from './types.ts';
+import type { BossId, GameUI, StageId } from './types.ts';
 
 export type BossPose = 'idle' | 'move' | 'windup' | 'strike' | 'cast' | 'recover' | 'hurt' | 'exit';
 export interface BossAtlas {
@@ -33,6 +33,7 @@ export type DrawCommand =
   | { kind: 'rect'; x: number; y: number; width: number; height: number; color: string; alpha: number; rotation?: number }
   | { kind: 'sprite'; x: number; y: number; frame: number; facing: number; alpha: number; rotation: number; scaleX: number; scaleY: number;
       /** Omitted means the unchanged heroine sheet. */
+      bossId?: BossId;
       sheet?: 'hero' | 'boss' | 'combat' | 'slime' | 'popup';
       /** Camera-relative commands used only when the optional sheet is unavailable. */
       fallback?: readonly DrawCommand[] }
@@ -51,5 +52,6 @@ export interface BattleFrame {
    * otherwise it falls back to that stage. The passive wallpaper never sets this.
    */
   arena?: boolean;
+  stageId?: StageId;
 }
 export interface GamePresentation { game?: GameUI; battle?: BattleFrame; overlay?: DrawCommand[] }

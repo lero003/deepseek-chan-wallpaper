@@ -283,3 +283,38 @@ test('the legacy room incident path still keeps the study backdrop and camera',(
   const wallpaper=gamePlan(g,atlas,SUNSET_LAYOUT,true,'wallpaper');
   assert.equal(wallpaper.battle?.room,true);
 });
+
+test('endless wallpaper draws the fixed boss arena and no HUD in every phase; native wallpaper stays quiet', () => {
+  const game = make(); command(game, 'endless');
+  for (const phase of ['bossIntro', 'boss', 'interlude']) {
+    game.phase = phase; game.phaseAge = 10;
+    const state = JSON.stringify(game);
+    const plan = gamePlan(freeze(structuredClone(game)), atlas, SUNSET_LAYOUT, true, 'wallpaper');
+    assert.equal(plan.battle.arena, true); assert.equal(plan.battle.cameraX, ARENA.cameraX);
+    assert.equal(plan.battle.stageId, game.endless.stageId);
+    assert.equal(plan.battle.commands.some(command => command.kind === 'text'), false);
+    assert.equal(plan.overlay, undefined); assert.equal(JSON.stringify(game), state);
+    const preview = gamePlan(game, atlas, SUNSET_LAYOUT);
+    assert.ok(preview.battle.commands.some(command => command.kind === 'text' && command.text.includes('/ ∞')));
+    assert.equal(preview.battle.commands.some(command => command.kind === 'text' && /SCORE|TIME|COMPLETE|CLEAR/.test(command.text)), false);
+  }
+  const engine = nativeBridge(JSON.stringify({ atlas, layout: SUNSET_LAYOUT }));
+  engine.commandJSON('endless'); engine.advanceGameJSON(.25);
+  const wallpaper = JSON.parse(engine.gameSnapshotJSON(true, 'wallpaper'));
+  assert.equal(wallpaper.battle, undefined); assert.equal(wallpaper.overlay, undefined);
+  assert.deepEqual(wallpaper.quads, JSON.parse(engine.snapshotJSON()).quads);
+  assert.equal(JSON.parse(engine.gameSnapshotJSON()).battle.arena, true);
+});
+
+test('every endless introduction resolves its current bossId without changing simulation or requiring images', () => {
+  const game = make(); command(game, 'endless');
+  const bossAtlas = { version: 1, frameWidth: 96, frameHeight: 112, columns: 4, rows: 2, anchor: { x: 48, y: 108 },
+    poses: { idle: 0, move: 1, windup: 2, strike: 3, cast: 4, recover: 5, hurt: 6, exit: 7 } };
+  for (const id of ['lumie', 'shio', 'yume']) {
+    game.endless.bossId = id;
+    const plan = gamePlan(freeze(structuredClone(game)), atlas, { bossAtlases: { [id]: bossAtlas } });
+    assert.ok(plan.battle.commands.some(command => command.kind === 'sprite' && command.sheet === 'boss' && command.bossId === id));
+    const fallback = gamePlan(freeze(structuredClone(game)), atlas);
+    assert.equal(fallback.battle.commands.some(command => command.kind === 'sprite' && command.sheet === 'boss'), false);
+  }
+});

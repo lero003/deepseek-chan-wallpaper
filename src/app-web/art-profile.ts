@@ -1,3 +1,4 @@
+import type { BossId, StageId } from '../fighters/types.ts';
 import type { Scene } from '../world/world.ts';
 import type { BossAtlas } from '../fighters/render-types.ts';
 import type { AmbienceProfile } from '../render/ambience.ts';
@@ -28,6 +29,8 @@ export interface MatteInfo {
 }
 
 export interface RenderAppearance {
+  readonly arenaBackdrops?: Partial<Record<StageId, string>>;
+  readonly bossAtlases?: Partial<Record<BossId, BossAtlas>>;
   readonly ceilingColor?: string;
   readonly floorColor?: string;
   readonly shadowColor?: string;
@@ -89,6 +92,7 @@ export interface ArtProfile extends RenderAppearance {
   readonly characterUrl: string;
   /** Optional original rival image; no local file is required by the placeholder profile. */
   readonly bossUrl?: string;
+  readonly bossUrls?: Partial<Record<BossId, string>>;
   /** Optional wallpaper matte image. Only the local production profile provides it. */
   readonly matteUrl?: string;
   /**

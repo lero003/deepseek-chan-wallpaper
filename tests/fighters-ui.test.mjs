@@ -15,7 +15,7 @@ function withControls(run) {
     focus() { document.activeElement = this; }
     setAttribute(name, value) { this.attributes[name] = value; }
   }
-  const ids = ['scene', 'world', 'play-button', 'demo-button', 'call-button', 'call-hint', 'game-home', 'game-retry',
+  const ids = ['scene', 'world', 'play-button', 'demo-button', 'endless-button', 'call-button', 'call-hint', 'game-home', 'game-retry',
     'game-attack', 'game-dodge', 'game-special', 'game-pause', 'frequency-setting', 'effects-setting', 'game-controls',
     'game-round', 'game-health', 'game-instruction', 'game-announcement', 'scene-thought'];
   const elements = new Map(ids.map(id => [id, new FakeElement()]));
@@ -144,4 +144,30 @@ test('round announcements change at boundaries, not on every health or clock upd
   assert.equal(get('game-attack').disabled, true); assert.equal(get('game-pause').disabled, true);
   assert.equal(game.focused, false);
   assert.match(get('game-instruction').textContent, /動きが停止中/);
+}));
+
+test('endless entry shows boss/stage counters, disables manual controls, survives a stop and returns home', () => withControls((elements, signal) => {
+  const game = createGame(47), get = id => elements.get(id); let enabled = true;
+  const controls = new FightersUI(game, get('scene'), () => enabled, () => {}, signal);
+  controls.sync(); assert.equal(get('endless-button').disabled, false);
+  get('endless-button').dispatchEvent(new Event('click'));
+  assert.equal(game.mode, 'endless'); assert.equal(get('game-controls').hidden, false);
+  assert.match(get('game-round').textContent, /BOSS 01 \/ ∞/);
+  assert.match(get('game-health').textContent, /STAGE .*撃破 0 · 復帰 0 · 周回 1/);
+  assert.doesNotMatch(get('game-health').textContent, /SCORE|TIME/);
+  for (const id of ['play-button', 'demo-button', 'endless-button', 'game-attack', 'game-dodge', 'game-special', 'game-pause']) assert.equal(get(id).disabled, true, id);
+  assert.equal(get('game-retry').hidden, true); assert.equal(get('call-button').hidden, true);
+  assert.match(get('world').attributes['aria-label'], /ボス対面/);
+  const announcement = get('game-announcement').textContent;
+  game.hero.hp--; game.endless.defeated = 3; controls.sync();
+  assert.match(get('game-health').textContent, /撃破 3/);
+  // Counters and damage update the readout without repeating the phase announcement.
+  const current = get('game-announcement').textContent; game.hero.hp--; controls.sync();
+  assert.equal(get('game-announcement').textContent, current); assert.ok(announcement);
+  enabled = false; controls.release(); controls.sync();
+  assert.equal(game.mode, 'endless'); assert.match(get('game-instruction').textContent, /停止中/);
+  enabled = true; controls.sync(); assert.equal(game.mode, 'endless');
+  get('game-home').dispatchEvent(new Event('click'));
+  assert.equal(game.endless, null); assert.equal(game.mode, 'auto'); assert.equal(game.phase, 'rest');
+  assert.equal(get('game-controls').hidden, true); assert.equal(get('endless-button').disabled, false);
 }));

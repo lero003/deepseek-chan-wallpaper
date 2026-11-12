@@ -20,6 +20,7 @@ export class FightersUI {
     }, signal);
     const focusScene = () => { scene.focus({ preventScroll: true }); this.input.syncFocus(); changed(); };
     this.button('play-button').addEventListener('click', () => { action('play'); focusScene(); }, { signal });
+    this.button('endless-button').addEventListener('click', () => { this.input.clear(); action('endless'); }, { signal });
     this.button('demo-button').addEventListener('click', () => action('demo'), { signal });
     // Preview-only call; the core accepts at most one reaction per cooldown, so spam needs no extra guard.
     this.button('call-button').addEventListener('click', () => action('call'), { signal });
@@ -45,53 +46,59 @@ export class FightersUI {
   private button(id: string): HTMLButtonElement { return this.element<HTMLButtonElement>(id); }
 
   sync(): void {
-    const ui = gameUI(this.game), manual = ui.mode === 'manual', enabled = this.canPlay();
+    const ui = gameUI(this.game), manual = ui.mode === 'manual', endless = ui.endless, enabled = this.canPlay();
     const result = ui.phase === 'result' || ui.phase === 'retry';
     const fighting = ui.phase === 'battle' || ui.phase === 'boss';
-    this.element('game-controls').hidden = !manual;
+    this.element('game-controls').hidden = !manual && !endless;
+    this.button('endless-button').hidden = manual;
+    this.button('endless-button').disabled = !enabled || Boolean(endless);
     this.button('play-button').hidden = manual;
-    this.button('play-button').disabled = !enabled || manual;
+    this.button('play-button').disabled = !enabled || manual || Boolean(endless);
     this.button('demo-button').hidden = manual;
     this.button('demo-button').disabled = !enabled || ui.phase !== 'rest';
     const callButton = this.button('call-button');
-    callButton.hidden = manual;
+    callButton.hidden = manual || Boolean(endless);
     callButton.disabled = !enabled || !ui.callReady;
     // The honest reason sits right next to the disabled control; the core line wins while running.
-    const callHint = !enabled ? (this.stopNote() || '動きが停止中です') : ui.callReady ? '' : ui.callReason;
+    const callHint = endless ? '' : !enabled ? (this.stopNote() || '動きが停止中です') : ui.callReady ? '' : ui.callReason;
     this.element('call-hint').textContent = callHint;
     callButton.setAttribute('title', callHint || '呼びかけに小さく応えます。プレビューだけで、壁紙には影響しません。');
     this.scene.dataset.mode = ui.mode;
     this.scene.tabIndex = manual ? 0 : -1;
     this.scene.setAttribute('aria-label', manual
       ? 'DeepSeekちゃんファイターズ。雑魚戦2回とボスとの3連戦。WASDか矢印で間合いを調整、Jで攻撃、Kで回避、Lで必殺技、Escでポーズ。'
+      : endless ? '無限ボスラッシュ。自動操縦でボスと戦い続けます。書斎へ戻るボタンで終了できます。'
       : '海辺の書斎。クジラ娘が歩いたり眠ったりしています。ときどきテラスで自動対戦。');
     this.element('world').setAttribute('aria-label', manual
       ? `海辺のテラス。第${ui.round}ラウンド、${ui.roundLabel}。${ui.phaseLabel}。`
+      : endless ? `${endless.stageLabel}。${endless.bossName}。${endless.phaseLabel}。`
       : '海を望む小さな書斎。青い髪とクジラの尾を持つ女の子が、歩いたり、立ち止まったり、眠ったりしています。ときどきテラスで自動対戦。');
-    this.element('game-round').textContent = `ROUND ${ui.round.toString().padStart(2, '0')} / ${ui.rounds.toString().padStart(2, '0')} · ${ui.roundLabel}`;
-    this.element('game-health').textContent = `HP ${ui.hp} / 5　夕凪 ${ui.gauge} / 100　SCORE ${ui.arcade.score}　TIME ${ui.arcade.secondsLeft}`;
+    this.element('game-round').textContent = endless
+      ? `BOSS ${ui.round.toString().padStart(2, '0')} / ∞ · ${endless.bossName}` : `ROUND ${ui.round.toString().padStart(2, '0')} / ${ui.rounds.toString().padStart(2, '0')} · ${ui.roundLabel}`;
+    this.element('game-health').textContent = endless
+      ? `STAGE ${endless.stageLabel} · 撃破 ${endless.defeated} · 復帰 ${endless.downs} · 周回 ${endless.cycle}` : `HP ${ui.hp} / 5　夕凪 ${ui.gauge} / 100　SCORE ${ui.arcade.score}　TIME ${ui.arcade.secondsLeft}`;
     this.button('game-retry').hidden = !result;
     this.button('game-retry').disabled = !enabled;
     this.button('game-retry').textContent = ui.phase === 'retry' ? 'このラウンドを再挑戦' : 'もう一戦';
     this.button('game-pause').textContent = ui.paused ? '再開 Esc' : 'ポーズ Esc';
-    this.button('game-pause').disabled = !enabled || result;
+    this.button('game-pause').disabled = !enabled || !manual || result;
     for (const name of ['attack', 'dodge', 'special']) {
-      this.button(`game-${name}`).disabled = !enabled || ui.paused || !fighting
+      this.button(`game-${name}`).disabled = !enabled || !manual || ui.paused || !fighting
         || (name === 'special' && !ui.specialReady) || (name === 'dodge' && !ui.dodgeReady);
     }
     this.element('game-instruction').textContent = !enabled
-      ? '動きが停止中です。既存の再開・静止設定をご確認ください。' : arenaInstruction(ui);
-    const announcement = `${ui.mode}:${ui.phase}:${ui.round}:${ui.paused}`;
+      ? '動きが停止中です。既存の再開・静止設定をご確認ください。' : endless ? '自動操縦で対戦中。制限時間はありません。「書斎へ戻る」で終了します。' : arenaInstruction(ui);
+    const announcement = `${ui.mode}:${ui.phase}:${ui.round}:${ui.paused}:${endless?.bossId ?? ''}`;
     if (this.lastAnnouncement !== announcement) {
       this.element('game-announcement').textContent = manual
-        ? `第${ui.round}ラウンド、${ui.roundLabel}。${ui.phaseLabel}。${ui.paused ? 'ポーズ中。' : ''}${arenaInstruction(ui)}` : '';
+        ? `第${ui.round}ラウンド、${ui.roundLabel}。${ui.phaseLabel}。${ui.paused ? 'ポーズ中。' : ''}${arenaInstruction(ui)}` : endless ? `${endless.bossName}。${endless.stageLabel}。${endless.phaseLabel}。` : '';
       this.lastAnnouncement = announcement;
     }
     // Caption roles: the host's stop reason wins while stopped; otherwise the shared
     // companion line (auto) or the bout phase label (manual). Never aria-live: quiet
     // life transitions must not be announced on every change.
     const stop = this.stopNote();
-    this.element('scene-thought').textContent = stop !== '' ? stop : manual ? ui.phaseLabel : ui.companionLine;
+    this.element('scene-thought').textContent = stop !== '' ? stop : manual || endless ? ui.phaseLabel : ui.companionLine;
     if (!enabled) { this.input.clear(); setFocus(this.game, false); }
     document.documentElement.dataset.gameMode = ui.mode;
   }

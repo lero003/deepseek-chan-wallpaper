@@ -1,3 +1,4 @@
+import type { BossId } from './types.ts';
 import type { DrawCommand } from './render-types.ts';
 
 /** Fixed camera-relative command writer shared by Canvas and CoreGraphics. */
@@ -34,12 +35,13 @@ export class Painter {
     this.screenText(x - value.length * size * .5, y, value, color, size, alpha);
   }
   sprite(x: number, y: number, frame: number, facing: number, alpha = 1, rotation = 0, scaleX = 1, scaleY = 1,
-    sheet?: 'hero' | 'boss' | 'combat' | 'slime' | 'popup', fallback?: readonly DrawCommand[]): void {
+    sheet?: 'hero' | 'boss' | 'combat' | 'slime' | 'popup', fallback?: readonly DrawCommand[], bossId?: BossId): void {
     const command: Extract<DrawCommand, { kind: 'sprite' }> = { kind: 'sprite', x: Math.round(x - this.cameraX), y: Math.round(y), frame,
       facing: facing < 0 ? -1 : 1, alpha: Math.round(Math.min(1, alpha) * 1000) / 1000,
       rotation: Math.round(rotation * 10000) / 10000, scaleX, scaleY };
     // Preserve the original heroine command byte-shape for wallpaper parity.
     if (sheet) command.sheet = sheet;
+    if (bossId) command.bossId = bossId;
     if (fallback) command.fallback = fallback;
     this.commands.push(command);
   }

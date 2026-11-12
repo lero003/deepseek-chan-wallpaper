@@ -1,10 +1,11 @@
 import { advanceWorld, createWorld, SEASIDE, STEP_SECONDS, MAX_DELTA_SECONDS } from '../world/world.ts';
 import type { Scene } from '../world/world.ts';
-import { ARENA_PHASE_NAMES, HERO, LIMITS, PHASE_NAMES, studyStage } from './definitions.ts';
+import { ARENA_PHASE_NAMES, BOSSES, HERO, LIMITS, PHASE_NAMES, isFixedArena, studyStage } from './definitions.ts';
 import { updateHero, updateProjectiles, inBattle } from './combat.ts';
 import { updateEnemies } from './enemy-brain.ts';
 import { AREAS } from './definitions.ts';
 import { autoIntent, desiredCamera, enterPhase, retrySection, returnHome, routeSections, scheduleRest, startEpisode, startWallpaperBout, updateDirector } from './director.ts';
+import { endlessUI, startEndlessBattle } from './endless.ts';
 import { clearInputs } from './events.ts';
 import { newHero, newStats } from './factory.ts';
 import { direction } from './movement.ts';
@@ -19,7 +20,7 @@ export function createGame(seed: number, scene: Scene = SEASIDE): FightersGame {
     nextEventAt: 0, restReactionAt: 0, eventStartedAt: 0, lastProgressAt: 0, graceUntil: 0, hitstop: 0,
     randomState: (world.seed ^ 0x7fa82b19) >>> 0 || 1, nextId: 1, episode: 'boss',
     route: 'full', section: 0, sectionLocked: false, wave: 0, routeTick: 0, areaIndex: 0, areaBannerUntil: 0, bossSpawned: false,
-    roomVariant: 0, runTicks: 0, runStats: newStats(), arcade: newArcade(),
+    roomVariant: 0, runTicks: 0, runStats: newStats(), arcade: newArcade(), endless: null,
     hero: newHero(world.actor.x + 120, world.floorY), enemies: [], projectiles: [], effects: [],
     input: { x: 0, y: 0 }, pendingDodge: false, pendingSpecial: false, cameraX: 120, firstWhiff: true, whiffAttackId: -1,
     message: '', messageUntil: 0, outcome: 'none', stats: newStats(),
@@ -44,7 +45,9 @@ export function requestAction(game: FightersGame, action: Action): void {
 }
 export function command(game: FightersGame, name: string, value?: unknown): void {
   switch (name) {
+    case 'endless': startEndlessBattle(game); break;
     case 'play':
+      if (game.mode === 'endless') return;
       if (game.mode === 'manual' && !['result', 'retry'].includes(game.phase)) return;
       // A new manual match never inherits wallpaper coordinates, counters or projectiles.
       game.mode = 'manual'; game.paused = false; game.episode = 'boss';
@@ -89,22 +92,22 @@ function step(game: FightersGame): void {
     }
   }
   game.effects = game.effects.filter(item => item.age < item.ttl && item.y < 300);
-  if (game.route === 'arena') {
+  if (isFixedArena(game.route)) {
     // Both actors and hostile projectiles are frozen outside a live round, not just input.
     // The passive wallpaper bout is auto-piloted; a manual round reads the user's input.
     if (inBattle(game)) {
-      if (game.mode === 'auto') autoIntent(game);
+      if (game.mode !== 'manual') autoIntent(game);
       updateHero(game); updateEnemies(game); updateProjectiles(game);
     } else if (game.phase === 'victory') updateEnemies(game);
   } else if (['intro', 'battle', 'bossIntro', 'boss'].includes(game.phase)) {
-    if (game.mode === 'auto') autoIntent(game);
+    if (game.mode !== 'manual') autoIntent(game);
     if (game.phase !== 'bossIntro') { updateHero(game); updateEnemies(game); updateProjectiles(game); }
   } else if (game.phase === 'victory') updateEnemies(game);
   updateDirector(game);
   if (game.phase !== 'rest' && game.phase !== 'result') {
     const target = desiredCamera(game);
     const rate = game.phase === 'return' ? .16 : .08;
-    if (game.route === 'arena') game.cameraX = target;
+    if (isFixedArena(game.route)) game.cameraX = target;
     else game.cameraX += (target - game.cameraX) * rate;
   }
   for (const stats of [game.stats, game.runStats]) {
@@ -124,22 +127,25 @@ export function advanceGame(game: FightersGame, deltaSeconds: number): void {
 export function gameUI(game: FightersGame): GameUI {
   const sections = routeSections(game);
   const total = sections.length;
-  const arena = game.route === 'arena';
+  const arena = isFixedArena(game.route);
+  const endless = endlessUI(game);
   const area = AREAS[arena ? 1 : game.areaIndex] ?? AREAS[AREAS.length - 1]!;
   const boss = game.enemies.find(enemy => enemy.kind === 'boss');
-  const round = Math.min(total, game.section + 1);
-  const roundLabel = sections[round - 1]?.label ?? '';
+  const bossCount = Object.keys(BOSSES).length;
+  const round = endless && game.endless
+    ? endless.cycle * bossCount - game.endless.bossBag.length : Math.min(total, game.section + 1);
+  const roundLabel = endless?.bossName ?? sections[round - 1]?.label ?? '';
   const progress = total <= 1 ? 1 : Math.min(1, (game.section + (game.phase === 'roundClear' ? 1 : game.sectionLocked ? .5 : 0)) / total);
-  const ready = !arena || inBattle(game) && game.focused && !game.paused;
-  const phaseLabel = arena ? ARENA_PHASE_NAMES[game.phase] : PHASE_NAMES[game.phase];
+  const ready = game.mode !== 'endless' && (!arena || inBattle(game) && game.focused && !game.paused);
+  const phaseLabel = endless?.phaseLabel ?? (arena ? ARENA_PHASE_NAMES[game.phase] : PHASE_NAMES[game.phase]);
   const call = callState(game);
-  return { callReady: call.ready, callReason: call.reason, companionLine: companionLine(game),
+  return { endless, callReady: call.ready, callReason: call.reason, companionLine: companionLine(game),
     mode: game.mode, phase: game.phase, phaseLabel, focused: game.focused, paused: game.paused, hp: game.hero.hp,
     gauge: game.hero.gauge, combo: game.hero.hitCombo, dodgeReady: ready && game.combatTick >= game.hero.dodgeReadyAt,
     specialReady: ready && game.hero.gauge >= 100, outcome: game.outcome, message: game.tick < game.messageUntil ? game.message : '',
     frequency: game.frequency, effectsLow: game.effectsLow, enemies: game.enemies.filter(enemy => enemy.hp > 0).length,
     bossHP: boss?.hp ?? 0, section: game.section, sections: total, locked: game.sectionLocked,
-    areaName: area.name, areaSubtitle: arena ? `ラウンド ${round} / ${total}` : area.subtitle, progress,
+    areaName: endless?.stageLabel ?? area.name, areaSubtitle: endless ? `周回 ${endless.cycle}` : arena ? `ラウンド ${round} / ${total}` : area.subtitle, progress,
     route: game.route, round, rounds: total, roundLabel, elapsedSeconds: game.runTicks / 60, runStats: { ...game.runStats }, arcade: arcadeUI(game) };
 }
 export { inBattle, enterPhase };

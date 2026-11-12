@@ -1,5 +1,5 @@
 import type { Scene } from '../world/world.ts';
-import type { EnemyKind, EnemyVariant, Rect, Stage } from './types.ts';
+import type { BossId, EnemyKind, EnemyVariant, Rect, Route, Stage, StageId } from './types.ts';
 
 export const LIMITS = { enemies: 7, projectiles: 24, effects: 36, autoSeconds: 210, stallSeconds: 12 } as const;
 export const HERO = { hp: 5, walkSpeed: 74, depthSpeed: 46, dodgeSpeed: 200, dodgeTicks: 18, dodgeCooldown: 66, graceTicks: 60, comboWindow: 39 } as const;
@@ -31,6 +31,59 @@ export const bossHP = ENEMIES.boss[0].hp;
 /** One original fictional opponent; visual assets remain local-preview only. */
 export const BOSS = { name: '綴星リュミエ', title: '琥珀の思考家', hp: bossHP,
   patterns: ['星屑の栞', '琥珀の連句', '思索のステップ', '綴星の余白'] } as const;
+
+export interface BossPalette {
+  ink: string; inkLight: string; hairDark: string; hair: string; hairLight: string;
+  amber: string; amberLight: string; paper: string; paperShade: string; skin: string; cheek: string; white: string;
+}
+export const BOSS_PALETTES: Record<BossId, BossPalette> = {
+  lumie: {
+    ink: '#332b2d', inkLight: '#51403a', hairDark: '#9e6947', hair: '#d7a765', hairLight: '#f1cc8e',
+    amber: '#b9762f', amberLight: '#e6b45f', paper: '#f5e3bb', paperShade: '#d3b589',
+    skin: '#f3ceb2', cheek: '#d99b81', white: '#fff2d3',
+  },
+  shio: {
+    ink: '#233c49', inkLight: '#3b5967', hairDark: '#28667a', hair: '#54a9b0', hairLight: '#a3d9d1',
+    amber: '#358d94', amberLight: '#8ce2d5', paper: '#d7f1e6', paperShade: '#9bbfc2',
+    skin: '#f3ceb2', cheek: '#d99b81', white: '#effff9',
+  },
+  yume: {
+    ink: '#352d50', inkLight: '#574568', hairDark: '#655084', hair: '#a887bb', hairLight: '#dfbcde',
+    amber: '#b77c63', amberLight: '#f4c78a', paper: '#f7e4da', paperShade: '#c4a0b5',
+    skin: '#f3ceb2', cheek: '#d99b81', white: '#fff1df',
+  },
+};
+export interface BossDefinition {
+  id: BossId; name: string; title: string; hp: number; palette: BossPalette; atlasKey?: BossId;
+  introTicks: number; patterns: readonly number[];
+  tuning: { speed: number; windup: number; cooldown: number; range: number };
+}
+/** Additional opponents belong exclusively to the opt-in endless mode. */
+export const BOSSES: Record<BossId, BossDefinition> = {
+  lumie: { id: 'lumie', name: BOSS.name, title: BOSS.title, hp: BOSS.hp, palette: BOSS_PALETTES.lumie,
+    atlasKey: 'lumie', introTicks: 130, patterns: [0, 1, 2, 3], tuning: { speed: 16, windup: 42, cooldown: 78, range: 48 } },
+  shio: { id: 'shio', name: '汐見のリツカ', title: '潮読みの剣士', hp: 24, palette: BOSS_PALETTES.shio,
+    atlasKey: 'shio', introTicks: 100, patterns: [2, 0, 2, 1], tuning: { speed: 22, windup: 36, cooldown: 72, range: 44 } },
+  yume: { id: 'yume', name: '紙灯のユメ', title: '夜想の装丁師', hp: 36, palette: BOSS_PALETTES.yume,
+    atlasKey: 'yume', introTicks: 110, patterns: [3, 0, 1, 3, 2], tuning: { speed: 14, windup: 46, cooldown: 84, range: 56 } },
+};
+export interface ArenaStageDefinition {
+  id: StageId; label: string; mood: 'sunset' | 'night' | 'rain' | 'dawn';
+  frameColor: string; sky: string; sea: string; floor: string; light: string;
+}
+export const ARENA_STAGES: Record<StageId, ArenaStageDefinition> = {
+  terrace: { id: 'terrace', label: '夕凪のテラス', mood: 'sunset', frameColor: '#2b2233',
+    sky: '#dba7a0', sea: '#828eaa', floor: '#886778', light: '#ffe2ad' },
+  'terrace-night': { id: 'terrace-night', label: '月夜のテラス', mood: 'night', frameColor: '#1c233d',
+    sky: '#263253', sea: '#3c587a', floor: '#53546f', light: '#d4e6f1' },
+  'terrace-rain': { id: 'terrace-rain', label: '雨音のテラス', mood: 'rain', frameColor: '#263b46',
+    sky: '#627c89', sea: '#507a8a', floor: '#61777e', light: '#bbd7d3' },
+  'pier-dawn': { id: 'pier-dawn', label: '朝凪の桟橋', mood: 'dawn', frameColor: '#414454',
+    sky: '#e4b5ad', sea: '#7faeb6', floor: '#937c74', light: '#ffe9b9' },
+};
+export interface EndlessConfig { interludeTicks: number; hpPerCycle: number; hpCapMultiplier: number }
+export const ENDLESS: Readonly<EndlessConfig> = { interludeTicks: 60, hpPerCycle: 4, hpCapMultiplier: 2 };
+export const isFixedArena = (route: Route): boolean => route === 'arena' || route === 'endless';
 
 /** The manual fight never travels outside this single terrace camera. */
 export const ARENA = { cameraX: 960, arenaX: 1200, left: 978, right: 1422, top: 218, bottom: 254,
@@ -114,10 +167,10 @@ export function arenaStage(scene: Scene): Stage {
   return { ...studyStage(scene), bounds: { left: ARENA.left, right: ARENA.right, top: ARENA.top, bottom: ARENA.bottom }, furniture: [] };
 }
 export const PHASE_NAMES = {
-  rest: '夕凪の書斎', intro: '出発', battle: '道中', roundClear: 'ラウンドクリア', bossIntro: BOSS.name, boss: '最後の相手',
+  rest: '夕凪の書斎', intro: '出発', battle: '道中', roundClear: 'ラウンドクリア', bossIntro: BOSS.name, boss: '最後の相手', interlude: 'ひと息',
   victory: '帰り道', return: '帰宅', result: 'おしまい', retry: 'もう一度',
 } as const;
 export const ARENA_PHASE_NAMES = {
   rest: '夕凪の書斎', intro: 'ラウンド開始', battle: '対戦中', roundClear: 'ラウンドクリア',
-  bossIntro: `${BOSS.title}・${BOSS.name}`, boss: '最終ラウンド', victory: '対戦勝利', return: '帰宅', result: '対戦結果', retry: '再挑戦',
+  bossIntro: `${BOSS.title}・${BOSS.name}`, boss: '最終ラウンド', interlude: 'ひと息', victory: '対戦勝利', return: '帰宅', result: '対戦結果', retry: '再挑戦',
 } as const;

@@ -1,16 +1,17 @@
-import { ARENA, ARENA_ROUNDS, ENEMIES, LIMITS } from './definitions.ts';
+import { ARENA, ARENA_ROUNDS, BOSSES, ENEMIES, isFixedArena, LIMITS } from './definitions.ts';
 import { damageHero, inBattle } from './combat.ts';
 import { decision, effect } from './events.ts';
 import { clamp, moveOnFloor } from './movement.ts';
-import type { Enemy, EnemyKind, EnemyVariant, FightersGame } from './types.ts';
+import type { BossId, Enemy, EnemyKind, EnemyVariant, FightersGame } from './types.ts';
 
 export function spawnEnemy(game: FightersGame, kind: EnemyKind, variant: EnemyVariant, x: number, y: number,
-  facing: -1 | 1, entering = true): Enemy | null {
+  facing: -1 | 1, entering = true, bossId?: BossId): Enemy | null {
   if (game.enemies.length >= LIMITS.enemies) return null;
+  if (game.route === 'endless' && (kind !== 'boss' || game.phase !== 'boss' || game.enemies.length > 0)) return null;
   // The arena's final roster is one boss, never summoned visitors or a duplicate boss.
   if (game.route === 'arena' && ARENA_ROUNDS[game.section]?.boss
     && (kind !== 'boss' || game.enemies.some(enemy => enemy.kind === 'boss'))) return null;
-  if (game.route === 'arena') { x = clamp(x, ARENA.left, ARENA.right); y = clamp(y, ARENA.top, ARENA.bottom); }
+  if (isFixedArena(game.route)) { x = clamp(x, ARENA.left, ARENA.right); y = clamp(y, ARENA.top, ARENA.bottom); }
   const stats = ENEMIES[kind][variant];
   const camera = game.cameraX;
   const fromLeft = facing === 1;
@@ -20,6 +21,7 @@ export function spawnEnemy(game: FightersGame, kind: EnemyKind, variant: EnemyVa
   const enemy: Enemy = { id: game.nextId++, kind, variant, x: clamp(x, 10, game.stage.width - 10), y: clamp(y, 224, 250),
     facing, hp: stats.hp, maxHP: stats.hp, state: entering ? 'enter' : 'move', age: 0,
     readyAt: game.combatTick + (entering ? 40 : 30), pattern: 0, hit: false, targetX, vx: 0, vy: 0 };
+  if (kind === 'boss' && bossId) { enemy.bossId = bossId; enemy.hp = enemy.maxHP = BOSSES[bossId].hp; }
   game.enemies.push(enemy);
   effect(game, 'dust', enemy.x, enemy.y, '', 24, { vy: -6 });
   if (kind === 'popup') effect(game, 'spark', enemy.x, enemy.y - 26, '', 18);
@@ -59,10 +61,11 @@ export function updateEnemies(game: FightersGame): void {
     if (!inBattle(game) || game.combatTick < game.graceUntil) continue;
     const dx = hero.x - enemy.x, dy = hero.y - enemy.y;
     enemy.facing = dx < 0 ? -1 : 1;
-    const stats = ENEMIES[enemy.kind][enemy.variant];
+    const tuning = enemy.bossId ? BOSSES[enemy.bossId].tuning : null;
+    const stats = tuning ?? ENEMIES[enemy.kind][enemy.variant];
     const enraged = enemy.kind === 'boss' && enemy.hp <= enemy.maxHP / 2;
     if (enemy.state === 'move') {
-      const desiredRange = enemy.kind === 'slime' ? 30 : game.route === 'arena' ? 48 : enemy.kind === 'popup' ? 106 : 92;
+      const desiredRange = enemy.kind === 'slime' ? 30 : isFixedArena(game.route) ? tuning?.range ?? 48 : enemy.kind === 'popup' ? 106 : 92;
       moveOnFloor(enemy, Math.abs(dx) > desiredRange ? Math.sign(dx) * stats.speed / 60 : 0,
         Math.abs(dy) > 5 ? Math.sign(dy) * 14 / 60 : 0, game.stage);
       if (Math.abs(dx) <= desiredRange + 20 && Math.abs(dy) < 18 && game.combatTick >= enemy.readyAt) {
@@ -85,7 +88,7 @@ export function updateEnemies(game: FightersGame): void {
           const count = enraged ? 5 : 4;
           for (let i = 0; i < count; i++) shoot(game, enemy, (i - (count - 1) / 2) * 12, 90 + i * 6);
         } else if (phase === 1) {
-          if (game.route === 'arena') {
+          if (isFixedArena(game.route)) {
             // 琥珀の連句: a faster fan replaces summoning, preserving the one-on-one.
             const count = enraged ? 5 : 3;
             for (let i = 0; i < count; i++) shoot(game, enemy, (i - (count - 1) / 2) * 18, 116);
@@ -113,7 +116,10 @@ export function updateEnemies(game: FightersGame): void {
         if (!enemy.hit && Math.abs(dx) < 46 && Math.abs(dy) < 20) { damageHero(game, enemy.x); enemy.hit = true; }
       }
       if (enemy.age >= (enemy.kind === 'boss' ? 34 : 16)) {
-        enemy.state = 'move'; enemy.age = 0; enemy.pattern++; enemy.vx = 0;
+        enemy.state = 'move'; enemy.age = 0;
+        const patterns = enemy.bossId ? BOSSES[enemy.bossId].patterns : null;
+        enemy.pattern = patterns?.length ? patterns[Math.floor(decision(game) * patterns.length)]! : enemy.pattern + 1;
+        enemy.vx = 0;
         enemy.readyAt = game.combatTick + Math.round((stats.cooldown + decision(game) * 22) * (enraged ? .64 : 1));
       }
     }

@@ -189,3 +189,12 @@ test('additional wallpaper backgrounds are complete and keep their own scene pix
     }
   }
 });
+
+test('optional boss and arena rosters survive wallpaper appearance switches independently', async () => {
+  const { resolveAppearance } = await import('../src/app-web/art-profile.ts');
+  const base = { bossUrl: 'legacy-lumie.png', bossAtlas: { version: 1 }, bossUrls: { shio: 'shio.png' },
+    bossAtlases: { shio: { version: 1 } }, arenaBackdrops: { 'pier-dawn': 'pier.png' } };
+  const switched = resolveAppearance(base, { floorColor: '#223344', ambience: { mood: 'night' } });
+  for (const key of ['bossUrl', 'bossAtlas', 'bossUrls', 'bossAtlases', 'arenaBackdrops']) assert.equal(switched[key], base[key]);
+  assert.equal(resolveAppearance({}).bossAtlases, undefined, 'old profiles remain valid without roster fields');
+});

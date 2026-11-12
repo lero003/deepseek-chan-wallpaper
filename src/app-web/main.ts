@@ -173,7 +173,7 @@ async function bootstrap(): Promise<void> {
     const [background, character, matte, boss, arena] = await Promise.allSettled([loadImage(backgroundUrl), loadImage(characterUrl), matteRequest, bossRequest, arenaRequest]);
     if (signal.aborted) return;
     const images: SceneImages & { variants: VariantImages[] } = {
-      sprites: {},
+      sprites: {}, bosses: {}, arenas: {},
       background: background.status === 'fulfilled' ? background.value : null,
       character: character.status === 'fulfilled' ? character.value : null,
       boss: boss.status === 'fulfilled' ? boss.value : null,
@@ -194,6 +194,16 @@ async function bootstrap(): Promise<void> {
         if (!signal.aborted) images.sprites![key] = image;
       } catch (error) { console.error('[kujira] Optional combat sheet unavailable; using original drawing.', key, error); }
     }));
+    await Promise.all([
+      ...Object.entries(art.bossUrls ?? {}).map(async ([key, url]) => {
+        try { const image = await loadImage(url); if (!signal.aborted) images.bosses![key as keyof NonNullable<SceneImages['bosses']>] = image; }
+        catch { /* One unavailable rival retains its code fallback. */ }
+      }),
+      ...Object.entries(art.arenaBackdrops ?? {}).map(async ([key, url]) => {
+        try { const image = await loadImage(url); if (!signal.aborted) images.arenas![key as keyof NonNullable<SceneImages['arenas']>] = image; }
+        catch { /* One unavailable stage retains its code fallback. */ }
+      }),
+    ]);
     if (signal.aborted) return;
     drawAboutFace(images.character);
     // Additional backgrounds are optional: a failed or mis-sized variant is simply not offered.

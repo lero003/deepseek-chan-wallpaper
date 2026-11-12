@@ -185,8 +185,8 @@ body:has(dialog[open]) { overflow: hidden; }
 kbd { margin-left: 5px; color: #d2bb91; font-size: 9px; font-family: ui-monospace, monospace; }
 .setting-row select { max-width: 165px; border: 1px solid var(--line); padding: 9px 6px; color: inherit; background: transparent; font: inherit; font-size: 11px; }
 select:focus-visible { outline: 2px solid #dfd9b5; outline-offset: 3px; }
-[data-game-mode="manual"] .scene { height: calc(100dvh - 334px); }
-@media (max-width: 1100px) { .game-controls { grid-template-columns: minmax(0, 1fr); } .game-actions { justify-content: flex-start; } [data-game-mode="manual"] .scene { height: calc(100dvh - 382px); } }
+:is([data-game-mode="manual"], [data-game-mode="endless"]) .scene { height: calc(100dvh - 334px); }
+@media (max-width: 1100px) { .game-controls { grid-template-columns: minmax(0, 1fr); } .game-actions { justify-content: flex-start; } :is([data-game-mode="manual"], [data-game-mode="endless"]) .scene { height: calc(100dvh - 382px); } }
 @media (max-width: 767px) {
   .site-footer { flex-wrap: wrap; padding: 16px 0; }
   .playback-control { align-items: stretch; gap: 10px; width: 100%; }
@@ -195,7 +195,7 @@ select:focus-visible { outline: 2px solid #dfd9b5; outline-offset: 3px; }
   .call-hint { text-align: left; }
   .secondary-row { gap: 2px 14px; }
   .playback-status { flex-basis: 100%; max-width: none; text-align: left; }
-  [data-game-mode="manual"] .scene { height: auto; min-height: 240px; }
+  :is([data-game-mode="manual"], [data-game-mode="endless"]) .scene { height: auto; min-height: 240px; }
   .game-actions button { min-height: 42px; }
 }
 @media (prefers-reduced-motion: reduce) {

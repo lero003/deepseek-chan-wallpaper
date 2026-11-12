@@ -3,7 +3,8 @@ import type { SpriteAtlas } from '../render/atlas.ts';
 import { scenePlan, motesFor } from '../render/scene-plan.ts';
 import type { ScenePlan, Mote } from '../render/scene-plan.ts';
 import type { RenderAppearance } from '../app-web/art-profile.ts';
-import { ARENA, ATTACKS, BOSS } from './definitions.ts';
+import { ARENA, ATTACKS, BOSS, isFixedArena } from './definitions.ts';
+import { drawEndlessAmbience } from './endless-art.ts';
 import { drawArenaHud } from './arena-presentation.ts';
 import { gameUI } from './game.ts';
 import { CALL_POSE_TICKS } from '../companion/companion.ts';
@@ -57,19 +58,19 @@ export function gamePlan(game: FightersGame, atlas: SpriteAtlas, appearance: Ren
   const tick = game.tick;
   const low = game.effectsLow;
   const shadowColor = appearance.shadowColor ?? C.shadow;
-  // New combat/mob art belongs only to the manual arena. Quiet room incidents and
+  // Optional combat/mob art belongs to the fixed arenas. Quiet room incidents and
   // legacy routes retain their original command streams, even with all sheets loaded.
-  const castAppearance = game.route === 'arena' ? appearance
+  const castAppearance = isFixedArena(game.route) ? appearance
     : { ...appearance, combatAtlas: undefined, slimeAtlas: undefined, popupAtlas: undefined };
 
   /** Actors, projectiles and hit effects shared by the long route and the in-room incident. */
   function drawCast(painter: Painter): void {
-    if (game.route === 'arena' && game.phase === 'bossIntro') {
+    if (isFixedArena(game.route) && game.phase === 'bossIntro') {
       // The rival is already visible for the face-off, but cannot attack or be hit before
       // the director opens the round. This entrance is presentation only, not a live enemy.
       drawShadow(painter, ARENA.enemyX, ARENA.heroY, 24, .24);
-      drawEnemy(painter, { id: 0, kind: 'boss', variant: 0, facing: -1, x: ARENA.enemyX, y: ARENA.heroY,
-        hp: BOSS.hp, maxHP: BOSS.hp, state: 'move', age: game.phaseAge, readyAt: 0, pattern: 0, hit: false,
+      drawEnemy(painter, { ...(ui.endless ? { bossId: ui.endless.bossId } : {}), id: 0, kind: 'boss', variant: 0, facing: -1, x: ARENA.enemyX, y: ARENA.heroY,
+        hp: ui.endless?.bossMaxHP ?? BOSS.hp, maxHP: ui.endless?.bossMaxHP ?? BOSS.hp, state: 'move', age: game.phaseAge, readyAt: 0, pattern: 0, hit: false,
         targetX: ARENA.enemyX, vx: 0, vy: 0 }, tick, castAppearance);
     }
     const visible = game.enemies.filter(enemy => enemy.x > camera - 90 && enemy.x < camera + 570);
@@ -87,7 +88,7 @@ export function gamePlan(game: FightersGame, atlas: SpriteAtlas, appearance: Ren
       drawEnemy(painter, enemy, tick, castAppearance);
       // 思索のステップ is a straight lunge: mark the floor lane it will take, so the
       // dash is a reaction test rather than an unreadable hit.
-      if (game.route === 'arena' && enemy.kind === 'boss' && enemy.state === 'windup' && enemy.pattern % 4 === 2) {
+      if (isFixedArena(game.route) && enemy.kind === 'boss' && enemy.state === 'windup' && enemy.pattern % 4 === 2) {
         const dir = enemy.x <= hero.x ? 1 : -1, pulse = .3 + Math.sin(tick * .35) * .12;
         for (let i = 0; i < 4; i++) {
           painter.rect(enemy.x + dir * (30 + i * 26), enemy.y - 2, 20, 2, C.danger, pulse - i * .06);
@@ -230,8 +231,9 @@ export function gamePlan(game: FightersGame, atlas: SpriteAtlas, appearance: Ren
   // A painted local arena backdrop is a complete scene: skip the code scenery's
   // animated sky/sea/foreground so nothing misaligns over the art. Without the
   // image (or on the legacy route) the original ambience is preserved.
-  const paintedArena = game.route === 'arena' && appearance.arenaArt === true;
+  const paintedArena = game.route === 'endless' || game.route === 'arena' && appearance.arenaArt === true;
   if (!paintedArena) { drawStudyAmbience(p, tick); drawSceneryAmbience(p, camera, tick); }
+  if (ui.endless) drawEndlessAmbience(p, ui.endless.stageId, tick, low);
   drawCast(p);
   drawCombatEffects(p);
   if (!paintedArena) {
@@ -250,9 +252,22 @@ export function gamePlan(game: FightersGame, atlas: SpriteAtlas, appearance: Ren
   // Progress pips and the "GO" cue belong to the manual HUD only.
   if (game.mode === 'manual') drawManualHud();
   // The wallpaper bout is a silent scene: no chapter or victory banner cards either.
-  else if (game.route !== 'arena') drawAutoBanners();
+  else if (ui.endless) {
+    // DSH owns its DOM HUD; the wallpaper presentation is only the arena and cast.
+    if (presentation === 'preview') drawEndlessHud();
+  } else if (game.route !== 'arena') drawAutoBanners();
   drawVignette(p);
   drawReturnFade(p);
+
+  function drawEndlessHud(): void {
+    const endless = ui.endless!;
+    p.screen(6, 6, 468, 33, C.ink, .8);
+    p.screenText(12, 10, `BOSS ${ui.round.toString().padStart(2, '0')} / ∞ · ${endless.bossName}`, C.paper, 8);
+    p.screenText(12, 25, `${endless.stageLabel} · 撃破 ${endless.defeated} · 復帰 ${endless.downs} · 周回 ${endless.cycle}`, C.goldLight, 6);
+    const ratio = endless.bossMaxHP > 0 ? endless.bossHP / endless.bossMaxHP : 0;
+    p.screen(12, 43, 456, 4, C.ink, .6); p.screen(12, 43, 456 * ratio, 4, C.goldLight, .9);
+    if (game.phase !== 'boss') p.screenTextCentered(240, 64, endless.phaseLabel, C.paper, 8);
+  }
 
   function drawAutoBanners(): void {
     const banner = bannerFor(game);
@@ -335,6 +350,6 @@ export function gamePlan(game: FightersGame, atlas: SpriteAtlas, appearance: Ren
     p.screenText(x + 14, y + 25, game.paused ? 'Esc で再開' : 'クリックで操作を再開', C.inkSoft, 7);
   }
 
-  base.battle = { cameraX: camera, commands: p.commands, ...(game.route === 'arena' ? { arena: true } : {}) };
+  base.battle = { cameraX: camera, commands: p.commands, ...(isFixedArena(game.route) ? { arena: true } : {}), ...(ui.endless ? { stageId: ui.endless.stageId } : {}) };
   return base;
 }

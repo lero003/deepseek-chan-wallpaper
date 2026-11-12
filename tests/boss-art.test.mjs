@@ -192,3 +192,41 @@ test('the new local boss ledger stays pending and original heroine/background by
   }
   assert.match(manifest.note, /非公式/); assert.match(manifest.note, /自然さは未確認/);
 });
+
+test('each endless rival has its own palette and prop without reusing Lumie art implicitly', () => {
+  const commands = ['lumie', 'shio', 'yume'].map(bossId => {
+    const painter = new Painter(960);
+    drawBoss(painter, enemy({ bossId }), 90, { bossAtlas });
+    if (bossId !== 'lumie') assert.ok(painter.commands.every(command => command.kind === 'rect'));
+    return painter.commands;
+  });
+  assert.notDeepEqual(commands[1], commands[2]);
+  assert.notDeepEqual(commands[1], commands[0]);
+  assert.ok(commands[1].some(command => command.color === '#54a9b0'));
+  assert.ok(commands[2].some(command => command.color === '#a887bb'));
+});
+
+test('rival image and atlas failures are isolated, including the intro dummy and per-boss sprite id', () => withRenderer(() => {
+  const images = Object.fromEntries(['lumie', 'shio', 'yume'].map(id => [id, { naturalWidth: 384, naturalHeight: 224, id }]));
+  const hero = { naturalWidth: heroAtlas.frameWidth * heroAtlas.columns, naturalHeight: heroAtlas.frameHeight * heroAtlas.rows };
+  for (const broken of ['lumie', 'shio', 'yume']) for (const failure of ['missing', 'size', 'atlas']) {
+    const canvas = fakeCanvas(), bosses = { ...images }, atlases = { lumie: bossAtlas, shio: bossAtlas, yume: bossAtlas };
+    if (failure === 'missing') bosses[broken] = null;
+    if (failure === 'size') bosses[broken] = { naturalWidth: 1, naturalHeight: 1 };
+    if (failure === 'atlas') atlases[broken] = { ...bossAtlas, columns: 0 };
+    const appearance = { bossAtlases: atlases };
+    const renderer = new SceneRenderer(canvas, { background: null, character: hero, bosses }, heroAtlas, 1, appearance);
+    renderer.resize(480, 270);
+    const painter = new Painter(960);
+    for (const bossId of ['lumie', 'shio', 'yume']) drawBoss(painter, enemy({ bossId, state: 'strike', pattern: 2, age: 4 }), 90, appearance);
+    for (const command of painter.commands.filter(command => command.kind === 'sprite')) assert.ok(command.bossId);
+    painter.sprite(1080, 236, 0, 1);
+    const plan = scenePlan(createWorld(1), heroAtlas, [], {}, false);
+    plan.battle = { cameraX: 960, commands: painter.commands, room: true };
+    canvas.context.calls.length = 0; renderer.drawPlan(plan);
+    const draws = canvas.context.calls.filter(call => call[0] === 'drawImage');
+    for (const id of ['lumie', 'shio', 'yume']) assert.equal(draws.some(call => call[1] === images[id]), id !== broken, `${broken}/${failure}/${id}`);
+    assert.equal(draws.filter(call => call[1] === hero).length, 1);
+    assert.ok(canvas.context.calls.filter(call => call[0] === 'fillRect').length > 100);
+  }
+}));
