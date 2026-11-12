@@ -64,7 +64,7 @@ test('thirty simulated minutes stay endless, boss-only, bounded, fixed and outsi
     }
   }
   assert.ok(game.endless.defeated >= 3); assert.ok(game.endless.cycle > 1);
-  assert.equal(new Set(starts).size, 3); assert.equal(new Set(stages).size, 4);
+  assert.equal(new Set(starts).size, 3); assert.equal(new Set(stages).size, 6);
   assert.equal(game.stats.wins, game.endless.defeated);
   assert.ok(game.stats.hits > 0 && game.stats.damageTaken > 0, 'autopilot both attacks and receives damage');
   assert.deepEqual(game.arcade, newArcade());
@@ -94,9 +94,9 @@ test('seed 47 has a fixed opening order across three cycles', () => {
     if (boss && boss.id !== last) { last = boss.id; order.push([boss.bossId, game.endless.stageId, game.endless.cycle, boss.maxHP]); }
   }
   assert.deepEqual(order, [
-    ['shio', 'terrace', 1, 24], ['yume', 'terrace-night', 1, 36], ['lumie', 'pier-dawn', 1, 30],
-    ['yume', 'terrace-rain', 2, 40], ['shio', 'terrace-night', 2, 28], ['lumie', 'terrace-rain', 2, 34],
-    ['yume', 'pier-dawn', 3, 44], ['lumie', 'terrace', 3, 38], ['shio', 'terrace-night', 3, 32],
+    ['yume', 'terrace-night', 1, 36], ['shio', 'garden-dawn', 1, 24], ['lumie', 'terrace', 1, 30],
+    ['shio', 'terrace-rain', 2, 28], ['yume', 'courtyard-snow', 2, 40], ['lumie', 'pier-dawn', 2, 34],
+    ['shio', 'terrace', 3, 32], ['lumie', 'courtyard-snow', 3, 38], ['yume', 'pier-dawn', 3, 44],
   ]);
 });
 
@@ -110,7 +110,7 @@ test('shuffle bags cover each roster per bag, avoid adjacent repeats, and suppor
     for (let i = 0; i < 3; i++) { const id = pickBoss(game); assert.notEqual(id, lastBoss); bosses.push(id); lastBoss = id; }
     assert.deepEqual([...bosses].sort(), Object.keys(BOSSES).sort()); assert.equal(game.endless.cycle, bag + 1);
     const stages = [];
-    for (let i = 0; i < 4; i++) { const id = pickStage(game); assert.notEqual(id, lastStage); stages.push(id); lastStage = id; }
+    for (let i = 0; i < Object.keys(ARENA_STAGES).length; i++) { const id = pickStage(game); assert.notEqual(id, lastStage); stages.push(id); lastStage = id; }
     assert.deepEqual([...stages].sort(), Object.keys(ARENA_STAGES).sort());
   }
   game.endless.bossBag = []; game.endless.stageBag = [];

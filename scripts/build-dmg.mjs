@@ -17,11 +17,11 @@ const run = (command, args, options = {}) => {
 const capture = (command, args, options = {}) => run(command, args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'], ...options }).stdout.trim();
 
 export function dmgFileName(architecture) {
-  return `KujiraWallpaper-Quiet-Visitors-B12-${architecture}.dmg`;
+  return `KujiraWallpaper-Backgrounds-B13-${architecture}.dmg`;
 }
 
 export function releaseReadme({ version, zipSha256, architecture }) {
-  return `くじらの散歩道 — 静かな来客 Build 12（個人テスト用）
+  return `くじらの散歩道 — 背景2種追加 Build 13（個人テスト用）
 ==================================================================
 
 これは個人検証用の非公開リリースです。公開配布物・正式リリースではありません。
@@ -38,13 +38,17 @@ export function releaseReadme({ version, zipSha256, architecture }) {
 1. 「くじらの散歩道.app」を Applications へドラッグ（任意）。
 2. 起動するとプレビューが開きます。壁紙は「壁紙にする」を選んだときだけ表示。
 3. 元の壁紙設定は変更しません。OFF・終了でアプリのウィンドウが消えます。
-4. シーン下の「背景」で夕凪・月夜・雨音を切り替え（「雨音」は景色で音は鳴りません）。
+4. シーン下の「背景」で夕凪・月夜・雨音・朝凪・雪あかりを切り替え（「雨音」は景色で音は鳴りません）。
    「呼んでみる」で、書斎で休んでいるDeepSeekちゃんが小さく応えます。
 5. 手動操作: WASD／矢印で移動、J/Zで3段コンボ、K/Xで回避、L/Cで必殺、
    Escでポーズ。メニューバーから「書斎へ戻る」「もう一度遊ぶ」。
 6. 音は常時無音。通信・解析・ログイン自動起動はありません。
 
-今回の変更（Build 12）
+今回の変更（Build 13）
+- 選べる書斎背景に「朝凪」「雪あかり」を追加（計5種類）
+- Web/DSHの無限モードに「朝凪の温室」「雪あかりの中庭」を追加（計6舞台）
+
+Build 12の変更
 - 通常の待機中に、既存3ボスが1体ずつ遊びに来て歩き回り、帰る
 - 戦闘とは別の演出で、HP・得点・難易度・既存のランダム列に影響しない
 - 静止・非表示・スリープ停止、承認済み画像のbyteは維持
@@ -61,7 +65,7 @@ Build 10までの主な内容
 
 検証済み
 - 署名検証、DMGからの単体起動、同梱素材のハッシュ、自己テスト
-- Node 227テスト、Swift 29テスト（両プロファイル）、Webビルド（通常・placeholder）
+- Node 229テスト、Swift 29テスト（両プロファイル）、Webビルド（通常・placeholder）
 未確認
 - 実画面でのキー操作の感触、壁紙ON/OFF、Space、スリープ復帰
 - 実時間30分のCPU・メモリ・発熱、別のMac／OS、Gatekeeperの挙動

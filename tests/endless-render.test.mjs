@@ -17,7 +17,7 @@ function canvas() {
   return { width: 0, height: 0, context, getContext: () => context };
 }
 
-test('four code stages are distinct, complete, deterministic and inside a bounded pixel budget', () => {
+test('six code stages are distinct, complete, deterministic and inside a bounded pixel budget', () => {
   const backgrounds = [];
   for (const id of Object.keys(ARENA_STAGES)) {
     const quads = arenaStageQuads(id); backgrounds.push(JSON.stringify(quads));
@@ -30,7 +30,7 @@ test('four code stages are distinct, complete, deterministic and inside a bounde
     assert.deepEqual(p.commands, second.commands); assert.ok(p.commands.length <= 34);
     assert.ok(p.commands.every(command => command.kind === 'rect' && command.x >= 0 && command.x < 480));
   }
-  assert.equal(new Set(backgrounds).size, 4);
+  assert.equal(new Set(backgrounds).size, 6);
 });
 
 test('stage cache switches by id, validates each optional image, and frames the intact scene with a flat colour', () => {

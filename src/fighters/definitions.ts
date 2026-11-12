@@ -68,7 +68,7 @@ export const BOSSES: Record<BossId, BossDefinition> = {
     atlasKey: 'yume', introTicks: 110, patterns: [3, 0, 1, 3, 2], tuning: { speed: 14, windup: 46, cooldown: 84, range: 56 } },
 };
 export interface ArenaStageDefinition {
-  id: StageId; label: string; mood: 'sunset' | 'night' | 'rain' | 'dawn';
+  id: StageId; label: string; mood: 'sunset' | 'night' | 'rain' | 'dawn' | 'snow';
   frameColor: string; sky: string; sea: string; floor: string; light: string;
 }
 export const ARENA_STAGES: Record<StageId, ArenaStageDefinition> = {
@@ -80,6 +80,10 @@ export const ARENA_STAGES: Record<StageId, ArenaStageDefinition> = {
     sky: '#627c89', sea: '#507a8a', floor: '#61777e', light: '#bbd7d3' },
   'pier-dawn': { id: 'pier-dawn', label: '朝凪の桟橋', mood: 'dawn', frameColor: '#414454',
     sky: '#e4b5ad', sea: '#7faeb6', floor: '#937c74', light: '#ffe9b9' },
+  'garden-dawn': { id: 'garden-dawn', label: '朝凪の温室', mood: 'dawn', frameColor: '#344c47',
+    sky: '#c6ddd0', sea: '#78b6b8', floor: '#c0a995', light: '#fff1c9' },
+  'courtyard-snow': { id: 'courtyard-snow', label: '雪あかりの中庭', mood: 'snow', frameColor: '#2b314a',
+    sky: '#777fa8', sea: '#526f9a', floor: '#69768d', light: '#e4efff' },
 };
 export interface EndlessConfig { interludeTicks: number; hpPerCycle: number; hpCapMultiplier: number }
 export const ENDLESS: Readonly<EndlessConfig> = { interludeTicks: 60, hpPerCycle: 4, hpCapMultiplier: 2 };

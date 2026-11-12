@@ -103,14 +103,24 @@ struct CoreTests {
         let plan = try engine.snapshot()
         let base = try painter.bitmap(plan, width: 480, height: 270)
         #expect(painter.currentVariantID == "sunset")
-        if let first = assets.variants.first {
-            try painter.selectVariant(1)
-            #expect(painter.currentVariantID == first.id)
+        if !assets.variants.isEmpty {
+            #expect(Set(assets.variants.map(\.id)) == Set(["night", "rain", "dawn", "snow"]))
+        }
+        var images = Set<Data>()
+        if let bytes = base.dataProvider?.data as Data? { images.insert(bytes) }
+        for (index, variant) in assets.variants.enumerated() {
+            try painter.selectVariant(index + 1)
+            #expect(painter.currentVariantID == variant.id)
             let alternate = try painter.bitmap(plan, width: 480, height: 270)
             #expect(base.width == alternate.width && base.height == alternate.height)
-            let baseBytes = base.dataProvider?.data as Data?
-            let alternateBytes = alternate.dataProvider?.data as Data?
-            #expect(baseBytes != alternateBytes, "a selectable background must change the rendered room")
+            let bytes = try #require(alternate.dataProvider?.data as Data?)
+            #expect(images.insert(bytes).inserted, "each selectable background must change the rendered room")
+            if ["dawn", "snow"].contains(variant.id) {
+                let project = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+                let output = project.appendingPathComponent("private-art/qa/background-additions/native", isDirectory: true)
+                try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
+                try ScenePainter.writePNG(painter.bitmap(plan, width: 1440, height: 810), to: output.appendingPathComponent("\(variant.id).png"))
+            }
         }
         #expect(throws: KujiraError.self) { try painter.selectVariant(assets.variants.count + 1) }
     }

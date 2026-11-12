@@ -6,7 +6,7 @@ export type Mode = 'auto' | 'manual' | 'endless';
 export type Phase = 'rest' | 'intro' | 'battle' | 'roundClear' | 'bossIntro' | 'boss' | 'interlude' | 'victory' | 'return' | 'result' | 'retry';
 export type Route = 'short' | 'skirmish' | 'auto' | 'full' | 'room' | 'arena' | 'endless';
 export type BossId = 'lumie' | 'shio' | 'yume';
-export type StageId = 'terrace' | 'terrace-night' | 'terrace-rain' | 'pier-dawn';
+export type StageId = 'terrace' | 'terrace-night' | 'terrace-rain' | 'pier-dawn' | 'garden-dawn' | 'courtyard-snow';
 export interface VisitGuest {
   bossId: BossId; x: number; y: number; facing: Facing; targetX: number; exitX: number;
   state: 'arriving' | 'wandering' | 'pausing' | 'leaving'; age: number; stateAge: number; leaveAt: number; pauseUntil: number;

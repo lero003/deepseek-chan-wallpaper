@@ -34,6 +34,32 @@ export function arenaStageQuads(id: StageId): Quad[] {
       p.rect(x - 3, 162, 11, 14, stage.floor); p.rect(x - 2, 162, 9, 2, stage.light, .5);
     }
   }
+  if (id === 'garden-dawn') {
+    // A glass conservatory with a clear floor, visibly distinct from the pier.
+    for (const x of [18, 108, 366, 456]) {
+      p.rect(x, 0, 4, 207, '#52786b'); p.rect(x + 1, 3, 1, 200, stage.light, .55);
+    }
+    for (let i = 0; i < 12; i++) {
+      const x = 20 + i * 38, y = Math.round(12 + Math.abs(5.5 - i) * 5);
+      p.rect(x, y, 40, 4, '#52786b');
+    }
+    p.rect(18, 89, 442, 3, '#52786b');
+    for (const x of [2, 460]) {
+      p.rect(x, 177, 18, 30, '#a47f66');
+      p.rect(x - 1, 158, 20, 22, '#598d68'); p.rect(x + 3, 150, 12, 17, '#79a87b');
+      p.rect(x + 6, 157, 4, 4, '#fff3d5');
+    }
+  } else if (id === 'courtyard-snow') {
+    // Snow on the railing and stone pillars; the playing floor stays clear.
+    p.rect(0, 166, 480, 5, stage.light);
+    for (const x of [20, 439]) {
+      p.rect(x, 158, 20, 49, '#4c5873'); p.rect(x - 2, 153, 24, 6, stage.light);
+      p.rect(x + 5, 137, 10, 17, '#344156'); p.rect(x + 7, 140, 6, 10, '#f6cb91');
+    }
+    for (const x of [0, 428]) {
+      p.rect(x, 6, 52, 7, '#465d70'); p.rect(x + 8, 13, 40, 4, stage.light);
+    }
+  }
   return p.commands.filter((command): command is Extract<typeof command, { kind: 'rect' }> => command.kind === 'rect');
 }
 
@@ -43,6 +69,12 @@ export function drawEndlessAmbience(p: Painter, id: StageId, tick: number, low: 
   for (let i = 0; i < (low ? 5 : 10); i++) {
     const x = (i * 73 + Math.floor(tick / 24)) % 472;
     p.screen(x, 130 + i * 7, Math.min(480 - x, 5 + i % 4 * 3), 1, stage.light, .15 + Math.sin(tick * .02 + i) * .07);
+  }
+  if (stage.mood === 'snow') {
+    for (let i = 0; i < (low ? 8 : 16); i++) {
+      p.screen((i * 59 + Math.floor(tick / 30) + Math.round(Math.sin(tick / 90 + i) * 4) + 480) % 480,
+        (i * 29 + Math.floor(tick / 7)) % 205, 2, 2, stage.light, .65);
+    }
   }
   if (stage.mood === 'rain') {
     for (let i = 0; i < (low ? 12 : 24); i++) {
