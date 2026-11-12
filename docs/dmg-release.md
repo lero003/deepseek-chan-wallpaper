@@ -1,10 +1,10 @@
-# ドラフトDMG（非公開リポジトリ）の配布と試用
+# リリースDMG（非公開リポジトリ）の配布と試用
 
 ## これは何か
 
-「くじらの散歩道」の**個人検証用ドラフト**。非公開のGitHubリポジトリに置く**下書きリリース（Draft Release）**で、公開リリースではない。下書きの間はリポジトリの共同作業者以外には見えず、公開・一般配布を意味しない。
+「くじらの散歩道」の**個人検証用リリース**。非公開のGitHubリポジトリ内の**個人テスト用リリース（Published／Prerelease）**で、一般公開・一般配布ではない。リポジトリへのアクセス権があるアカウントだけが見られる。
 
-最新は **アプリ・ブラッシュアップ Build 10**（2026-11-12 差し替え）。
+最新は **アプリ・ブラッシュアップ Build 11**（2026-11-12、タグ `brushup-build11`）。
 
 - 対象: Apple Silicon（arm64）、macOS 14以降
 - 署名: アドホック署名のみ。Appleの公証なし
@@ -15,8 +15,8 @@
 
 ## 他のMacで試す手順
 
-1. 非公開リポジトリの [Releases](https://github.com/lero003/deepseek-chan-wallpaper/releases) を、アクセス権のあるアカウントで開く（下書きはリポジトリ権限が必要）。
-2. 下書き「アプリ・ブラッシュアップ Build 10 ドラフト」から `KujiraWallpaper-Brushup-B10-draft-arm64.dmg` と `SHA256SUMS.txt` を取得する。
+1. 非公開リポジトリの [Releases](https://github.com/lero003/deepseek-chan-wallpaper/releases) を、アクセス権のあるアカウントで開く（リポジトリ権限が必要）。
+2. リリース「アプリ・ブラッシュアップ Build 11（個人テスト用）」から `KujiraWallpaper-Brushup-B11-arm64.dmg` と `SHA256SUMS.txt` を取得する。
 3. `SHA256SUMS.txt` で整合を確認する。
 
    ```sh
@@ -27,7 +27,7 @@
 5. アプリを**右クリック →「開く」**で起動する。未公証のため、ダブルクリックだけで警告が出る場合がある。macOS全体の保護を無効化しない。個別許可は「システム設定 > プライバシーとセキュリティ」から行う。
 6. プレビューで動作を確認し、必要なら「壁紙にする」。終了はメニューバーから。
 
-ZIP版（`KujiraWallpaper-Brushup-B10-arm64-local-preview.zip`）でも同じアプリを展開できる。DMGの方がApplicationsへの導入が簡単。
+ZIP版（`KujiraWallpaper-Brushup-B11-arm64-local-preview.zip`）でも同じアプリを展開できる。DMGの方がApplicationsへの導入が簡単。
 
 ## 試してほしい項目
 
@@ -37,6 +37,7 @@ ZIP版（`KujiraWallpaper-Brushup-B10-arm64-local-preview.zip`）でも同じア
 - [ ] 「対戦を見る」でテラス自動対戦が途中から始まり、約30秒で書斎へ戻る
 - [ ] 「テラスで3連戦」で歩く・3段コンボ・回避・必殺・ポーズ、90秒・SCORE・RANK
 - [ ] 敗北／TIME UPの再挑戦、書斎へ戻る、もう一戦
+- [ ] 16:9以外のウィンドウ／画面でも、戦闘背景の外周が単色フレームで、引き伸ばしスジが出ない
 - [ ] 壁紙ON/OFF、クリック透過、元の壁紙が戻る
 - [ ] Space／フルスクリーン／スリープ復帰
 - [ ] 終了後にプロセスが残らない
@@ -52,8 +53,7 @@ ZIP版（`KujiraWallpaper-Brushup-B10-arm64-local-preview.zip`）でも同じア
 
 ## リリースの扱い
 
-- 最新の下書きは `brushup-build10`（Draft／Prerelease）。Draftのためリモートに公開タグは作成されない。
-- 下書きのまま維持し、権利確認と実機受け入れが終わるまで公開しない。
+- 最新は `brushup-build11`（Published／Prerelease）。非公開リポジトリ内の個人テスト用リリースで、一般公開リリースではない。リポジトリがPRIVATEのため、タグとリリースは外部からは見えない。
+- 旧Build 10のDraftは今回のリリースへ置き換えた（内容・タグ・添付をBuild 11へ更新）。Build 7／Build 6／MVP4の下書きは変更していない。
 - リポジトリの可視性・Pages・自動起動は変更しない。
-- 旧Build 9のZIPは差し替え時に削除した。Build 7／Build 6／MVP4の下書きは変更していない。
 - チェックサムとビルド記録は `private-art/macos-out/`（Git対象外）とリリース添付の `SHA256SUMS.txt` に残す。

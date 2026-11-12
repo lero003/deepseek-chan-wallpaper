@@ -17,14 +17,14 @@ const run = (command, args, options = {}) => {
 const capture = (command, args, options = {}) => run(command, args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'], ...options }).stdout.trim();
 
 export function dmgFileName(architecture) {
-  return `KujiraWallpaper-Brushup-B10-draft-${architecture}.dmg`;
+  return `KujiraWallpaper-Brushup-B11-${architecture}.dmg`;
 }
 
-export function draftReadme({ version, zipSha256, architecture }) {
-  return `くじらの散歩道 — アプリ・ブラッシュアップ Build 10（個人用ドラフト）
-================================================================
+export function releaseReadme({ version, zipSha256, architecture }) {
+  return `くじらの散歩道 — アプリ・ブラッシュアップ Build 11（個人テスト用）
+==================================================================
 
-これは個人検証用の非公開ドラフトです。公開配布物・正式リリースではありません。
+これは個人検証用の非公開リリースです。公開配布物・正式リリースではありません。
 素材の権利・公開許諾は未確認のため、再配布・公開アップロードをしないでください。
 
 対応環境
@@ -44,7 +44,11 @@ export function draftReadme({ version, zipSha256, architecture }) {
    Escでポーズ。メニューバーから「書斎へ戻る」「もう一度遊ぶ」。
 6. 音は常時無音。通信・解析・ログイン自動起動はありません。
 
-今回の変更（Build 10）
+今回の変更（Build 11）
+- 戦闘の背景は16:9以外の画面でも端を引き伸ばさず、濃い単色の額で囲む
+  （手動アリーナ・壁紙の自動対戦とも。背景の原寸と拡大率は従来どおり）
+
+Build 10までの主な内容
 - 「おっとり。ときどき、つよい。」のタグラインと、分かりやすい背景選択
 - プレビュー限定の「呼んでみる」（20秒に1回・書斎で休んでいる時だけ）
 - 生活・帰宅の小さなキャプション、About に正面の小さな姿
@@ -52,7 +56,7 @@ export function draftReadme({ version, zipSha256, architecture }) {
 
 検証済み
 - 署名検証、DMGからの単体起動、同梱素材のハッシュ、自己テスト
-- Node 200テスト、Swift 26テスト（両プロファイル）、Webビルド（通常・placeholder）
+- Node 202テスト、Swift 27テスト（両プロファイル）、Webビルド（通常・placeholder）
 未確認
 - 実画面でのキー操作の感触、壁紙ON/OFF、Space、スリープ復帰
 - 実時間30分のCPU・メモリ・発熱、別のMac／OS、Gatekeeperの挙動
@@ -67,7 +71,7 @@ export function draftReadme({ version, zipSha256, architecture }) {
 }
 
 async function main() {
-  if (process.platform !== 'darwin') throw new Error('Build the draft DMG on macOS.');
+  if (process.platform !== 'darwin') throw new Error('Build the private release DMG on macOS.');
   const root = await realpath(projectRoot);
   const privateRoot = resolve(root, 'private-art');
   await mkdir(privateRoot, { recursive: true });
@@ -96,10 +100,10 @@ async function main() {
   await mkdir(staging, { recursive: true });
   const dmg = resolve(output, dmgFileName(report.architecture));
 
-  // Stage the app, an Applications shortcut and the draft notes.
+  // Stage the app, an Applications shortcut and the private-release notes.
   run('/usr/bin/ditto', [app, resolve(staging, app.split(sep).at(-1))]);
   await symlink('/Applications', resolve(staging, 'Applications'));
-  await writeFile(resolve(staging, 'READ-ME-FIRST.txt'), draftReadme({
+  await writeFile(resolve(staging, 'READ-ME-FIRST.txt'), releaseReadme({
     version: report.version, zipSha256: report.zipSha256, architecture: report.architecture,
   }));
   const executable = resolve(staging, appName, 'Contents/MacOS/KujiraWallpaper');
@@ -111,7 +115,7 @@ async function main() {
     '',
   ].join('\n'));
 
-  run('/usr/bin/hdiutil', ['create', '-volname', 'くじらの散歩道 ドラフト', '-srcfolder', staging, '-ov', '-format', 'UDZO', '-fs', 'HFS+', dmg]);
+  run('/usr/bin/hdiutil', ['create', '-volname', 'くじらの散歩道 個人テスト', '-srcfolder', staging, '-ov', '-format', 'UDZO', '-fs', 'HFS+', dmg]);
   const dmgSha = hash(await readFile(dmg));
 
   // Mount read-only, verify the signature and run the packaged self-tests from the image.
@@ -143,14 +147,14 @@ async function main() {
     architecture: report.architecture, minimumMacOS: report.minimumMacOS, version: report.version,
     sourceApp: report.app, sourceZip: report.zip, sourceZipSha256: report.zipSha256,
     mountedReadOnlyVerified: true, copiedOutSelfTest: true, notarized: false,
-    draftOnly: true, published: false, autoStart: false, wallpaperChanged: false,
-    notes: 'Draft DMG for private testing. Not for public distribution; art rights unverified.',
+    privateTestRelease: true, publishedAtBuild: false, autoStart: false, wallpaperChanged: false,
+    notes: 'Private test release DMG. Not for public distribution; art rights unverified.',
   };
   await writeFile(resolve(output, 'dmg-report.json'), JSON.stringify(receipt, null, 2) + '\n');
   await rm(staging, { recursive: true, force: true });
   console.log(`DMG_READY: ${receipt.dmg}`);
   console.log(`DMG_SHA256: ${dmgSha}`);
-  console.log('Draft only. Private testing; not notarized; art rights unverified.');
+  console.log('Private test release. Not notarized; art rights unverified.');
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

@@ -26,7 +26,7 @@
 - Apple Silicon（arm64）、macOS 14以降
 - アドホック署名のみ、Apple公証なし。初回はアプリを右クリック →「開く」
 - macOS全体の保護設定は無効にしない。個別許可は「システム設定 > プライバシーとセキュリティ」
-- 詳細はDMG内の `READ-ME-FIRST.txt` と [ドラフトDMGの試用](https://github.com/lero003/deepseek-chan-wallpaper/blob/main/docs/dmg-draft.md) を参照
+- 詳細はDMG内の `READ-ME-FIRST.txt` と [リリースDMGの試用](https://github.com/lero003/deepseek-chan-wallpaper/blob/main/docs/dmg-release.md) を参照
 
 ## 検証済み
 

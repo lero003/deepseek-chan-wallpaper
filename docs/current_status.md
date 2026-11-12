@@ -1,6 +1,6 @@
 # 現在の状態 / 引き継ぎ
 
-更新: 2026-11-12 · 非公開Web／個人用Mac試作 · 固定アリーナ・アーケード v0.8（Build 9）+ 背景別環境演出・生活微バリエーション + 生成アート + 壁紙の自動対戦 + 戦闘背景の外周を単色フレーム化
+更新: 2026-11-12 · 非公開Web／個人用Mac試作 · 固定アリーナ・アーケード v0.8（Build 9）+ 背景別環境演出・生活微バリエーション + 生成アート + 壁紙の自動対戦 + 戦闘背景の外周を単色フレーム化 + Build 11 個人テスト用リリース
 
 ## 戦闘背景の外周を端の引き伸ばしから単色フレームへ（2026-11-12）
 
@@ -11,7 +11,8 @@
 - **共有方法**: `ARENA_FRAME_COLOR`／`SUNSET_LAYOUT.arenaFrameColor`がprepare-macosの`configuration.json`経由でMacの`Layout`へ渡り、両レンダラーが同じ値を使う（Swift側は部分設定向けの同値フォールバックのみ）。
 - **テスト追加**: Web（Node・fake canvas）＝外周が全面1回の`fillRect`、背景は480×270を原点(160,40)に1回だけ描画、1pxスライスが存在しないこと、フィールド欠落時の既定色。Mac（CoreGraphics実描画）＝1600×700で周囲ピクセルが`#2b2233`で、どの高さでも同じであること。
 - **今回の検証（Leadが実行・合格）**: `npm run check`（型検査＋Node **202件**、skipなし＋既定5素材byte再現）、`npm run build`／`--mode placeholder`成功、`npm run mac:test -- --local-preview`／`npm run mac:test`（Swift **各27件・5 suites**）。ネイティブ書き出しで1600×700・1440×900・3440×1440の余白が単色、960×540（16:9）は全画面で余白なしを目視し、外周ピクセル値も数値確認した。**描画器の出力であり、実ブラウザ／実Macウィンドウの受入ではない。**
-- **既存テストの修正**: `tests/dmg.test.mjs`のDMG名期待値がBuild 10改名に追随しておらず`npm run check`が失敗していたため、現行の`Brushup-B10`名へ更新した（機能変更なし）。
+- **既存テストの修正**: `tests/dmg.test.mjs`のDMG名期待値がBuild 10改名に追随しておらず`npm run check`が失敗していたため、現行の`Brushup-B11`名へ更新した（機能変更なし）。
+- **ビルド／リリース**: この修正を含む**Build 11**をビルドし、GitHubの既存Build 10 Draftを個人テスト用の実リリース（Published／Prerelease・タグ`brushup-build11`）へ差し替えた。DMG/ZIPのSHA-256と検証は下の「GitHubリリース」節。
 - **未受け入れ**: Web実ブラウザでの見た目（Playwright等の自動導入はしない方針のため未確認）、実Macウィンドウ／壁紙ON中の自動対戦での見え方、フレーム色の好みはユーザー確認待ち。色を変える場合は`ARENA_FRAME_COLOR`（[scene-profiles](<../src/art/scene-profiles.ts>)）と[ScenePainter](<../src/app-mac/Core/ScenePainter.swift>)のフォールバックの2箇所。
 
 ## アプリ・ブラッシュアップ B01〜B05 実装済み（2026-11-12）
@@ -105,7 +106,18 @@
 - ボス8姿勢と新44姿勢の接地・透過・台帳SHA、既存素材hash不変を確認。新アートの適用前後で書斎・legacy・受動壁紙の描画コマンドはbyte同一。
 - 新演出のネイティブ描画QA：睡眠バブル・流れ星・雨筋を`--render-preview`で書き出し、 blended ピクセルを数値確認（流れ星は予測位置と一致）。**描画器の出力であり、可視アニメーションの合格ではない。**
 
-## ローカルMac成果物（Build 10 = ブラッシュアップ B01〜B05）
+## ローカルMac成果物（Build 11 = 個人テスト用リリース）
+
+- `npm run mac:build -- --local-preview` 成功（`CFBundleVersion 11`・`bundleBuild 11`）。`npm run mac:dmg` でDMGを作成し、読み取り専用マウント・署名検証・イメージ内／コピー後の`--self-test`／`--fighters-self-test`に成功。アドホック署名＋Hardened Runtimeで、Developer ID署名・公証ではない。
+- [アプリ](<../private-art/macos-out/20261112081226-a8e7ec76/くじらの散歩道.app>) / [ZIP](<../private-art/macos-out/20261112081226-a8e7ec76/KujiraWallpaper-Brushup-B11-arm64-local-preview.zip>)（3,094,343 bytes）
+  - ZIP SHA-256 `695d051ab9e304b4744622f86741897c350431a90154a7e83d274b5713f93790`
+- [DMG](<../private-art/macos-out/20261112085125-aae58e45-dmg/KujiraWallpaper-Brushup-B11-arm64.dmg>)（3,938,573 bytes・読み取り専用マウント検証済み）
+  - DMG SHA-256 `ca9a8a66d02f81d4b7356cdae16b1e8aae05841b988fba95a1509c3ff392b69c`
+  - [DMGレポート](<../private-art/macos-out/20261112085125-aae58e45-dmg/dmg-report.json>)／[リリース用コピー](<../private-art/macos-out/release-b11/>)
+- DMGの作成・マウントはこのセッションのファイルサンドボックス（workspace-write）では`hdiutil`が拒否されたため、ユーザー承認のうえ、そのコマンドだけフルアクセスで実行した。ビルド内容・検証項目は従来と同じ。
+- ビルド時のネイティブPNG（プレビュー・背景3種・戦闘・ボス・各フェーズ）を生成。**描画器の出力であり、実デスクトップのスクリーンショット・可視キー操作の合格ではない。**
+
+## 旧ローカルMac成果物（Build 10 = ブラッシュアップ B01〜B05）
 
 - `npm run mac:build -- --local-preview` 成功（`CFBundleVersion 10`）。アドホック署名＋Hardened Runtime、ZIP再展開の全ファイルbyte一致・移設後の最小PATHでの自己検証／Fighters検証に成功。Developer ID署名・公証ではない。
 - [アプリ](<../private-art/macos-out/20261111221723-f55741f8/くじらの散歩道.app>) / [ZIP](<../private-art/macos-out/20261111221723-f55741f8/KujiraWallpaper-Brushup-B10-arm64-local-preview.zip>)（3,094,476 bytes）
@@ -120,15 +132,19 @@
 - 1回目「github含めて更新しておいてほしい」: B01〜B05 のソースを非公開リポジトリ `lero003/deepseek-chan-wallpaper` の `main` へ commit・push（`2abe895`、続くdocs更新 `9b6f587`）。PRIVATEのまま。
 - 2回目「Draft差し替えもお願い。他のマシンでも動かしたい」: Build 10 をローカルでビルド・検証し、既存Draftリリースを **Build 10 の内容へ差し替え**（タイトル／本文／タグ名 `brushup-build10`／添付）。詳細は下節。
 - 3回目「基本は良いと思う！pushしておいて」: 戦闘背景の外周を単色フレームへ変えた `9f98f03` を `main` へ push し、ローカルと `origin/main` の一致を `git ls-remote` で確認。Draftリリース・可視性・Pagesは未変更。
+- 4回目「GitHubリリースのところ書いておいてほしい…実リリース書いちゃっていいかも」: Build 11を再ビルドしてDMG/ZIPを検証し、Build 10 Draftを実リリース`brushup-build11`へ差し替え・公開した（PRIVATEのまま。詳細は下節）。ビルド番号・リリースノート・DMG試用ガイドの更新も`main`へpush。
 - 同期対象はコード・テスト・ドキュメントのみ。`private-art/`（生成素材・マスター・QA画像・Mac成果物）、`dist/`、`habitat-report/`、`node_modules/` は従来どおりGit対象外で、force-add していない。
-- 可視性変更・Pages・公開リリース・公開タグは行っていない。リポジトリはPRIVATE。
+- 可視性変更・Pages・一般公開は行っていない（リポジトリはPRIVATE）。`brushup-build11`のタグとリリースは非公開リポジトリ内にのみ存在し、外部からは見えない。
 
-## GitHub下書き（Build 10 へ差し替え済み）
+## GitHubリリース（Build 11・個人テスト用の実リリース、2026-11-12）
 
-- [Draft Release](<https://github.com/lero003/deepseek-chan-wallpaper/releases/tag/untagged-45f76bbaa6a1bcc41018>) を「**アプリ・ブラッシュアップ Build 10 ドラフト（個人テスト用）**」へ差し替えた。Draft／Prereleaseのまま。
-- 添付は [DMG](<../private-art/macos-out/release-b10/KujiraWallpaper-Brushup-B10-draft-arm64.dmg>)（他Mac向け・Applicationsショートカット付き）、[ZIP](<../private-art/macos-out/release-b10/KujiraWallpaper-Brushup-B10-arm64-local-preview.zip>)、[SHA256SUMS.txt](<../private-art/macos-out/release-b10/SHA256SUMS.txt>)。SHA-256は上節のとおり。
-- **再ダウンロード検証済み**: GitHubアセットのdigestがローカルSHA-256と一致。再取得した`shasum -a 256 -c SHA256SUMS.txt`がOK、ZIP展開後の`codesign --verify --deep --strict`が有効、DMGを読み取り専用マウントして署名検証と`--self-test`／`--fighters-self-test`が成功。
-- Draftのためリモートに公開タグは作成されない（`brushup-build10`タグなしを`git ls-remote`で確認）。旧Build 9のZIPは差し替えで削除した。Build 7／Build 6／MVP4の下書きは変更していない。
+- [Release `brushup-build11`](<https://github.com/lero003/deepseek-chan-wallpaper/releases/tag/brushup-build11>) を「**アプリ・ブラッシュアップ Build 11（個人テスト用）**」として公開（Published／Prerelease）。非公開リポジトリ内の個人テスト用で、一般公開リリースではない。
+- 本文は[リリースノート](<release-notes-brushup-build11.md>)。Build 10 Draftをそのまま差し替え、タグ`brushup-build11`・タイトル・本文・添付をBuild 11へ更新した。旧Build 10の添付3点は削除し、Build 7／Build 6／MVP4の下書きは変更していない。
+- 添付は [DMG](<../private-art/macos-out/release-b11/KujiraWallpaper-Brushup-B11-arm64.dmg>)（他Mac向け・Applicationsショートカット付き）、[ZIP](<../private-art/macos-out/release-b11/KujiraWallpaper-Brushup-B11-arm64-local-preview.zip>)、[SHA256SUMS.txt](<../private-art/macos-out/release-b11/SHA256SUMS.txt>)。
+  - DMG `ca9a8a66d02f81d4b7356cdae16b1e8aae05841b988fba95a1509c3ff392b69c`
+  - ZIP `695d051ab9e304b4744622f86741897c350431a90154a7e83d274b5713f93790`
+- **検証**: アップロード後に`gh release view`で添付digestとローカルSHA-256の一致を確認し、リモートタグ`brushup-build11`の存在を`git ls-remote --tags`で確認した。再取得した`SHA256SUMS.txt`の`shasum -a 256 -c`、ZIP展開後の`codesign --verify --deep --strict`、DMGの読み取り専用マウントでの署名検証と`--self-test`／`--fighters-self-test`はビルド／DMG作成時に実施済み。
+- Prerelease扱いのため「Latest」にはしていない。可視性・Pages・自動起動・元の壁紙設定は変更していない。素材の権利・許諾は`pending`のまま。
 
 ## 権利・次の受け入れ
 
