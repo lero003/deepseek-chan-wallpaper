@@ -143,7 +143,7 @@
 - 添付は [DMG](<../private-art/macos-out/release-b11/KujiraWallpaper-Brushup-B11-arm64.dmg>)（他Mac向け・Applicationsショートカット付き）、[ZIP](<../private-art/macos-out/release-b11/KujiraWallpaper-Brushup-B11-arm64-local-preview.zip>)、[SHA256SUMS.txt](<../private-art/macos-out/release-b11/SHA256SUMS.txt>)。
   - DMG `ca9a8a66d02f81d4b7356cdae16b1e8aae05841b988fba95a1509c3ff392b69c`
   - ZIP `695d051ab9e304b4744622f86741897c350431a90154a7e83d274b5713f93790`
-- **検証**: アップロード後に`gh release view`で添付digestとローカルSHA-256の一致を確認し、リモートタグ`brushup-build11`の存在を`git ls-remote --tags`で確認した。再取得した`SHA256SUMS.txt`の`shasum -a 256 -c`、ZIP展開後の`codesign --verify --deep --strict`、DMGの読み取り専用マウントでの署名検証と`--self-test`／`--fighters-self-test`はビルド／DMG作成時に実施済み。
+- **検証**: アップロード後に`gh release view`で添付digestがローカルSHA-256と一致することを確認し、リモートタグ`brushup-build11`の存在を`git ls-remote --tags`で確認した。リリースから再ダウンロードした`SHA256SUMS.txt`で`shasum -a 256 -c`がOK、ZIPを展開したアプリの`codesign --verify --deep --strict`・`--self-test`・`--fighters-self-test`も成功。DMGの読み取り専用マウント・署名検証・イメージ内／コピー後の自己テストはDMG作成時に成功済み（再ダウンロードしたDMGはローカルとSHA-256一致）。
 - Prerelease扱いのため「Latest」にはしていない。可視性・Pages・自動起動・元の壁紙設定は変更していない。素材の権利・許諾は`pending`のまま。
 
 ## 権利・次の受け入れ
