@@ -119,6 +119,7 @@
 
 - 1回目「github含めて更新しておいてほしい」: B01〜B05 のソースを非公開リポジトリ `lero003/deepseek-chan-wallpaper` の `main` へ commit・push（`2abe895`、続くdocs更新 `9b6f587`）。PRIVATEのまま。
 - 2回目「Draft差し替えもお願い。他のマシンでも動かしたい」: Build 10 をローカルでビルド・検証し、既存Draftリリースを **Build 10 の内容へ差し替え**（タイトル／本文／タグ名 `brushup-build10`／添付）。詳細は下節。
+- 3回目「基本は良いと思う！pushしておいて」: 戦闘背景の外周を単色フレームへ変えた `9f98f03` を `main` へ push し、ローカルと `origin/main` の一致を `git ls-remote` で確認。Draftリリース・可視性・Pagesは未変更。
 - 同期対象はコード・テスト・ドキュメントのみ。`private-art/`（生成素材・マスター・QA画像・Mac成果物）、`dist/`、`habitat-report/`、`node_modules/` は従来どおりGit対象外で、force-add していない。
 - 可視性変更・Pages・公開リリース・公開タグは行っていない。リポジトリはPRIVATE。
 
