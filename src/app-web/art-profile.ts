@@ -31,6 +31,11 @@ export interface RenderAppearance {
   readonly ceilingColor?: string;
   readonly floorColor?: string;
   readonly shadowColor?: string;
+  /**
+   * Flat colour behind the fixed 16:9 arena when the surface leaves margins around it.
+   * The margins are never filled by stretching the art's edge column.
+   */
+  readonly arenaFrameColor?: string;
   readonly water?: { readonly left: number; readonly right: number; readonly top: number; readonly bottom: number };
   /** Optional wide backdrop. When absent the renderer falls back to the old edge-stretched room. */
   readonly matte?: MatteInfo;

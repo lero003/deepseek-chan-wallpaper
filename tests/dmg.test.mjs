@@ -4,7 +4,7 @@ import { dmgFileName, draftReadme } from '../scripts/build-dmg.mjs';
 
 test('the draft DMG name is architecture-specific and clearly a draft', () => {
   const name = dmgFileName('arm64');
-  assert.match(name, /^KujiraWallpaper-Fighters-MVP4-draft-arm64\.dmg$/);
+  assert.match(name, /^KujiraWallpaper-Brushup-B10-draft-arm64\.dmg$/);
   assert.equal(/\s/.test(name), false);
 });
 test('the DMG readme states the private, unnotarized and rights-unverified limits', () => {

@@ -4,6 +4,7 @@ import type { Viewport } from './viewport.ts';
 import { viewportFor } from './viewport.ts';
 import type { RenderAppearance, VariantAppearance } from '../app-web/art-profile.ts';
 import { resolveAppearance } from '../app-web/art-profile.ts';
+import { ARENA_FRAME_COLOR } from '../art/scene-profiles.ts';
 import { motesFor, scenePlan } from './scene-plan.ts';
 import type { Mote, ScenePlan } from './scene-plan.ts';
 import { sceneryQuads } from '../fighters/scenery.ts';
@@ -216,9 +217,9 @@ export class SceneRenderer {
   }
 
   /**
-   * Viewport-sized painted terrace backdrop for the fixed manual arena. Mirrors the
-   * room backdrop's edge extension so ultrawide previews stay filled; the arena is a
-   * game surface, so 1px edge continuation here is acceptable (unlike the wallpaper).
+   * Viewport-sized painted terrace backdrop for the fixed manual arena. The 480×270 art
+   * stays whole; any margins get one flat frame colour instead of a stretched edge
+   * column, matching the native CoreGraphics painter.
    */
   private cacheArenaBackground(): HTMLCanvasElement | null {
     if (!this.arenaImage) return null;
@@ -229,18 +230,9 @@ export class SceneRenderer {
     const ctx = canvas.getContext('2d', { alpha: false });
     if (!ctx) throw new Error('Canvas 2D is unavailable.');
     ctx.imageSmoothingEnabled = false;
-    ctx.fillStyle = this.appearance.ceilingColor ?? '#40344b'; ctx.fillRect(0, 0, width, height);
-    ctx.fillStyle = this.appearance.floorColor ?? '#866077'; ctx.fillRect(0, originY + 203, width, height - originY - 203);
-    const image = this.arenaImage;
-    if (originX > 0) {
-      ctx.drawImage(image, 0, 0, 1, 270, 0, originY, originX, 270);
-      ctx.drawImage(image, 479, 0, 1, 270, originX + 480, originY, width - originX - 480, 270);
-    }
-    if (originY > 0) {
-      ctx.fillStyle = this.appearance.ceilingColor ?? '#40344b'; ctx.fillRect(0, 0, width, originY);
-      ctx.fillStyle = this.appearance.floorColor ?? '#866077'; ctx.fillRect(0, originY + 270, width, height - originY - 270);
-    }
-    ctx.drawImage(image, originX, originY);
+    ctx.fillStyle = this.appearance.arenaFrameColor ?? ARENA_FRAME_COLOR;
+    ctx.fillRect(0, 0, width, height);
+    ctx.drawImage(this.arenaImage, originX, originY);
     this.arenaBackdrop = canvas;
     return canvas;
   }

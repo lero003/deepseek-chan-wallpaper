@@ -117,27 +117,19 @@ public final class ScenePainter {
         return result
     }
 
-    /// Viewport-sized painted terrace backdrop for the fixed manual arena. Mirrors the
-    /// room backdrop's edge extension for ultrawide; independent of the wallpaper variant.
+    /// Viewport-sized painted terrace backdrop for the fixed manual arena. The 480×270 art
+    /// stays whole; any margins get one flat frame colour instead of a stretched edge
+    /// column, matching the Web canvas renderer.
     private func arenaBackdropImage(_ viewport: Viewport) throws -> CGImage? {
         guard let arena = engine.assets.arenaBackdrop else { return nil }
         if let cached = arenaBackdrops[viewport] { return cached }
         let ctx = try context(width: viewport.width, height: viewport.height)
         let layout = engine.assets.configuration.layout
-        let w = CGFloat(viewport.width), h = CGFloat(viewport.height), ox = CGFloat(viewport.originX), oy = CGFloat(viewport.originY)
-        ctx.setFillColor(try color(layout.ceilingColor ?? "#40344b")); ctx.fill(CGRect(x: 0, y: 0, width: w, height: h))
-        ctx.setFillColor(try color(layout.floorColor ?? "#866077")); ctx.fill(CGRect(x: 0, y: oy + 203, width: w, height: h - oy - 203))
-        if ox > 0 {
-            guard let left = arena.cropping(to: CGRect(x: 0, y: 0, width: 1, height: 270)),
-                  let right = arena.cropping(to: CGRect(x: 479, y: 0, width: 1, height: 270)) else { throw KujiraError.invalid("アリーナ背景の端を拡張できません。") }
-            image(left, rect: CGRect(x: 0, y: oy, width: ox, height: 270), context: ctx)
-            image(right, rect: CGRect(x: ox + 480, y: oy, width: w - ox - 480, height: 270), context: ctx)
-        }
-        if oy > 0 {
-            ctx.setFillColor(try color(layout.ceilingColor ?? "#40344b")); ctx.fill(CGRect(x: 0, y: 0, width: w, height: oy))
-            ctx.setFillColor(try color(layout.floorColor ?? "#866077")); ctx.fill(CGRect(x: 0, y: oy + 270, width: w, height: h - oy - 270))
-        }
-        image(arena, rect: CGRect(x: ox, y: oy, width: 480, height: 270), context: ctx)
+        // Must match ARENA_FRAME_COLOR in src/art/scene-profiles.ts; the shared layout
+        // normally supplies the value, so this fallback only guards a partial config.
+        ctx.setFillColor(try color(layout.arenaFrameColor ?? "#2b2233"))
+        ctx.fill(CGRect(x: 0, y: 0, width: CGFloat(viewport.width), height: CGFloat(viewport.height)))
+        image(arena, rect: CGRect(x: CGFloat(viewport.originX), y: CGFloat(viewport.originY), width: 480, height: 270), context: ctx)
         guard let result = ctx.makeImage() else { throw KujiraError.invalid("アリーナ背景をキャッシュできません。") }
         if arenaBackdrops.count >= 4 { arenaBackdrops.removeAll(keepingCapacity: true) }
         arenaBackdrops[viewport] = result

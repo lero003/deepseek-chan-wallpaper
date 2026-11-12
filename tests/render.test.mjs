@@ -9,7 +9,7 @@ import { motesFor, scenePlan } from '../src/render/scene-plan.ts';
 import { resolveAppearance } from '../src/app-web/art-profile.ts';
 import { createGame, advanceGame, command, setFocus } from '../src/fighters/game.ts';
 import { gamePlan } from '../src/fighters/render-plan.ts';
-import { SUNSET_LAYOUT } from '../src/art/scene-profiles.ts';
+import { SUNSET_LAYOUT, ARENA_FRAME_COLOR } from '../src/art/scene-profiles.ts';
 
 const atlasData = JSON.parse(await readFile(new URL('../assets/character/atlas.json', import.meta.url), 'utf8'));
 const atlas = parseAtlas(atlasData);
@@ -306,6 +306,37 @@ test('the arena paints the viewport-sized local backdrop, not the 3600px scrolli
     noArt.drawPlan(gamePlan(game, atlas, SUNSET_LAYOUT));
     const scrolled = fallback.context.calls.filter(call => call[0] === 'drawImage');
     assert.equal(scrolled[1][1].width, 3600, 'without the art the scrolling stage is used');
+  } finally { globalThis.document = previousDocument; }
+});
+
+test('arena margins are one flat frame colour instead of a stretched edge column', () => {
+  const previousDocument = globalThis.document;
+  const created = [];
+  globalThis.document = { createElement: () => { const canvas = fakeCanvas(); created.push(canvas); return canvas; } };
+  try {
+    const game = createGame(seedFromText('arena-frame')); command(game, 'play'); setFocus(game, true);
+    const plan = gamePlan(game, atlas, { ...SUNSET_LAYOUT, arenaArt: true });
+    const arena = { naturalWidth: 480, naturalHeight: 270 };
+    const canvas = fakeCanvas();
+    const renderer = new SceneRenderer(canvas, { background: null, character: null, arena }, atlas, 1, SUNSET_LAYOUT);
+    // 1600×700 at 2x: a 480×270 scene with 160 logical pixels of margin on each side.
+    renderer.resize(1600, 700);
+    renderer.drawPlan(plan);
+    const cache = created.find((candidate) => candidate.context.calls.some((call) => call[0] === 'drawImage' && call[1] === arena));
+    assert.ok(cache, 'the arena backdrop cache is built');
+    const calls = cache.context.calls;
+    assert.deepEqual(calls.filter((call) => call[0] === 'fillRect'), [['fillRect', 0, 0, 800, 350]],
+      'the margins are filled once with one flat colour');
+    assert.equal(cache.context.fillStyle, ARENA_FRAME_COLOR, 'the frame uses the shared layout colour');
+    const draws = calls.filter((call) => call[0] === 'drawImage');
+    assert.equal(draws.length, 1, 'the 480×270 art is drawn whole, never as stretched 1px edge slices');
+    assert.deepEqual(draws[0].slice(2), [160, 40], 'the 480×270 art stays whole at the centred origin');
+    const plain = new SceneRenderer(fakeCanvas(), { background: null, character: null, arena }, atlas, 1, { ...SUNSET_LAYOUT, arenaFrameColor: undefined });
+    plain.resize(1600, 700);
+    plain.drawPlan(plan);
+    const plainCache = created.filter((candidate) => candidate !== cache).find((candidate) => candidate.context.calls.some((call) => call[0] === 'drawImage' && call[1] === arena));
+    assert.ok(plainCache);
+    assert.equal(plainCache.context.fillStyle, ARENA_FRAME_COLOR, 'a layout without the field still uses the shared default');
   } finally { globalThis.document = previousDocument; }
 });
 

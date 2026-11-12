@@ -1,4 +1,5 @@
 import Foundation
+import CoreGraphics
 import Testing
 @testable import KujiraCore
 
@@ -7,6 +8,19 @@ struct CoreTests {
     func assets() throws -> Assets {
         let path = try #require(ProcessInfo.processInfo.environment["KUJIRA_TEST_RESOURCES"])
         return try Assets(root: URL(fileURLWithPath: path, isDirectory: true))
+    }
+    private func pixel(_ image: CGImage, x: Int, y: Int) throws -> (Int, Int, Int) {
+        let provider = try #require(image.dataProvider)
+        let data = try #require(provider.data) as Data
+        let offset = y * image.bytesPerRow + x * 4
+        guard offset >= 0, offset + 3 < data.count else { throw KujiraError.invalid("ピクセル位置が範囲外です。") }
+        return (Int(data[offset]), Int(data[offset + 1]), Int(data[offset + 2]))
+    }
+    private func rgb(_ hex: String) throws -> (Int, Int, Int) {
+        guard hex.count == 7, hex.first == "#", let value = Int(hex.dropFirst(), radix: 16) else {
+            throw KujiraError.invalid("描画色が不正です。")
+        }
+        return (Int((value >> 16) & 255), Int((value >> 8) & 255), Int(value & 255))
     }
 
     @Test func packagedAssetsAndInitialWorld() throws {
@@ -140,6 +154,31 @@ struct CoreTests {
         let bitmap = try painter.bitmap(battle, width: 480, height: 270)
         #expect(bitmap.width == 480)
         #expect(bitmap.height == 270)
+    }
+    @Test func arenaMarginsUseOneFlatFrameColourInsteadOfStretchedEdges() throws {
+        let assets = try assets()
+        // The placeholder keeps the code-drawn terrace and has no painted arena to frame.
+        guard assets.arenaBackdrop != nil else { return }
+        let frame = try rgb(try #require(assets.configuration.layout.arenaFrameColor))
+        let engine = try SceneEngine(assets: assets)
+        let viewport = try engine.viewport(width: 1600, height: 700)
+        #expect(viewport.scale == 2)
+        #expect(viewport.originX == 160)
+        #expect(viewport.originY == 40)
+        try engine.command("play")
+        try engine.setManualFocus(true)
+        _ = try engine.replayGameJSON(frames: 150, step: 1.0 / 60)
+        let plan = try engine.snapshot()
+        #expect(plan.battle?.arena == true)
+        let image = try ScenePainter(engine: engine).bitmap(plan, width: 1600, height: 700)
+        // Every margin pixel is the same deliberate frame colour, at any height/row.
+        for y in [0, 100, 350, 699] {
+            for x in [0, 1599] {
+                let sample = try pixel(image, x: x, y: y)
+                #expect(abs(sample.0 - frame.0) <= 1 && abs(sample.1 - frame.1) <= 1 && abs(sample.2 - frame.2) <= 1,
+                        "arena margin (\(x),\(y)) must be the flat frame colour, not a stretched edge column")
+            }
+        }
     }
     @Test func nativeBitmapAndIconAreComplete() throws {
         let engine = try SceneEngine(assets: assets())

@@ -125,6 +125,8 @@ public struct Layout: Codable, Sendable {
     public let description: String; public let provenance: String
     public let scene: Scene
     public let ceilingColor: String?; public let floorColor: String?; public let shadowColor: String?
+    /// Flat surround for the fixed arena; mirrors the shared `arenaFrameColor`.
+    public let arenaFrameColor: String?
     public let water: Water?
     public let matte: Matte?
     public let bossAtlas: BossAtlas?

@@ -7,7 +7,7 @@ import test from 'node:test';
 import { selectArtEntry } from '../scripts/art-selection.mjs';
 import { parseAtlas, frameAt } from '../src/render/atlas.ts';
 import { walkingRange, createWorld, advanceWorld, SEASIDE } from '../src/world/world.ts';
-import { SUNSET_LAYOUT } from '../src/art/scene-profiles.ts';
+import { SUNSET_LAYOUT, ARENA_FRAME_COLOR } from '../src/art/scene-profiles.ts';
 import { decodePng } from './helpers/png.mjs';
 
 const root = new URL('../', import.meta.url);
@@ -151,6 +151,12 @@ test('the wide wallpaper matte keeps the approved room pixel-exact', { skip: !ex
   assert.equal(Buffer.compare(region, room.data), 0, 'the new wide matte must not alter one pixel of the approved room');
   assert.deepEqual(SUNSET_LAYOUT.matte, { width: 1024, height: 576, roomX: 272, roomY: 153 });
   assert.equal(SUNSET_LAYOUT.backgroundUrl, undefined, 'the layout stays free of web-only asset URLs');
+});
+
+test('the fixed arena frame is one flat shared colour, not a stretched edge column', () => {
+  assert.match(ARENA_FRAME_COLOR, /^#[0-9a-f]{6}$/);
+  assert.equal(SUNSET_LAYOUT.arenaFrameColor, ARENA_FRAME_COLOR,
+    'the prepared native configuration must carry the same frame colour as the Web canvas');
 });
 
 const localVariants = new URL('variants.json', localRoot);
