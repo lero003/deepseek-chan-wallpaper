@@ -9,6 +9,7 @@
 - **Mac Build 12**：`npm run mac:build -- --local-preview`と`npm run mac:dmg`成功。ZIP再展開byte比較、移設後・DMG内・コピー後の署名/自己テスト/Fighters自己テスト成功。Apple Silicon/macOS14以上、アドホック署名・未公証。初回previewのみ、壁紙ON/自動起動/元壁紙設定を変えていない。Build11以前のタグは維持。
   - ZIP `private-art/macos-out/20261112115123-162b76da/KujiraWallpaper-Quiet-Visitors-B12-arm64-local-preview.zip`、SHA-256 `0cae70a9c0770c055faba48fc24202403294dc06158005a57e3112f4980dd2a4`
   - DMG `private-art/macos-out/20261112115446-e109ad8b-dmg/KujiraWallpaper-Quiet-Visitors-B12-arm64.dmg`、SHA-256 `35cd63398998f2ed1eaa877bd340d8ce4d8e15cb397965bc99a0636520a589af`
+- **GitHub確認済み**：[quiet-visitors-build12](https://github.com/lero003/deepseek-chan-wallpaper/releases/tag/quiet-visitors-build12)をソース`04daadf08f45488bdeef3f6aaec3a67c7d12a7cc`からPublished/prereleaseとして発行。DMG 3,965,686 bytes・ZIP 3,099,173 bytesとSHA256SUMS.txtを添付。再ダウンロードした両ファイルのSHA一致、ZIP展開アプリの署名/自己テスト/Fighters自己テスト成功。DSHも[v0.3.0](https://github.com/lero003/DeepSeek-Chan-Fighters-DSH/releases/tag/v0.3.0)を発行し、再取得placeholder ZIPのSHA/構文/2PNG監査/SOURCE一致を確認。両repoはprivate・Pages=false。旧タグ/Releaseは変更せず、private-artはGit対象外のまま。
 - **DSH v0.3.0**：結果をスクロールできる記録画面へ。撃破/周回/復帰と相手別撃破、折り畳み詳細、実行情報/観測エラー、「書斎へ戻る」「パネルを閉じる」、前回記録再表示を追加。非表示/静止/途中参加/セッション切替/描画失敗を理由別の未計測にし、切替先のエラーを元セッションへ誤帰属しない。結果中のCanvas更新停止。DSH待機室はvisitors=false。Node86件・ビルド・構文・6PNG監査成功。静止HTMLの通常/未計測/エラーをシステムWebKitで確認、実DSH/HMR/入力受入は未実施。
 - **残る受入**：実壁紙で来客の見え方/テンポ/他キャラとの重なり、Space/スリープ、実時間負荷、DSHの実行→結果→帰宅/再表示とキーボード操作。新規ブラウザー/Playwrightは導入していない。公開権利pending、両repoは非公開のまま扱う。
 
