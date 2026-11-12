@@ -1,6 +1,6 @@
 # 現在の状態 / 引き継ぎ
 
-更新: 2026-11-13 · 主人公の生活24キー / ローカルBuild14（未配布） · 公開済みタグ・非公開Releaseは変更なし · 非公開Web／個人用Mac試作
+更新: 2026-11-13 · 主人公の生活24キー / Build14ソースタグ同期済み（アプリはローカル） · 既存タグ・非公開Releaseは変更なし · 非公開Web／個人用Mac試作
 
 ## 現在：DeepSeekちゃん本人の生活モーション（2026-11-13）
 
@@ -11,7 +11,7 @@
 - **実行済み検証**：`npm run check`・`npm run build`、placeholder Webビルドが成功（Node **256件・skipなし**、型検査、既定5素材再現）。`npm run mac:test`と`-- --local-preview`はSwift **各39件・8 suites成功**。15/30/60fps決定性・尺の下限・全六種出現・呼びかけ／戦闘／受動壁紙の分離・24キーの接地／余白／非重複／透過／80色／SHA・Web/native未知キー拒否・optional故障独立・一人だけ描画を回帰検査。独立レビューの指摘も修正した。
 - **描画QA**：最終アプリの正しいproduction歩行範囲から実際のseed時刻を計算し、CoreGraphicsで**272連続フレーム**を15fps相当で書き出した。[6仕草一覧](<../private-art/qa/heroine-life/six-gestures-native.png>)／[全キーの連続確認](<../private-art/qa/heroine-life/all-gestures-filmstrip-native.png>)を目視。[GIF](<../private-art/qa/heroine-life/six-gestures-native.gif>)は仕草間の待ち時間だけを省いたネイティブ書き出しで、可視デスクトップの受入試験ではない。
 - **個人用Build14**：[アプリ](<../private-art/macos-out/20261112213257-5a6c6a4f/くじらの散歩道.app>)／[ZIP](<../private-art/macos-out/20261112213257-5a6c6a4f/KujiraWallpaper-LifeMotion-B14-arm64-local-preview.zip>)、SHA-256 `544db0326ea86e204ed8ddff8541bc09ff7e7593a14738f1ef1c144c8a9b8ee7`。アドホック署名・自己テスト2種・ZIP展開後の全byte照合／署名／単体実行まで成功。専用sheet/atlas同梱byteとmanifest SHAも照合。DMG未作成、未公証・Apple Siliconローカル専用。旧版を終了して新版を開く。自動置換や公開配布はしていない。
-- **残る受入／次の行動**：実壁紙での仕草の読みやすさ・頻度・キーの切替、他Mac、可視Web/Safari/Chrome、Space／スリープ／30分負荷は未確認。静止画やGIFの合格で実機合格と言わない。必要なら本人の感想から個々の間／追加中割を詰める。元絵を上書きせず、新素材をforce-addしない。Playwright等の導入、壁紙／ログイン設定の変更なし。後続依頼で本体の`life-motion-build14`タグ付きソース同期と、別リポジトリのDSH v0.6.0追従を進める。GitHubに生成素材を追加しない。既存タグは不変。
+- **残る受入／次の行動**：実壁紙での仕草の読みやすさ・頻度・キーの切替、他Mac、可視Web/Safari/Chrome、Space／スリープ／30分負荷は未確認。静止画やGIFの合格で実機合格と言わない。必要なら本人の感想から個々の間／追加中割を詰める。元絵を上書きせず、新素材をforce-addしない。Playwright等の導入、壁紙／ログイン設定の変更なし。後続依頼により、[ソースタグlife-motion-build14](<https://github.com/lero003/deepseek-chan-wallpaper/tree/life-motion-build14>)とmainを非公開GitHubへpush済み（`f6c25893c1f4efc076dd9dde7cbeb676fda9bd1d`）。リモートのmain／annotated tag先と、既存Build12/13タグが不変であることを照合した。Gitに同期した31ファイルはソース／テスト／文書のみ。生成画像・アプリ・ZIPは追加せず、新しいGitHub Releaseも作成していない。別リポジトリのDSH v0.6.0も同じ生活24キーと生成ライバル3シートを取り込んでローカル再ビルド済み。主担当の再検証でNode139件・構文・12PNG全SHA監査が成功し、別ビルドのplaceholderは既定2PNGを維持した。Plugin Managerでも0.6.0／installed link／enabled:falseを確認し、無効状態は変更していない。可視DSH／HMRは未確認、利用時は人が有効化して再読み込みする。[DSH v0.6.0ソースタグ](<https://github.com/lero003/DeepSeek-Chan-Fighters-DSH/tree/v0.6.0>)とmainもpush・remote照合済み（`ca3f204e0d9ba650326bcebb378c80451b7c5b97`）。双方private、旧タグ不変、生成clientや私有PNGはGit非同梱。
 
 ## 直前：静かな来客・リツカ／ユメの生成アート（2026-11-13）
 
