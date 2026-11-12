@@ -16,12 +16,50 @@ const run = (command, args, options = {}) => {
 };
 const capture = (command, args, options = {}) => run(command, args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'], ...options }).stdout.trim();
 
+export const RELEASE_SOURCE_TAG = 'life-motion-build14';
+export const RELEASE_SOURCE_COMMIT = 'f6c25893c1f4efc076dd9dde7cbeb676fda9bd1d';
+
 export function dmgFileName(architecture) {
-  return `KujiraWallpaper-Backgrounds-B13-${architecture}.dmg`;
+  assert.equal(architecture, 'arm64', 'This personal preview is Apple Silicon only.');
+  return `KujiraWallpaper-LifeMotion-B14-${architecture}.dmg`;
 }
 
-export function releaseReadme({ version, zipSha256, architecture }) {
-  return `くじらの散歩道 — 背景2種追加 Build 13（個人テスト用）
+/** Reject stale/placeholder/unverified builds before copying or mounting anything. */
+export function validateDmgSource(report) {
+  assert.equal(report.schemaVersion, 1);
+  assert.equal(report.bundleBuild, '14', 'Build14 DMG requires the sealed Build14 app.');
+  assert.equal(report.profile, 'whale-maid-sunset-v1', 'Do not label the placeholder as the local-art release.');
+  dmgFileName(report.architecture);
+  assert.equal(report.minimumMacOS, '14.0');
+  assert.equal(report.localPreviewOnly, true);
+  assert.equal(report.published, false);
+  for (const key of ['archiveVerified', 'relocatedStandaloneSelfTest', 'relocatedFightersSelfTest']) assert.equal(report[key], true, key);
+  assert.equal(report.autoStartEnabled, false);
+  assert.equal(report.originalWallpaperChangedDuringBuild, false);
+  assert.ok(Array.isArray(report.bundledLifeGestures));
+  assert.deepEqual([...report.bundledLifeGestures].sort(), ['daydream', 'giggle', 'hop', 'peek', 'stretch', 'sway']);
+  for (const path of [report.app, report.zip]) {
+    assert.equal(typeof path, 'string');
+    assert.ok(path.startsWith('private-art/macos-out/') && !path.includes('\\') && !path.split('/').some(part => part === '..' || part === '.' || part === ''), 'Unsafe build report path.');
+  }
+  assert.match(report.app, /\.app$/);
+  assert.match(report.zip, /KujiraWallpaper-LifeMotion-B14-arm64-local-preview\.zip$/);
+  assert.match(report.zipSha256, /^[a-f0-9]{64}$/);
+  assert.ok(Array.isArray(report.files) && report.files.length > 0);
+  for (const file of report.files) {
+    assert.equal(typeof file.path, 'string');
+    assert.ok(!file.path.startsWith('/') && !file.path.includes('\\') && !file.path.split('/').some(part => part === '..' || part === '.' || part === ''), 'Unsafe bundle file path.');
+    assert.ok(Number.isSafeInteger(file.bytes) && file.bytes >= 0);
+    assert.match(file.sha256, /^[a-f0-9]{64}$/);
+  }
+}
+
+export function releaseReadme({ version, zipSha256, architecture, sourceTag = RELEASE_SOURCE_TAG, sourceCommit = RELEASE_SOURCE_COMMIT }) {
+  dmgFileName(architecture);
+  assert.match(zipSha256, /^[a-f0-9]{64}$/);
+  assert.equal(sourceTag, RELEASE_SOURCE_TAG);
+  assert.equal(sourceCommit, RELEASE_SOURCE_COMMIT);
+  return `くじらの散歩道 — 生活モーション Build 14（個人テスト用）
 ==================================================================
 
 これは個人検証用の非公開リリースです。公開配布物・正式リリースではありません。
@@ -44,35 +82,34 @@ export function releaseReadme({ version, zipSha256, architecture }) {
    Escでポーズ。メニューバーから「書斎へ戻る」「もう一度遊ぶ」。
 6. 音は常時無音。通信・解析・ログイン自動起動はありません。
 
-今回の変更（Build 13）
-- 選べる書斎背景に「朝凪」「雪あかり」を追加（計5種類）
-- Web/DSHの無限モードに「朝凪の温室」「雪あかりの中庭」を追加（計6舞台）
+今回の変更（Build 14）
+- 待機中のDeepSeekちゃんに6種類の仕草を追加：小さなジャンプ、くすくす笑い、
+  小さなダンス、照れ覗きと手振り、のび、自分の尾との戯れ。
+- 承認済み生活16コマはそのままに、各4キー・計24コマの専用画像を追加。
+  表情・手足・髪・尾が変わるコマを、予備動作から余韻まで順に表示。
+- 起きている間は平均約14〜17秒を目安に仕草を選ぶが、歩行・睡眠を優先し、
+  短い待機へ無理に詰め込まない。歩行がときどき軽いスキップになる。
+- 来客の歩行・会釈・待機の仕草と、リツカ／ユメのローカル8姿勢を追加。
+- 戦闘・呼びかけ・手動操作中は仕草を重ねない。画像失敗時は元16コマへ戻る。
+- Build 13の背景5種・広い壁紙・戦闘8姿勢・複数ライバルを引き継ぎ。
 
-Build 12の変更
-- 通常の待機中に、既存3ボスが1体ずつ遊びに来て歩き回り、帰る
-- 戦闘とは別の演出で、HP・得点・難易度・既存のランダム列に影響しない
-- 静止・非表示・スリープ停止、承認済み画像のbyteは維持
+Build 12までの主な内容
+- 通常待機中に3ボスが1体ずつ遊びに来て、歩き・会釈し・帰る（Build 12）
+- 16:9以外の戦闘背景を単色の額で囲み、端を引き伸ばさない（Build 11）
+- 「呼んでみる」、生活キャプション、背景選択（Build 10まで）
 
-Build 11の変更
-- 戦闘の背景は16:9以外の画面でも端を引き伸ばさず、濃い単色の額で囲む
-  （手動アリーナ・壁紙の自動対戦とも。背景の原寸と拡大率は従来どおり）
-
-Build 10までの主な内容
-- 「おっとり。ときどき、つよい。」のタグラインと、分かりやすい背景選択
-- プレビュー限定の「呼んでみる」（20秒に1回・書斎で休んでいる時だけ）
-- 生活・帰宅の小さなキャプション、About に正面の小さな姿
-- ゲームの帰宅は「書斎へ戻る」。壁紙ON/OFFとは別操作
-
-検証済み
-- 署名検証、DMGからの単体起動、同梱素材のハッシュ、自己テスト
-- Node 229テスト、Swift 29テスト（両プロファイル）、Webビルド（通常・placeholder）
+検証済み（このDMGの作成時）
+- 署名検証、DMGの読取専用マウント、DMG外へコピー後の単体起動
+- 同梱素材のハッシュ、自己テスト2種、元ZIPとのbyte一致
+- Node 257テスト、Swift 39テスト×2プロファイル、Webビルド（通常・placeholder）
 未確認
-- 実画面でのキー操作の感触、壁紙ON/OFF、Space、スリープ復帰
-- 実時間30分のCPU・メモリ・発熱、別のMac／OS、Gatekeeperの挙動
-- 「呼んでみる」と来客の実際の見え方・歩行テンポ
+- 実画面での6仕草の見え方・頻度・キー切替、キー操作の感触
+- 壁紙ON/OFF、Space、スリープ復帰、30分のCPU・メモリ・発熱
+- 別のMac／OS、Gatekeeperの挙動、実時間の連続動作
 
 記録
-- アプリ版: ${version}
+- アプリ版: ${version}（bundle build 14）
+- 元ソース: ${sourceTag} / ${sourceCommit}
 - 元ZIP SHA-256: ${zipSha256}
 - DMGのSHA-256はリリースの SHA256SUMS.txt を参照してください。
 - このDMGには個人用の生成素材が含まれます。権利確認前の共有は避けてください。
@@ -86,8 +123,9 @@ async function main() {
   await mkdir(privateRoot, { recursive: true });
   assert.equal(await realpath(privateRoot), privateRoot, 'Refuse a symlinked private output root.');
   const report = JSON.parse(await readFile(resolve(privateRoot, 'macos-out/latest.json'), 'utf8'));
-  assert.equal(report.localPreviewOnly, true, 'Only the authorized local-preview build can be packaged.');
-  assert.equal(report.published, false, 'Source build must not already be published.');
+  validateDmgSource(report);
+  const sourceCommit = capture('git', ['rev-parse', `${RELEASE_SOURCE_TAG}^{}`], { cwd: root });
+  assert.equal(sourceCommit, RELEASE_SOURCE_COMMIT, 'The sealed app must come from the recorded Build14 source tag.');
   const app = resolve(root, report.app);
   const zip = resolve(root, report.zip);
   const appName = appDirectoryName(await readdir(dirname(app)));
@@ -154,6 +192,7 @@ async function main() {
   const receipt = {
     schemaVersion: 1, dmg: relative(root, dmg), bytes: stat.size, sha256: dmgSha,
     architecture: report.architecture, minimumMacOS: report.minimumMacOS, version: report.version,
+    sourceTag: RELEASE_SOURCE_TAG, sourceCommit: RELEASE_SOURCE_COMMIT,
     sourceApp: report.app, sourceZip: report.zip, sourceZipSha256: report.zipSha256,
     mountedReadOnlyVerified: true, copiedOutSelfTest: true, notarized: false,
     privateTestRelease: true, publishedAtBuild: false, autoStart: false, wallpaperChanged: false,

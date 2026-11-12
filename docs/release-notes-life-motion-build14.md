@@ -1,6 +1,6 @@
 # 生活モーション Build14 — 非公開ソース更新
 
-ソースタグ: `life-motion-build14`。既存のBuild13以前のタグ・Releaseは変更しません。コードのバージョンは引き続き非公開試作の0.1.0、Mac bundle buildは14です。この更新は一般公開・画像の再配布許諾ではありません。
+ソースタグ: `life-motion-build14`（アプリ本体）、パッケージタグ: `life-motion-build14-dmg`。既存のBuild13以前のタグ・Releaseは変更しません。コードのバージョンは引き続き非公開試作の0.1.0、Mac bundle buildは14です。この更新は一般公開・画像の再配布許諾ではありません。
 
 ## 変更点
 
@@ -22,3 +22,24 @@
 Gitに同期するのはソース・テスト・ドキュメントです。生成画像、マスター、ローカルMacアプリ／ZIP、QA画像はGit対象外のまま。クリーンなチェックアウトは既定仮素材で動きます。DSHプラグインは別リポジトリで同じ共通コアを取り込み、配布用は私有画像を含めないplaceholder版として分離します。
 
 実壁紙のテンポ・滑らかさ、可視ブラウザでの操作、Space／スリープ、他Mac、実時間30分負荷は未受け入れです。画像／GIF／単体テストを、その合格と混同しません。壁紙・ログイン設定は自動変更していません。
+
+
+## 個人用DMG（非公開プレリリース）
+
+このリリースは、GitHubの非公開リポジトリ内でアクセス権のある人だけが取得できる**個人テスト用プレリリース**です。一般公開・再配布・第三者のMacへの配布を許可するものではありません。
+
+| 添付 | 用途 |
+| --- | --- |
+| `KujiraWallpaper-LifeMotion-B14-arm64.dmg` | **おすすめ**。Applicationsへのショートカット付き。Apple Silicon / macOS 14以降 |
+| `KujiraWallpaper-LifeMotion-B14-arm64-local-preview.zip` | アプリ本体のみ。DMGを使わない場合 |
+| `SHA256SUMS.txt` | 上の2ファイルのSHA-256 |
+
+- 元アプリのソース: `life-motion-build14` / `f6c25893c1f4efc076dd9dde7cbeb676fda9bd1d`
+- DMG: 4,934,780 bytes / SHA-256 `c5c78d112c04110f1ba9e85fc1ee249520f244419d4b4bddfc235bdee076c070`
+- ZIP: 4,866,989 bytes / SHA-256 `544db0326ea86e204ed8ddff8541bc09ff7e7593a14738f1ef1c144c8a9b8ee7`
+- アドホック署名・Hardened Runtimeのみ。Appleの公証は受けていません。初回はアプリを右クリック→「開く」で起動してください。macOS全体の保護設定を無効にする必要はありません。
+- DMGには「くじらの散歩道.app」、Applicationsショートカット、`READ-ME-FIRST.txt`、イメージ内の`SHA256SUMS.txt`が入っています。
+- 作成時にDMGの読取専用マウント、署名検証、イメージ内とコピー後の自己テスト2種、元ZIPとのbyte一致を確認しました。
+- 未確認: 実画面での6仕草の見え方・頻度、キー操作の感触、壁紙ON/OFF、Space、スリープ復帰、実時間30分の負荷、別Mac／OS、Gatekeeperの挙動。
+
+取得後は`SHA256SUMS.txt`と同じフォルダーで `shasum -a 256 -c SHA256SUMS.txt` を実行してください。壁紙・ログイン自動起動・システム設定は作成時に変更していません。
