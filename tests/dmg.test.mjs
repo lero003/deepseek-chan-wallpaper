@@ -4,7 +4,7 @@ import { dmgFileName, releaseReadme } from '../scripts/build-dmg.mjs';
 
 test('the private release DMG name is architecture-specific and clearly a test build', () => {
   const name = dmgFileName('arm64');
-  assert.match(name, /^KujiraWallpaper-Brushup-B11-arm64\.dmg$/);
+  assert.match(name, /^KujiraWallpaper-Quiet-Visitors-B12-arm64\.dmg$/);
   assert.equal(/\s/.test(name), false);
   assert.equal(name.includes('draft'), false);
 });

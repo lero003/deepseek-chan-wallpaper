@@ -1,5 +1,6 @@
 import type { FightersGame } from '../fighters/types.ts';
 import type { Behavior, Mood } from '../world/world.ts';
+import { BOSSES } from '../fighters/definitions.ts';
 
 /**
  * Preview-only companion reactions (B03) and quiet-life captions (B04).
@@ -63,6 +64,7 @@ export function companionLine(game: FightersGame): string {
   if (game.cue && game.tick < game.cue.untilTick) return game.cue.caption;
   if (game.homeLine && game.tick < game.homeLineUntil) return game.homeLine;
   if (game.phase !== 'rest') return 'テラスで自動対戦。';
+  if (game.visits.guest) return `${BOSSES[game.visits.guest.bossId].name}が遊びに来ています。`;
   return lifeCaption(game.world.actor.state, game.world.mood);
 }
 

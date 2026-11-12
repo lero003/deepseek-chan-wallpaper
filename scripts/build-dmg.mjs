@@ -17,11 +17,11 @@ const run = (command, args, options = {}) => {
 const capture = (command, args, options = {}) => run(command, args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'], ...options }).stdout.trim();
 
 export function dmgFileName(architecture) {
-  return `KujiraWallpaper-Brushup-B11-${architecture}.dmg`;
+  return `KujiraWallpaper-Quiet-Visitors-B12-${architecture}.dmg`;
 }
 
 export function releaseReadme({ version, zipSha256, architecture }) {
-  return `くじらの散歩道 — アプリ・ブラッシュアップ Build 11（個人テスト用）
+  return `くじらの散歩道 — 静かな来客 Build 12（個人テスト用）
 ==================================================================
 
 これは個人検証用の非公開リリースです。公開配布物・正式リリースではありません。
@@ -44,7 +44,12 @@ export function releaseReadme({ version, zipSha256, architecture }) {
    Escでポーズ。メニューバーから「書斎へ戻る」「もう一度遊ぶ」。
 6. 音は常時無音。通信・解析・ログイン自動起動はありません。
 
-今回の変更（Build 11）
+今回の変更（Build 12）
+- 通常の待機中に、既存3ボスが1体ずつ遊びに来て歩き回り、帰る
+- 戦闘とは別の演出で、HP・得点・難易度・既存のランダム列に影響しない
+- 静止・非表示・スリープ停止、承認済み画像のbyteは維持
+
+Build 11の変更
 - 戦闘の背景は16:9以外の画面でも端を引き伸ばさず、濃い単色の額で囲む
   （手動アリーナ・壁紙の自動対戦とも。背景の原寸と拡大率は従来どおり）
 
@@ -56,11 +61,11 @@ Build 10までの主な内容
 
 検証済み
 - 署名検証、DMGからの単体起動、同梱素材のハッシュ、自己テスト
-- Node 202テスト、Swift 27テスト（両プロファイル）、Webビルド（通常・placeholder）
+- Node 227テスト、Swift 29テスト（両プロファイル）、Webビルド（通常・placeholder）
 未確認
 - 実画面でのキー操作の感触、壁紙ON/OFF、Space、スリープ復帰
 - 実時間30分のCPU・メモリ・発熱、別のMac／OS、Gatekeeperの挙動
-- 「呼んでみる」の実際の見え方・テンポ
+- 「呼んでみる」と来客の実際の見え方・歩行テンポ
 
 記録
 - アプリ版: ${version}

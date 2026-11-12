@@ -10,6 +10,7 @@ import { newHero, newStats, recordStat } from './factory.ts';
 import { clearArcadeRound, newArcade, startArcadeRound } from './arcade.ts';
 import { HOME_CAPTION, REST_CAPTION, settleHome } from '../companion/companion.ts';
 import { startEndlessBattle, updateEndless } from './endless.ts';
+import { cancelVisit } from '../companion/visitors.ts';
 import { clamp } from './movement.ts';
 import type { FightersGame, Phase, Route } from './types.ts';
 
@@ -45,6 +46,7 @@ export function scheduleRest(game: FightersGame): void {
 export function startEpisode(game: FightersGame, route: Route): void {
   if (route === 'endless') { startEndlessBattle(game); return; }
   game.endless = null;
+  cancelVisit(game);
   clearInputs(game);
   const room = route === 'room';
   game.stage = route === 'arena' ? arenaStage(game.scene) : studyStage(game.scene);
@@ -67,6 +69,7 @@ export function startEpisode(game: FightersGame, route: Route): void {
   else enterPhase(game, 'intro');
 }
 export function returnHome(game: FightersGame): void {
+  cancelVisit(game);
   const won = game.outcome === 'win';
   clearInputs(game); game.projectiles = []; game.enemies = []; game.paused = false; game.mode = 'auto'; game.focused = false;
   if (isFixedArena(game.route)) { game.effects = []; game.hitstop = 0; }

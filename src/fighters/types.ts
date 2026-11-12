@@ -7,6 +7,14 @@ export type Phase = 'rest' | 'intro' | 'battle' | 'roundClear' | 'bossIntro' | '
 export type Route = 'short' | 'skirmish' | 'auto' | 'full' | 'room' | 'arena' | 'endless';
 export type BossId = 'lumie' | 'shio' | 'yume';
 export type StageId = 'terrace' | 'terrace-night' | 'terrace-rain' | 'pier-dawn';
+export interface VisitGuest {
+  bossId: BossId; x: number; y: number; facing: Facing; targetX: number; exitX: number;
+  state: 'arriving' | 'wandering' | 'pausing' | 'leaving'; age: number; stateAge: number; leaveAt: number; pauseUntil: number;
+}
+export interface VisitsState {
+  enabled: boolean; randomState: number; idleTicks: number; nextAt: number;
+  lastId: BossId | null; bag: BossId[]; guest: VisitGuest | null;
+}
 export interface EndlessState {
   active: boolean; cycle: number; defeated: number; downs: number;
   bossId: BossId | null; stageId: StageId; bossBag: BossId[]; stageBag: StageId[];
@@ -53,6 +61,7 @@ export interface Effect extends Point {
 }
 export interface GameStats { episodes: number; wins: number; losses: number; hits: number; misses: number; dodges: number; specials: number; damageTaken: number; recoveries: number; maxEnemies: number; maxProjectiles: number; maxEffects: number; sections: number }
 export interface FightersGame {
+  visits: VisitsState;
   world: World; scene: Scene; stage: Stage; tick: number; combatTick: number; remainder: number;
   mode: Mode; phase: Phase; phaseAge: number; focused: boolean; paused: boolean;
   frequency: Frequency; effectsLow: boolean; nextEventAt: number; restReactionAt: number;

@@ -8,6 +8,7 @@ import { drawEndlessAmbience } from './endless-art.ts';
 import { drawArenaHud } from './arena-presentation.ts';
 import { gameUI } from './game.ts';
 import { CALL_POSE_TICKS } from '../companion/companion.ts';
+import { visitorCommands } from '../companion/visitor-art.ts';
 import { clamp } from './movement.ts';
 import type { FightersGame } from './types.ts';
 import { Painter } from './art-kit.ts';
@@ -184,6 +185,7 @@ export function gamePlan(game: FightersGame, atlas: SpriteAtlas, appearance: Ren
   }
 
   if (home) {
+    p.commands.push(...visitorCommands(game, appearance));
     if (game.mode === 'manual' && (game.phase === 'result' || returningHome)) {
       // Seat the result beside the heroine, not over her face. This is presentation only:
       // the passive living world and its accepted movement range are never repositioned.

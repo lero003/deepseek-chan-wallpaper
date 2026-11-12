@@ -1,6 +1,16 @@
 # 現在の状態 / 引き継ぎ
 
-更新: 2026-11-12 · 無限ボスラッシュPart A/B（非公開Release） · 非公開Web／個人用Mac試作 · 固定アリーナ・アーケード v0.8（Build 9）+ 背景別環境演出・生活微バリエーション + 生成アート + 壁紙の自動対戦 + 戦闘背景の外周を単色フレーム化 + Build 11 個人テスト用リリース
+更新: 2026-11-12 · 静かな来客 Build 12・DSH結果改善 v0.3.0 · 無限ボスラッシュPart A/B（非公開Release） · 非公開Web／個人用Mac試作 · 固定アリーナ・アーケード v0.8（Build 9）+ 背景別環境演出・生活微バリエーション + 生成アート + 壁紙の自動対戦 + 戦闘背景の外周を単色フレーム化 + Build 11 個人テスト用リリース
+
+## 最新の状態：静かな来客 / DSH結果改善（2026-11-12）
+
+- **壁紙・プレビュー**：通常待機中に既存3ボスが1人ずつ訪れ、歩く・立ち止まる・帰る。初回75〜105秒、退室後120〜180秒の有効待機時間。戦闘開始・homeで即退室。生活/戦闘とは別の乱数列で、HP・得点・戦績・対戦予定を変えない。自動対戦頻度offでも訪問あり。新画像/依存/保存設定なし。[仕様](quiet-visitors.md)。
+- **検証**：`npm run check`は型検査＋Node **227件・skipなし**＋既定5素材byte再現成功。通常/placeholderのWebビルド、`npm run mac:test`と`npm run mac:test -- --local-preview`はSwift **各29件・6 suites成功**。30分相当の15/30/60fps決定性、来客あり/なしで既存生活・戦闘の完全一致、3人の訪問/歩行/退室、戦闘開始時の解除、共有native bridgeを検査。CoreGraphicsの3人の静止出力を確認（実デスクトップ/アニメーション受入ではない）。
+- **Mac Build 12**：`npm run mac:build -- --local-preview`と`npm run mac:dmg`成功。ZIP再展開byte比較、移設後・DMG内・コピー後の署名/自己テスト/Fighters自己テスト成功。Apple Silicon/macOS14以上、アドホック署名・未公証。初回previewのみ、壁紙ON/自動起動/元壁紙設定を変えていない。Build11以前のタグは維持。
+  - ZIP `private-art/macos-out/20261112115123-162b76da/KujiraWallpaper-Quiet-Visitors-B12-arm64-local-preview.zip`、SHA-256 `0cae70a9c0770c055faba48fc24202403294dc06158005a57e3112f4980dd2a4`
+  - DMG `private-art/macos-out/20261112115446-e109ad8b-dmg/KujiraWallpaper-Quiet-Visitors-B12-arm64.dmg`、SHA-256 `35cd63398998f2ed1eaa877bd340d8ce4d8e15cb397965bc99a0636520a589af`
+- **DSH v0.3.0**：結果をスクロールできる記録画面へ。撃破/周回/復帰と相手別撃破、折り畳み詳細、実行情報/観測エラー、「書斎へ戻る」「パネルを閉じる」、前回記録再表示を追加。非表示/静止/途中参加/セッション切替/描画失敗を理由別の未計測にし、切替先のエラーを元セッションへ誤帰属しない。結果中のCanvas更新停止。DSH待機室はvisitors=false。Node86件・ビルド・構文・6PNG監査成功。静止HTMLの通常/未計測/エラーをシステムWebKitで確認、実DSH/HMR/入力受入は未実施。
+- **残る受入**：実壁紙で来客の見え方/テンポ/他キャラとの重なり、Space/スリープ、実時間負荷、DSHの実行→結果→帰宅/再表示とキーボード操作。新規ブラウザー/Playwrightは導入していない。公開権利pending、両repoは非公開のまま扱う。
 
 ## 無限ボスラッシュ / DSH用API（2026-11-12、Part A/B）
 
@@ -9,7 +19,7 @@
 - **受け口**：`command('endless')`（冪等）/`command('home')`、`gameUI.endless`、ボスごとのURL/atlasとステージ画像の任意マップ。DSH向け`gamePlan(..., 'wallpaper')`は戦闘＋背景・キャラを描きHUDなし。元指示書§4.6の早期return案と§5.3が矛盾するため§5.3を採用し、Macの受動面はnative-bridgeで静かな生活を維持。既存auto/manual・90秒時計の経路は維持。
 - **実行済み検証**：`npm run check`（型検査＋Node **221件成功・skipなし**＋既定5素材byte再現）、`npm run build`、placeholderビルド（PNGは既定2点のみ）、`npm run mac:test`と`npm run mac:test -- --local-preview`（Swift **各27件・5 suites成功**）。30分相当・15/30/60fpsでボス/舞台/HP順と最終状態が一致、seed47で90撃破・31周目。単一ロスター、ダウン復帰、安全区間、素材異常の独立フォールバック、背景キャッシュと単色外周、停止復帰を検証。既存テストの削除・無効化・緩和なし。
 - **未実施**：Safari/Chromeの手動5分以上スモーク、実Macの可視/壁紙/スリープ確認、実時間30分の負荷、DSH実ページの受け入れ。シミュレーションと描画命令の検査であり、ブラウザーE2E・実機の合格ではない。Playwright/専用ブラウザーは導入・使用していない。
-- **Part B**：別フォルダーDSHのv0.2.0も実装済み（endless1回、settle→home、HUD/facts/result、任意artマップ、静止設定切替）。ビルド・構文・Node78件・6PNG監査成功。私有画像を含まないソースを非公開GitHubへ同期し、2PNGのplaceholder版個人用Releaseを発行済み。実DSH/HMR確認は未実施。Macパッケージは作り直しておらず、既存Build 11にこのソース変更が入った意味ではない。
+- **Part B**：別フォルダーDSHのv0.2.0も実装済み（endless1回、settle→home、HUD/facts/result、任意artマップ、静止設定切替）。ビルド・構文・Node78件・6PNG監査成功。私有画像を含まないソースを非公開GitHubへ同期し、2PNGのplaceholder版個人用Releaseを発行済み。実DSH/HMR確認は未実施。Macパッケージは作り直しておらず、既存Build 11にこのソース変更が入った意味ではない（当時。現在は上のBuild12に反映）。
 - **GitHubの実測**：壁紙ソース`7cdb128`をpushし、[endless-boss-rush-20261112](https://github.com/lero003/deepseek-chan-wallpaper/releases/tag/endless-boss-rush-20261112)をPublished/prereleaseで発行（新しいMacバイナリなし）。DSHは非公開リポジトリを作成・ソースをpush、[v0.2.0](https://github.com/lero003/DeepSeek-Chan-Fighters-DSH/releases/tag/v0.2.0)は`5d0d7d1`からplaceholder ZIPを添付。ZIP SHA-256 `b953e138d5fb98508420b879af1f5460bf5138e95b2a090b406a9f4305922e75`、85,458 bytes。GitHubから再取得してSHA/構文/2PNG byte一致監査/SOURCEを確認。両repoはprivate・Pages=false、private-art/通常clientはGit対象外。既存Build11と公開済みタグは変更していない。
 - 詳細なAPI・素材状態・変更ファイル・手動手順：[endless-boss-rush.md](<endless-boss-rush.md>)。
 
@@ -169,4 +179,4 @@
 - [ ] 新演出の可視確認：月夜の冷色・流れ星（約7分に1度）、雨音の雨筋・波紋がうるさくないか、睡眠バブル・窓辺で佇む姿が自然か。背景を切り替えても生活のリズムが破綻しないか。
 - [ ] 別のMac／OS、Gatekeeper。WebKitの可視スモークは環境のhidden／occluded制約で未完了、今回も合格扱いにしていない。
 
-次は実機で無限ボスラッシュ・アーケードの手触りと難易度、および環境演出の静けさを確認する。既存手動/自動の戦闘は同じ1舞台・敵2種・ボス1体の範囲で調整し、追加ロスターは明示開始のendless専用に保つ。壁紙をゲーム面に戻したり、新キャラ・新ステージ・音・公開・依頼のないpushへ広げない。仕様は[固定アリーナ仕様](<fighters-mvp.md>)・[アート方針](<art-direction.md>)。
+次は実機で無限ボスラッシュ・アーケードの手触りと難易度、および環境演出の静けさを確認する。既存手動/自動の戦闘は同じ1舞台・敵2種・ボス1体の範囲で調整し、追加ロスターの戦闘は明示開始のendless専用に保ち、通常待機では既存3人の平和な来客だけを許可する。壁紙をゲーム面に戻したり、新キャラ・新ステージ・音・公開・依頼のないpushへ広げない。仕様は[固定アリーナ仕様](<fighters-mvp.md>)・[アート方針](<art-direction.md>)。

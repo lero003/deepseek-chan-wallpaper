@@ -59,7 +59,7 @@ for (const name of ['world.js', 'configuration.json', 'manifest.json', 'characte
   await mkdir(dirname(destination), { recursive: true });
   await copyFile(resolve(prepared.resources, name), destination);
 }
-await writeFile(resolve(resources, 'FIGHTERS-README.txt'), `くじらの散歩道 — DeepSeekちゃんファイターズ Build 11（アプリ・ブラッシュアップ）\n\n初回はプレビューのみ。壁紙は「壁紙にする」で明示的にONにします。\n普段は静かな書斎。自動対戦は既定で帰還後3〜5分の待ち時間。テラスでの自動操縦の対戦が途中から始まり、増援が続いて約30秒で決着、カメラ固定・HUDやボスなしで書斎へ帰ります。「対戦を見る」で今すぐ確認できます。プレビューの「呼んでみる」で、くつろぐDeepSeekちゃんが小さく応えます（書斎で休んでいる時だけ・壁紙には影響しません）。\n「テラスで3連戦」で手動。横スクロールなし、雑魚戦2回のあと綴星リュミエと一騎打ち。各ラウンドはREADYのあとFIGHTで開始、90秒のアーケード時計つき。開戦準備・ラウンド間は安全に停止し、自動で次の相手へ進みます。WASD／矢印で間合いを調整、J/Zで3段攻撃、K/Xで回避、L/Cでゲージ100の必殺技、Escでゲームポーズ。\n命中・KO・コンボ倍率・クリアボーナスでSCOREが入り、被弾なし・継続なし・速さでランクが変わります。敗北やTIME UPはそのラウンドの得点を巻き戻して再挑戦（CONTINUE回数は残ります）。\n「書斎へ戻る」でオートへ。敗北時は「このラウンドを再挑戦」、勝利後は「もう一戦」で最初から。手動入力は前面プレビューだけ。\n戦闘の背景は16:9以外の画面でも端を引き伸ばさず、濃い単色の額で囲みます（手動アリーナ・壁紙の自動対戦とも）。\n壁紙は全モードでクリック透過。手動ゲーム中の壁紙は静かな生活を表示します。\n元の壁紙設定は変更しません。停止・終了はメニューバーから。ログイン自動起動は登録しません。\n少なめ／通常／対戦なし、控えめエフェクト、省電力をメニューから選べます。背景はツールバー／メニューバーから夕凪・月夜・雨音を切り替え（設定は保存）。音は常時無音です。\nOS Reduce Motionでは既存方針どおり静止。遊ぶにはその設定を人の判断でご確認ください。\n\nApple Silicon用・個人用のローカル試作、アドホック署名・未公証です。公開・第三者配布は未許諾。\nローカル版には生成テラス背景、主人公戦闘8キー姿勢、既存雑魚2種の6姿勢×3バリエーションを追加。生活16コマ・背景3種・各マットは不変。別シートの読込失敗時は従来描画へ戻ります。placeholderには制作画像を含めません。ボスはClaudeの文章・思考を着想にしたオリジナル美少女のローカル制作案（公式キャラ/Anthropic社の承認ではありません）。連続動作の自然さ・手動の操作感・実機負荷は未受け入れです。\n自動テスト／単体起動／ネイティブ描画器の検証は、可視キー操作・壁紙ON/OFF・Space・スリープ・実時間30分負荷の合格ではありません。\n旧版が起動中なら終了してからこの版を開いてください。\n`);
+await writeFile(resolve(resources, 'FIGHTERS-README.txt'), `くじらの散歩道 — DeepSeekちゃんファイターズ Build 12（静かな来客）\n\n初回はプレビューのみ。壁紙は「壁紙にする」で明示的にONにします。\n普段は静かな書斎。待機75〜105秒後から、リュミエ・リツカ・ユメが1体ずつ遊びに来て、歩いたり立ち止まったりして帰ります。以降は2〜3分の待機を挟みます。「対戦なし」でも来客はあり、戦闘が始まると退きます。静止・非表示・スリープ中は従来どおり更新しません。\n自動対戦は既定で帰還後3〜5分の待ち時間。テラスでの自動操縦の対戦が途中から始まり、増援が続いて約30秒で決着、カメラ固定・HUDやボスなしで書斎へ帰ります。「対戦を見る」で今すぐ確認できます。プレビューの「呼んでみる」で、くつろぐDeepSeekちゃんが小さく応えます（書斎で休んでいる時だけ・壁紙には影響しません）。\n「テラスで3連戦」で手動。横スクロールなし、雑魚戦2回のあと綴星リュミエと一騎打ち。各ラウンドはREADYのあとFIGHTで開始、90秒のアーケード時計つき。開戦準備・ラウンド間は安全に停止し、自動で次の相手へ進みます。WASD／矢印で間合いを調整、J/Zで3段攻撃、K/Xで回避、L/Cでゲージ100の必殺技、Escでゲームポーズ。\n命中・KO・コンボ倍率・クリアボーナスでSCOREが入り、被弾なし・継続なし・速さでランクが変わります。敗北やTIME UPはそのラウンドの得点を巻き戻して再挑戦（CONTINUE回数は残ります）。\n「書斎へ戻る」でオートへ。敗北時は「このラウンドを再挑戦」、勝利後は「もう一戦」で最初から。手動入力は前面プレビューだけ。\n戦闘の背景は16:9以外の画面でも端を引き伸ばさず、濃い単色の額で囲みます（手動アリーナ・壁紙の自動対戦とも）。\n壁紙は全モードでクリック透過。手動ゲーム中の壁紙は静かな生活を表示します。\n元の壁紙設定は変更しません。停止・終了はメニューバーから。ログイン自動起動は登録しません。\n少なめ／通常／対戦なし、控えめエフェクト、省電力をメニューから選べます。背景はツールバー／メニューバーから夕凪・月夜・雨音を切り替え（設定は保存）。音は常時無音です。\nOS Reduce Motionでは既存方針どおり静止。遊ぶにはその設定を人の判断でご確認ください。\n\nApple Silicon用・個人用のローカル試作、アドホック署名・未公証です。公開・第三者配布は未許諾。\nローカル版には生成テラス背景、主人公戦闘8キー姿勢、既存雑魚2種の6姿勢×3バリエーションを追加。生活16コマ・背景3種・各マットは不変。別シートの読込失敗時は従来描画へ戻ります。placeholderには制作画像を含めません。ボスはClaudeの文章・思考を着想にしたオリジナル美少女のローカル制作案（公式キャラ/Anthropic社の承認ではありません）。連続動作の自然さ・手動の操作感・実機負荷は未受け入れです。\n自動テスト／単体起動／ネイティブ描画器の検証は、可視キー操作・壁紙ON/OFF・Space・スリープ・実時間30分負荷の合格ではありません。\n旧版が起動中なら終了してからこの版を開いてください。\n`);
 const executable = resolve(macos, 'KujiraWallpaper');
 await copyFile(sourceBinary, executable); await chmod(executable, 0o755);
 run('/usr/bin/strip', ['-S', executable]);
@@ -74,7 +74,7 @@ await writeFile(resolve(contents, 'Info.plist'), `<?xml version="1.0" encoding="
 <key>CFBundleDisplayName</key><string>くじらの散歩道（個人用試作）</string>
 <key>CFBundlePackageType</key><string>APPL</string>
 <key>CFBundleShortVersionString</key><string>${xml(version)}</string>
-<key>CFBundleVersion</key><string>11</string>
+<key>CFBundleVersion</key><string>12</string>
 <key>CFBundleIconFile</key><string>AppIcon</string>
 <key>LSMinimumSystemVersion</key><string>14.0</string>
 <key>LSUIElement</key><false/>
@@ -135,7 +135,7 @@ assert.ok(files.every(file => !/(^|\/)(node_modules|production|concepts|research
 const architecture = capture('/usr/bin/lipo', ['-archs', executable]);
 const libraries = capture('/usr/bin/otool', ['-L', executable]);
 const systemLibraries = systemLibraryPaths(libraries);
-const zip = resolve(output, `KujiraWallpaper-Brushup-B11-${architecture.replaceAll(' ', '-')}-local-preview.zip`);
+const zip = resolve(output, `KujiraWallpaper-Quiet-Visitors-B12-${architecture.replaceAll(' ', '-')}-local-preview.zip`);
 run('/usr/bin/ditto', ['-c', '-k', '--sequesterRsrc', '--keepParent', app, zip]);
 // Legacy unzip console output can corrupt Japanese names under C locales.
 // Validate the real archive more strictly: extract, compare every byte, verify and execute.
@@ -158,7 +158,7 @@ const report = { schemaVersion: 1, app: relative(root, app), zip: relative(root,
   profile: prepared.layout.id, version, signing: 'ad-hoc hardened runtime, bundled-code JIT entitlement only', notarized: false,
   localPreviewOnly: true, published: false, thirdPartyRightsVerified: false, originalWallpaperChangedDuringBuild: false,
   archiveVerified: true, relocatedStandaloneSelfTest: true, relocatedFightersSelfTest: true,
-  gameplay: 'arena-v0.8-arcade-scoring + brushup-b01-b05', bundleBuild: '11',
+  gameplay: 'arena-v0.8 + endless-api + quiet-boss-visits', bundleBuild: '12',
   bundledCombatSheets: Object.keys(prepared.configuration.sprites ?? {}),
   gamePreviews: ['native-room-event.png', 'native-room-event-wide.png',
      ...((prepared.configuration.variants ?? []).some(variant => variant.id === 'night') ? ['native-room-event-night-wide.png'] : []),

@@ -3,6 +3,7 @@ import { newEndlessState, newHero, newStats, recordStat } from './factory.ts';
 import { newArcade } from './arcade.ts';
 import { clearInputs, decision, effect } from './events.ts';
 import { enterPhase } from './director.ts';
+import { cancelVisit } from '../companion/visitors.ts';
 import { spawnEnemy } from './enemy-brain.ts';
 import type { BossId, EndlessUI, FightersGame, StageId } from './types.ts';
 
@@ -49,6 +50,7 @@ function prepareBoss(game: FightersGame): void {
 }
 export function startEndlessBattle(game: FightersGame): void {
   if (game.mode === 'endless' && game.endless?.active) return;
+  cancelVisit(game);
   clearInputs(game);
   game.mode = 'endless'; game.route = 'endless'; game.paused = false; game.focused = false;
   game.stage = arenaStage(game.scene); game.cameraX = ARENA.cameraX;

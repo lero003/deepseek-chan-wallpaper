@@ -11,6 +11,7 @@ import { newHero, newStats } from './factory.ts';
 import { direction } from './movement.ts';
 import { arcadeUI, newArcade, spendArcadeTick } from './arcade.ts';
 import { advanceCompanion, callState, cancelCompanion, companionLine, requestCall } from '../companion/companion.ts';
+import { advanceVisits, createVisits, setVisitsEnabled } from '../companion/visitors.ts';
 import type { Action, FightersGame, Frequency, GameUI } from './types.ts';
 
 export function createGame(seed: number, scene: Scene = SEASIDE): FightersGame {
@@ -24,7 +25,7 @@ export function createGame(seed: number, scene: Scene = SEASIDE): FightersGame {
     hero: newHero(world.actor.x + 120, world.floorY), enemies: [], projectiles: [], effects: [],
     input: { x: 0, y: 0 }, pendingDodge: false, pendingSpecial: false, cameraX: 120, firstWhiff: true, whiffAttackId: -1,
     message: '', messageUntil: 0, outcome: 'none', stats: newStats(),
-    cue: null, cueReadyAt: 0, homeLine: '', homeLineUntil: 0 };
+    cue: null, cueReadyAt: 0, homeLine: '', homeLineUntil: 0, visits: createVisits(world.seed) };
   scheduleRest(game);
   return game;
 }
@@ -60,6 +61,9 @@ export function command(game: FightersGame, name: string, value?: unknown): void
     case 'demo': if (game.mode === 'auto') startWallpaperBout(game); break;
     case 'call': requestCall(game); break;
     case 'cancelCall': cancelCompanion(game); break;
+    case 'visitors':
+      if (typeof value !== 'boolean') throw new Error('Invalid visitor mode.');
+      setVisitsEnabled(game, value); break;
     case 'pause':
       if (game.mode !== 'manual') return;
       game.paused = !game.paused; clearInputs(game);
@@ -104,6 +108,7 @@ function step(game: FightersGame): void {
     if (game.phase !== 'bossIntro') { updateHero(game); updateEnemies(game); updateProjectiles(game); }
   } else if (game.phase === 'victory') updateEnemies(game);
   updateDirector(game);
+  advanceVisits(game);
   if (game.phase !== 'rest' && game.phase !== 'result') {
     const target = desiredCamera(game);
     const rate = game.phase === 'return' ? .16 : .08;
