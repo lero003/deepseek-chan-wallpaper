@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { createGame, advanceGame, command, gameUI } from '../src/fighters/game.ts';
 import { BOSSES, HERO } from '../src/fighters/definitions.ts';
 import { VISITS } from '../src/companion/visitors.ts';
-import { visitorCommands } from '../src/companion/visitor-art.ts';
+import { visitorCommands, visitorMotion } from '../src/companion/visitor-art.ts';
 import { gamePlan } from '../src/fighters/render-plan.ts';
 import { parseAtlas } from '../src/render/atlas.ts';
 import { SUNSET_LAYOUT } from '../src/art/scene-profiles.ts';
@@ -90,5 +90,62 @@ test('the native bridge carries the same guest and room overlay as the Web core'
   }
   assert.ok(direct.visits.guest); assert.equal(direct.visits.guest.state, 'pausing');
   assert.deepEqual(JSON.parse(engine.gameJSON()), direct);
-  assert.deepEqual(JSON.parse(engine.gameSnapshotJSON(true, 'wallpaper')), gamePlan(direct, atlas, SUNSET_LAYOUT, true, 'wallpaper'));
+  const paused = gamePlan(direct, atlas, SUNSET_LAYOUT, true, 'wallpaper');
+  assert.deepEqual(JSON.parse(engine.gameSnapshotJSON(true, 'wallpaper')), paused);
+  // A moving guest uses the new step motion; the native bridge carries those commands too.
+  while (tick < 30000 && direct.visits.guest?.state !== 'wandering') {
+    ticks(direct, 1); engine.advanceGameJSON(1 / 60); tick++;
+  }
+  assert.ok(direct.visits.guest); assert.equal(direct.visits.guest.state, 'wandering');
+  const walking = gamePlan(direct, atlas, SUNSET_LAYOUT, true, 'wallpaper');
+  assert.notDeepEqual(walking.overlay, paused.overlay, 'walking commands differ from the greeting pose');
+  assert.deepEqual(JSON.parse(engine.gameSnapshotJSON(true, 'wallpaper')), walking);
+});
+
+test('a guest walks a real stride, bows on arrival and keeps small idle motions instead of sliding as a statue', () => {
+  const game = arriving();
+  let guest = game.visits.guest;
+  assert.ok(guest);
+  assert.equal(guest.state, 'arriving');
+  const still = JSON.stringify(guest);
+  const start = visitorMotion(guest);
+  assert.equal(start.walking, true); assert.ok(start.phase > 0 && start.phase < .3);
+  assert.equal(JSON.stringify(guest), still, 'building motion never mutates the visit state');
+  const x0 = guest.x, walked0 = guest.walked;
+  ticks(game, 30);
+  guest = game.visits.guest;
+  const walked = guest.walked - walked0;
+  assert.ok(walked >= 14 && walked <= 16, `half a second covers about 15 px, got ${walked}`);
+  assert.ok(Math.abs(guest.x - x0) >= 14);
+  assert.ok(visitorMotion(guest).phase > .5);
+  const bobs = new Set();
+  for (let tick = 0; tick < 45; tick++) { ticks(game, 1); bobs.add(visitorMotion(game.visits.guest).bob.toFixed(2)); }
+  assert.ok(bobs.size >= 2, 'the step bob changes through the walk cycle');
+  let guard = 0;
+  while (game.visits.guest && game.visits.guest.state !== 'pausing' && guard++ < 20000) ticks(game, 1);
+  guest = game.visits.guest;
+  assert.equal(guest.state, 'pausing');
+  assert.equal(guest.pauseKind, 'notice');
+  assert.equal(visitorMotion(guest).walking, false);
+  assert.equal(visitorMotion(guest).bob, 0);
+  let bowed = false;
+  for (let tick = 0; tick < 54; tick++) { ticks(game, 1); if (visitorMotion(game.visits.guest).bow > .9) bowed = true; }
+  assert.ok(bowed, 'the first stop has a readable greeting nod');
+});
+
+test('long-lived quiet life varies its pause performances and still never starts a battle', () => {
+  const game = quiet(51), kinds = new Set(), states = new Set();
+  for (let tick = 0; tick < 30 * 60 * 60; tick++) {
+    advanceGame(game, 1 / 60);
+    const guest = game.visits.guest;
+    if (!guest) continue;
+    states.add(guest.state); kinds.add(guest.state === 'pausing' ? guest.pauseKind : 'walking');
+    assert.equal(game.visits.guest, guest);
+    assert.equal(game.enemies.length, 0); assert.equal(game.phase, 'rest');
+  }
+  assert.deepEqual([...states].sort(), ['arriving', 'leaving', 'pausing', 'wandering']);
+  assert.ok(kinds.has('notice') && kinds.has('gaze') && kinds.has('fidget'));
+  // The thirty-minute boundary can land inside an exit; let the current guest finish.
+  for (let tick = 0; tick < 600 && game.visits.guest; tick++) advanceGame(game, 1 / 60);
+  assert.equal(game.visits.guest, null);
 });

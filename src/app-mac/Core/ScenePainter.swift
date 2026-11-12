@@ -135,11 +135,24 @@ public final class ScenePainter {
         arenaBackdrops[viewport] = result
         return result
     }
+    /// Each generated rival has its own independently loaded sheet/atlas. A nil id keeps
+    /// older fixtures on the single Lumie sheet; an unknown id falls back to code drawing.
+    private func bossSprite(for command: DrawCommand) -> (frames: [CGImage], atlas: BossAtlas)? {
+        if let id = command.bossId {
+            if let frames = engine.assets.bossFramesByBoss[id], let atlas = engine.assets.bossAtlasesByBoss[id] {
+                return (frames, atlas)
+            }
+            if id == "lumie", let atlas = engine.assets.bossAtlas { return (engine.assets.bossFrames, atlas) }
+            return nil
+        }
+        if let atlas = engine.assets.bossAtlas { return (engine.assets.bossFrames, atlas) }
+        return nil
+    }
     private func drawCommands(_ commands: [DrawCommand], in context: CGContext) throws {
         for command in commands {
             if command.kind == "sprite", let sheet = command.sheet, sheet != "hero" {
                 let available = sheet == "boss"
-                    ? engine.assets.bossAtlas != nil && engine.assets.bossFrames.indices.contains(command.frame ?? -1)
+                    ? (bossSprite(for: command)?.frames.indices.contains(command.frame ?? -1) ?? false)
                     : engine.assets.poseSprites[sheet]?.frames.indices.contains(command.frame ?? -1) == true
                 if !available {
                     // Recurse before translating/setting alpha: fallback is already camera-relative.
@@ -160,8 +173,9 @@ public final class ScenePainter {
                 } else { context.fill(CGRect(x: 0, y: 0, width: width, height: height)) }
             case "sprite":
                 let frames: [CGImage], anchor: Anchor, frameWidth: Int, frameHeight: Int
-                if command.sheet == "boss", let atlas = engine.assets.bossAtlas {
-                    frames = engine.assets.bossFrames; anchor = atlas.anchor; frameWidth = atlas.frameWidth; frameHeight = atlas.frameHeight
+                if command.sheet == "boss", let sprite = bossSprite(for: command) {
+                    frames = sprite.frames; anchor = sprite.atlas.anchor
+                    frameWidth = sprite.atlas.frameWidth; frameHeight = sprite.atlas.frameHeight
                 } else if let name = command.sheet, let sprite = engine.assets.poseSprites[name] {
                     frames = sprite.frames; anchor = sprite.atlas.anchor; frameWidth = sprite.atlas.frameWidth; frameHeight = sprite.atlas.frameHeight
                 } else {
@@ -220,10 +234,21 @@ public final class ScenePainter {
         if let battle = plan.battle { try drawCommands(battle.commands, in: context) }
         else {
             context.saveGState()
-            context.translateBy(x: plan.x, y: plan.floorY)
-            context.scaleBy(x: CGFloat(plan.facing), y: 1)
-            let atlas = engine.assets.configuration.atlas
-            image(engine.assets.frames[plan.frame], rect: CGRect(x: -atlas.anchor.x, y: -atlas.anchor.y, width: Double(atlas.frameWidth), height: Double(atlas.frameHeight)), context: context)
+            let motion = plan.motion
+            context.translateBy(x: plan.x + (motion?.offsetX ?? 0), y: plan.floorY - (motion?.lift ?? 0))
+            if let rotation = motion?.rotation, rotation != 0 { context.rotate(by: rotation) }
+            context.scaleBy(x: CGFloat(plan.facing) * (motion?.scaleX ?? 1), y: motion?.scaleY ?? 1)
+            // Apply one identical foot-pivot transform to either sheet, never both.
+            // Keep the old16 guard above even when a loaded life frame is selected.
+            if let frame = plan.lifeFrame, let sprite = engine.assets.lifeSprite, sprite.frames.indices.contains(frame) {
+                let atlas = sprite.atlas
+                image(sprite.frames[frame], rect: CGRect(x: -atlas.anchor.x, y: -atlas.anchor.y,
+                                                         width: Double(atlas.frameWidth), height: Double(atlas.frameHeight)), context: context)
+            } else {
+                let atlas = engine.assets.configuration.atlas
+                image(engine.assets.frames[plan.frame], rect: CGRect(x: -atlas.anchor.x, y: -atlas.anchor.y,
+                                                                    width: Double(atlas.frameWidth), height: Double(atlas.frameHeight)), context: context)
+            }
             context.restoreGState()
         }
         if let overlay = plan.overlay { try drawCommands(overlay, in: context) }

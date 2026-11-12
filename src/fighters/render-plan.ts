@@ -45,13 +45,20 @@ const bannerFor = (game: FightersGame): { title: string; subtitle: string; durat
 
 export function gamePlan(game: FightersGame, atlas: SpriteAtlas, appearance: RenderAppearance = {}, decorations = true,
   presentation: 'preview' | 'wallpaper' = 'preview', motes: readonly Mote[] = motesFor(game.world.seed)): ScenePlan {
-  const base = scenePlan(game.world, atlas, motes, appearance, decorations);
+  const returningHome = game.route === 'arena' && game.phase === 'return' && game.phaseAge >= ARENA.teleportTick;
+  const home = game.phase === 'rest' || game.phase === 'result' || returningHome;
+  // The "notices you" reaction owns the frame for ~1.2s; do not fight it with an idle emote.
+  const cueing = presentation === 'preview' && game.mode === 'auto' && game.phase === 'rest' && game.cue != null
+    && game.world.actor.state === 'idle' && game.tick - game.cue.startedTick < CALL_POSE_TICKS;
+  // Manual preview/result/combat keep their composition. The independent passive
+  // wallpaper still lives normally while the foreground game is being played.
+  const passiveManual = presentation === 'wallpaper' && game.mode === 'manual';
+  const acting = (passiveManual || (home && game.mode === 'auto')) && !cueing;
+  const base = scenePlan(game.world, atlas, motes, appearance, decorations, { acting });
   const ui = gameUI(game);
   base.game = ui;
   // A manual game never turns the passive desktop surface into an input/HUD surface.
   if (presentation === 'wallpaper' && game.mode === 'manual') return base;
-  const returningHome = game.route === 'arena' && game.phase === 'return' && game.phaseAge >= ARENA.teleportTick;
-  const home = game.phase === 'rest' || game.phase === 'result' || returningHome;
   const roomRoute = game.route === 'room';
   const camera = home ? 120 : Math.round(game.cameraX);
   const p = new Painter(camera);
@@ -207,11 +214,10 @@ export function gamePlan(game: FightersGame, atlas: SpriteAtlas, appearance: Ren
     // B03: a preview-only "notices you" pose for ~1.2s. Fixed feet/scale, no particles,
     // no text in the scene. The passive wallpaper presentation never reaches this branch
     // with a cue, so its command stream stays byte-identical before/after a call.
-    if (presentation === 'preview' && game.mode === 'auto' && game.phase === 'rest' && game.cue
-      && game.world.actor.state === 'idle' && game.tick - game.cue.startedTick < CALL_POSE_TICKS) {
-      base.frame = atlas.animations.turn.frames[1]!;
-    }
-    base.overlay = p.commands;
+    if (cueing) base.frame = atlas.animations.turn.frames[1]!;
+    // scenePlan may have emitted a small idle performance (notes, hearts, dust); keep it
+    // behind the visitor/game layer rather than dropping it.
+    base.overlay = [...(base.overlay ?? []), ...p.commands];
     return base;
   }
 

@@ -7,9 +7,15 @@ export type Phase = 'rest' | 'intro' | 'battle' | 'roundClear' | 'bossIntro' | '
 export type Route = 'short' | 'skirmish' | 'auto' | 'full' | 'room' | 'arena' | 'endless';
 export type BossId = 'lumie' | 'shio' | 'yume';
 export type StageId = 'terrace' | 'terrace-night' | 'terrace-rain' | 'pier-dawn' | 'garden-dawn' | 'courtyard-snow';
+/** A visitor's pause is a small read-only performance; it never reaches combat state. */
+export type VisitPause = 'notice' | 'gaze' | 'fidget';
 export interface VisitGuest {
   bossId: BossId; x: number; y: number; facing: Facing; targetX: number; exitX: number;
   state: 'arriving' | 'wandering' | 'pausing' | 'leaving'; age: number; stateAge: number; leaveAt: number; pauseUntil: number;
+  /** Total walked distance: the stride phase survives stop/start without extra RNG. */
+  walked: number;
+  /** The first pause is a greeting; later pauses vary between quiet idle behaviours. */
+  pauseKind: VisitPause; greeted: boolean;
 }
 export interface VisitsState {
   enabled: boolean; randomState: number; idleTicks: number; nextAt: number;

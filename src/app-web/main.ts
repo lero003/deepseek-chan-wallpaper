@@ -183,6 +183,10 @@ async function bootstrap(): Promise<void> {
       arena: arena.status === 'fulfilled' ? arena.value : null,
       variants: [] as VariantImages[],
     };
+    if (art.lifeUrl) {
+      try { images.life = await loadImage(art.lifeUrl); }
+      catch { /* Extra gestures are optional; the approved sixteen frames stay available. */ }
+    }
     if (art.matteUrl && matte.status === 'rejected') console.error('[kujira] Wallpaper matte failed to load; using the room-only backdrop.', matte.reason);
     if (art.bossUrl && boss.status === 'rejected') console.error('[kujira] Optional rival image failed to load; using the code-only rival.', boss.reason);
     if (art.arenaBackdropUrl && arena.status === 'rejected') console.error('[kujira] Optional arena backdrop failed to load; using the code-drawn terrace.', arena.reason);

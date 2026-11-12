@@ -143,6 +143,50 @@ test('missing, wrong-sized or invalid optional boss resources use fallback witho
 }));
 
 const local = new URL('../private-art/runtime/', import.meta.url);
+const localRivalIds = ['shio', 'yume'];
+const hasLocalRivals = localRivalIds.every(id => existsSync(new URL(`fighters/${id}/sheet.png`, local)));
+
+test('generated Ritsuka and Yume sheets are binary, grounded, clip-free and ledger-backed', { skip: !hasLocalRivals }, async () => {
+  const manifest = JSON.parse(await readFile(new URL('manifest.json', local), 'utf8'));
+  for (const id of localRivalIds) {
+    const atlas = parseBossAtlas(JSON.parse(await readFile(new URL(`fighters/${id}/atlas.json`, local), 'utf8')));
+    const image = decodePng(await readFile(new URL(`fighters/${id}/sheet.png`, local)));
+    assert.equal(image.width, 384); assert.equal(image.height, 224);
+    assert.equal(atlas.frameWidth, 96); assert.equal(atlas.frameHeight, 112);
+    const hashes = [], colors = new Set();
+    for (let frame = 0; frame < 8; frame++) {
+      const x0 = frame % 4 * 96, y0 = Math.floor(frame / 4) * 112;
+      let bottom = -1, count = 0, left = 96, right = -1;
+      const bytes = [];
+      for (let y = 0; y < 112; y++) for (let x = 0; x < 96; x++) {
+        const offset = ((y0 + y) * image.width + x0 + x) * 4;
+        const pixel = image.data.subarray(offset, offset + 4), alpha = pixel[3];
+        assert.ok(alpha === 0 || alpha === 255, `${id} frame ${frame}: binary alpha only`);
+        if (x === 0 || x === 95 || y === 0 || y === 111) assert.equal(alpha, 0);
+        if (alpha) { bottom = Math.max(bottom, y); count++; left = Math.min(left, x); right = Math.max(right, x); colors.add(`${pixel[0]},${pixel[1]},${pixel[2]}`); }
+        else assert.deepEqual([...pixel], [0, 0, 0, 0], `${id} frame ${frame}: hidden RGB is removed`);
+        bytes.push(...pixel);
+      }
+      assert.ok(count > 1600, `${id} frame ${frame} contains a detailed figure`);
+      assert.equal(bottom, 107, `${id} frame ${frame} shares the foot line`);
+      assert.ok(left >= 2 && right <= 93, `${id} frame ${frame} leaves a two-pixel margin`);
+      hashes.push(hash(Buffer.from(bytes)));
+    }
+    assert.ok(colors.size <= 80, `${id} shares at most 80 colours`);
+    assert.equal(new Set(hashes).size, 8, `${id} has eight genuinely distinct poses`);
+    for (const name of [`fighters/${id}/sheet.png`, `fighters/${id}/atlas.json`]) {
+      const bytes = await readFile(new URL(name, local));
+      const entries = manifest.assets.filter(asset => asset.path === name);
+      assert.equal(entries.length, 1, `${name} is in the ledger once`);
+      assert.equal(entries[0].sha256, hash(bytes));
+      assert.match(entries[0].permission.status, /^pending-/);
+      for (const key of ['webPublication', 'sourceRedistribution', 'macAppBundling']) assert.equal(entries[0].permission[key], false);
+    }
+    assert.ok(existsSync(new URL(`../fighters/${id}-eight-master-v01.png`, local)), `${id} master retained`);
+    assert.ok(existsSync(new URL(`../fighters/${id}-eight-v01.prompt.txt`, local)), `${id} prompt retained`);
+  }
+});
+
 const hasLocalBoss = existsSync(new URL('fighters/lumie/sheet.png', local));
 
 test('local boss poses have distinct silhouettes, shared 80-color binary alpha, transparent gutters and aligned feet', { skip: !hasLocalBoss }, async () => {
@@ -230,3 +274,70 @@ test('rival image and atlas failures are isolated, including the intro dummy and
     assert.ok(canvas.context.calls.filter(call => call[0] === 'fillRect').length > 100);
   }
 }));
+
+test('visitor motion steps and bows the still atlas while combat keeps its exact command stream', () => {
+  const source = freeze(enemy());
+  const still = new Painter(0), walk = new Painter(0), bowed = new Painter(0);
+  drawBoss(still, source, 90, { bossAtlas });
+  drawBoss(walk, source, 90, { bossAtlas },
+    { walking: true, phase: Math.PI / 2, bob: 1, lean: .02, breath: 0, bow: 0, blink: false, glance: 1 });
+  drawBoss(bowed, source, 90, { bossAtlas },
+    { walking: false, phase: 0, bob: 0, lean: 0, breath: 0, bow: .5, blink: false, glance: 1 });
+  const sprite = painter => painter.commands.find(command => command.kind === 'sprite');
+  assert.equal(sprite(still).y, 236); assert.equal(sprite(still).rotation, 0);
+  assert.equal(sprite(walk).y, 235, 'one step lifts the feet by one pixel');
+  assert.equal(sprite(walk).rotation, .02);
+  assert.ok(sprite(bowed).rotation > .06, 'a greeting tilts the still pose');
+  assert.ok(sprite(still).fallback.length > 200);
+  assert.notDeepEqual(sprite(walk).fallback, sprite(still).fallback, 'the code fallback swings too');
+  const control = new Painter(0); drawBoss(control, source, 90, { bossAtlas });
+  assert.deepEqual(control.commands, still.commands, 'combat without motion is byte-identical');
+});
+
+test('Ritsuka and Yume no longer share one recoloured body: silhouettes, props and gait all differ', () => {
+  const motion = { walking: true, phase: Math.PI / 3, bob: 1, lean: 0, breath: .4, bow: 0, blink: false, glance: 1 };
+  const drawn = bossId => {
+    const painter = new Painter(0);
+    drawBoss(painter, enemy({ bossId }), 90, {}, motion);
+    return painter.commands;
+  };
+  const shio = drawn('shio'), yume = drawn('yume');
+  assert.ok(shio.length > 300); assert.ok(yume.length > 300);
+  assert.notDeepEqual(shio, yume);
+  const geometry = commands => new Set(commands.filter(command => command.kind === 'rect')
+    .map(command => `${command.x},${command.y},${command.width},${command.height}`));
+  const a = geometry(shio), b = geometry(yume);
+  const shared = [...a].filter(item => b.has(item)).length;
+  assert.ok(shared / Math.max(a.size, b.size) < .3, `only ${shared} of ${a.size}/${b.size} shapes are shared`);
+  assert.ok(shio.some(command => command.kind === 'rect' && command.color === '#8ce2d5'));
+  assert.ok(yume.some(command => command.kind === 'rect' && command.color === '#f4c78a'));
+  // Every walk phase moves each silhouette differently; a frozen recolour would not.
+  const phases = [0, Math.PI / 2, Math.PI];
+  for (const bossId of ['shio', 'yume']) {
+    const frames = phases.map(phase => {
+      const painter = new Painter(0);
+      drawBoss(painter, enemy({ bossId }), 90, {}, { ...motion, phase });
+      return painter.commands;
+    });
+    assert.notDeepEqual(frames[0], frames[1]); assert.notDeepEqual(frames[1], frames[2]);
+  }
+});
+
+test('generated rival atlases alternate their two walking keys and use the bow key for greetings', () => {
+  const source = enemy({ state: 'enter', age: 0 });
+  const motion = phase => ({ walking: true, phase, bob: 1, lean: 0, breath: 0, bow: 0, blink: false, glance: 1 });
+  const frameFor = (extra, phase) => {
+    const painter = new Painter(0);
+    drawBoss(painter, source, 90, { bossAtlas }, { ...motion(phase), ...extra });
+    return painter.commands.find(command => command.kind === 'sprite').frame;
+  };
+  assert.equal(frameFor({}, Math.PI / 2), bossAtlas.poses.move);
+  assert.equal(frameFor({}, -Math.PI / 2), bossAtlas.poses.recover);
+  assert.equal(frameFor({ walking: false, bow: .5 }, 0), bossAtlas.poses.exit);
+  const idle = new Painter(0);
+  drawBoss(idle, enemy({ state: 'move', age: 30 }), 90, { bossAtlas },
+    { walking: false, phase: 0, bob: 0, lean: 0, breath: 0, bow: 0, blink: false, glance: 1 });
+  assert.equal(idle.commands.find(command => command.kind === 'sprite').frame, bossAtlas.poses.idle);
+  assert.equal(idle.commands.find(command => command.kind === 'sprite').fallback.every(item => item.kind === 'rect'), true,
+    'the code fallback keeps the combat pose rather than flickering between walk frames');
+});

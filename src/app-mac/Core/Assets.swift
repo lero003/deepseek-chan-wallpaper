@@ -14,9 +14,20 @@ public final class Assets {
     /// Optional wide/tall wallpaper backdrop containing the room at its approved offset.
     public let matte: CGImage?
     public let frames: [CGImage]
+    public struct LifeSprite {
+        public let atlas: LifeAtlas
+        public let frames: [CGImage]
+    }
+    /// Additional local quiet-life art; nil retains the exact approved old16 sheet.
+    public let lifeSprite: LifeSprite?
     /// An optional local-only original rival. Empty/nil selects code-only drawing.
+    /// The singular fields mirror the legacy Lumie-only resources; the maps carry each
+    /// rival independently so one invalid sheet cannot remove the other two.
     public let bossFrames: [CGImage]
     public let bossAtlas: BossAtlas?
+    public let bossFramesByBoss: [String: [CGImage]]
+    public let bossAtlasesByBoss: [String: BossAtlas]
+    public let bossSources: [String: NativeBoss]
     public let variants: [BackgroundVariant]
     /// Optional painted terrace backdrop for the fixed manual arena. nil = code-drawn stage.
     public let arenaBackdrop: CGImage?
@@ -120,12 +131,97 @@ public final class Assets {
             loadedVariants.append(BackgroundVariant(id: variant.id, label: variant.label,
                                                     background: variantBackground, matte: variantMatte))
         }
-        var loadedBossFrames: [CGImage] = []
-        var loadedBossAtlas: BossAtlas? = nil
-        if let boss = configuration.boss, let info = configuration.layout.bossAtlas {
+        var loadedBossFramesByBoss: [String: [CGImage]] = [:]
+        var loadedBossAtlasesByBoss: [String: BossAtlas] = [:]
+        var loadedBossSources: [String: NativeBoss] = [:]
+        // Read optional metadata independently from the main configuration decoder so a
+        // malformed rival entry can never prevent the room/heroine from starting.
+        let rawJSON = try JSONSerialization.jsonObject(with: configurationData) as? [String: Any]
+        let rawLayout = rawJSON?["layout"] as? [String: Any] ?? [:]
+        // Neither `life` nor `layout.lifeAtlas` participates in the required decoder.
+        // Even null/primitive/malformed metadata must leave the original heroine usable.
+        var loadedLife: LifeSprite? = nil
+        if rawJSON?["life"] != nil || rawLayout["lifeAtlas"] != nil {
+            do {
+                guard let paths = rawJSON?["life"] as? [String: Any],
+                      let sheetPath = paths["sheet"] as? String, let atlasPath = paths["atlas"] as? String,
+                      let configured = rawLayout["lifeAtlas"] as? [String: Any] else {
+                    throw KujiraError.invalid("オプション生活素材の設定が不正です。")
+                }
+                for path in [sheetPath, atlasPath] {
+                    let matches = manifest.assets.filter { $0.path == path }
+                    guard matches.count == 1, let record = matches.first,
+                          Self.sha(try bytes(path)) == record.sha256,
+                          !record.author.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                          !record.license.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                        throw KujiraError.invalid("生活素材のハッシュ・出典を確認できません：\(path)")
+                    }
+                }
+                let info = try JSONDecoder().decode(LifeAtlas.self, from: bytes(atlasPath))
+                let expected = try JSONDecoder().decode(LifeAtlas.self, from: JSONSerialization.data(withJSONObject: configured))
+                try info.validate()
+                guard info == expected else { throw KujiraError.invalid("生活アトラスと設定が一致しません。") }
+                let sheet = try image(sheetPath)
+                guard sheet.width == info.frameWidth * info.columns, sheet.height == info.frameHeight * info.rows else {
+                    throw KujiraError.invalid("生活シートの寸法がアトラスと一致しません。")
+                }
+                var extracted: [CGImage] = []
+                for index in 0..<24 {
+                    let rect = CGRect(x: index % info.columns * info.frameWidth, y: index / info.columns * info.frameHeight,
+                                      width: info.frameWidth, height: info.frameHeight)
+                    guard let frame = sheet.cropping(to: rect) else { throw KujiraError.invalid("生活演技を切り出せません。") }
+                    extracted.append(frame)
+                }
+                loadedLife = LifeSprite(atlas: info, frames: extracted)
+            } catch {
+                NSLog("[kujira] Optional life sheet unavailable; using approved sixteen frames: %@", error.localizedDescription)
+            }
+        }
+        self.lifeSprite = loadedLife
+        let rawBosses = rawJSON?["bosses"] as? [String: Any] ?? [:]
+        let rawBossAtlases = rawLayout["bossAtlases"] as? [String: Any] ?? [:]
+        for id in rawBosses.keys.sorted() {
+            do {
+                guard let entry = rawBosses[id] as? [String: Any],
+                      let sheetPath = entry["sheet"] as? String,
+                      let atlasPath = entry["atlas"] as? String,
+                      let configuredAtlas = rawBossAtlases[id] as? [String: Any] else {
+                    throw KujiraError.invalid("ライバル素材の設定が不正です：\(id)")
+                }
+                for name in [sheetPath, atlasPath] {
+                    let matches = manifest.assets.filter { $0.path == name }
+                    guard matches.count == 1, let record = matches.first,
+                          Self.sha(try bytes(name)) == record.sha256, !record.author.isEmpty, !record.license.isEmpty else {
+                        throw KujiraError.invalid("ライバル素材のハッシュ・出典を確認できません：\(name)")
+                    }
+                }
+                let info = try JSONDecoder().decode(BossAtlas.self, from: bytes(atlasPath))
+                let expected = try JSONDecoder().decode(BossAtlas.self, from: JSONSerialization.data(withJSONObject: configuredAtlas))
+                try info.validate()
+                guard info == expected else { throw KujiraError.invalid("ライバルアトラスと設定が一致しません：\(id)") }
+                let sheet = try image(sheetPath)
+                guard sheet.width == info.frameWidth * info.columns, sheet.height == info.frameHeight * info.rows else {
+                    throw KujiraError.invalid("ライバルシートの寸法がアトラスと一致しません：\(id)")
+                }
+                var extracted: [CGImage] = []
+                for index in 0..<(info.columns * info.rows) {
+                    let rect = CGRect(x: index % info.columns * info.frameWidth, y: index / info.columns * info.frameHeight,
+                                      width: info.frameWidth, height: info.frameHeight)
+                    guard let frame = sheet.cropping(to: rect) else { throw KujiraError.invalid("ライバル姿勢を切り出せません：\(id)") }
+                    extracted.append(frame)
+                }
+                loadedBossAtlasesByBoss[id] = info
+                loadedBossFramesByBoss[id] = extracted
+                loadedBossSources[id] = NativeBoss(sheet: sheetPath, atlas: atlasPath)
+            } catch {
+                NSLog("[kujira] Optional rival %@ unavailable; using code-only fallback: %@", id, error.localizedDescription)
+            }
+        }
+        // Legacy prepared resources carry a single `boss` plus layout.bossAtlas.
+        // Keep that path valid without overwriting a map entry that already loaded.
+        if loadedBossAtlasesByBoss["lumie"] == nil, let boss = configuration.boss, let info = configuration.layout.bossAtlas {
             do {
                 try info.validate()
-                // Optional must not mean unverified: keep the same manifest/hash gate.
                 for name in [boss.sheet, boss.atlas] {
                     let matches = manifest.assets.filter { $0.path == name }
                     guard matches.count == 1, let entry = matches.first,
@@ -147,11 +243,10 @@ public final class Assets {
                     guard let frame = bossSheet.cropping(to: rect) else { throw KujiraError.invalid("ライバル姿勢を切り出せません。") }
                     extracted.append(frame)
                 }
-                loadedBossFrames = extracted
-                loadedBossAtlas = info
+                loadedBossFramesByBoss["lumie"] = extracted
+                loadedBossAtlasesByBoss["lumie"] = info
+                loadedBossSources["lumie"] = boss
             } catch {
-                // The prepared configuration still supplies fallback commands to both painters.
-                // Missing or corrupt optional art cannot make the approved room/hero unavailable.
                 NSLog("[kujira] Optional rival art unavailable; using code-only rival: %@", error.localizedDescription)
             }
         }
@@ -175,16 +270,12 @@ public final class Assets {
             }
         }
         var loadedSprites: [String: PoseSprite] = [:]
-        // Read optional metadata independently, not as required fields of the main
-        // configuration decoder. A malformed sheet can never prevent room startup.
-        let raw = try JSONSerialization.jsonObject(with: configurationData) as? [String: Any]
-        let entries = raw?["sprites"] as? [String: Any] ?? [:]
-        let layout = raw?["layout"] as? [String: Any] ?? [:]
+        let entries = rawJSON?["sprites"] as? [String: Any] ?? [:]
         for name in ["combat", "slime", "popup"] {
             guard let entry = entries[name] else { continue }
             do {
                 guard let paths = entry as? [String: Any], let sheetPath = paths["sheet"] as? String,
-                      let atlasPath = paths["atlas"] as? String, let configured = layout[name + "Atlas"] as? [String: Any] else {
+                      let atlasPath = paths["atlas"] as? String, let configured = rawLayout[name + "Atlas"] as? [String: Any] else {
                     throw KujiraError.invalid("オプション戦闘素材の設定が不正です。")
                 }
                 for path in [sheetPath, atlasPath] {
@@ -217,8 +308,11 @@ public final class Assets {
         }
         self.poseSprites = loadedSprites
         self.arenaBackdrop = loadedArena
-        self.bossFrames = loadedBossFrames
-        self.bossAtlas = loadedBossAtlas
+        self.bossFramesByBoss = loadedBossFramesByBoss
+        self.bossAtlasesByBoss = loadedBossAtlasesByBoss
+        self.bossSources = loadedBossSources
+        self.bossFrames = loadedBossFramesByBoss["lumie"] ?? []
+        self.bossAtlas = loadedBossAtlasesByBoss["lumie"]
         self.variants = loadedVariants
         self.frames = frames
     }

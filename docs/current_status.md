@@ -1,6 +1,28 @@
 # 現在の状態 / 引き継ぎ
 
-更新: 2026-11-12 · 背景2種ずつ追加 Build13 / DSH v0.4.0 · 静かな来客 Build 12・DSH結果改善 v0.3.0 · 無限ボスラッシュPart A/B（非公開Release） · 非公開Web／個人用Mac試作 · 固定アリーナ・アーケード v0.8（Build 9）+ 背景別環境演出・生活微バリエーション + 生成アート + 壁紙の自動対戦 + 戦闘背景の外周を単色フレーム化 + Build 11 個人テスト用リリース
+更新: 2026-11-13 · 主人公の生活24キー / ローカルBuild14（未配布） · 公開済みタグ・非公開Releaseは変更なし · 非公開Web／個人用Mac試作
+
+## 現在：DeepSeekちゃん本人の生活モーション（2026-11-13）
+
+- **優先順位**：中断した改修を引き継ぎ、ボスの愛嬌より主人公の仕草を優先。「立ち絵の拡大縮小だけ」を完成扱いせず、承認済みヒレ耳基準絵＋元シートを参照して**6種類×4キー**を新規生成した。跳ねる・くすくす笑う・小さく踊る・照れ覗きと手振り・のび・自分の尾との戯れ。表情・手足・髪・尾が異なる専用コマを予備→演技→余韻→元idleの順に使う。
+- **素材保全**：[追加シート](<../private-art/runtime/character/life/sheet.png>)は80×128・4×6・足元40/124・接地123行・元の80色・二値alpha。承認済み16コマを含む既存27素材のSHA不変。[加工](<../private-art/production/life/prepare_life.py>)を再実行し、sheet/atlasのbyte再現を確認した。原本・処理記録・QAはignored、権利pendingを維持。
+- **生活リズム**：cosmetic専用RNG／六種バッグで偏りと連続重複を防ぐ。歩行・睡眠・戦闘の基礎RNGと時間は不変、既存idleに収まる仕草を選ぶ。原尺優先、短縮は最大25%まで（8seed×30分×3moodでは96%以上原尺）。覚醒中の平均開始間隔は夕凪16.74秒／雨13.56秒／夜16.41秒、歩行や睡眠中は遅れる。通常seedの最初は4.9秒から原尺hop。歩行中も稀に2pxの軽いスキップ。
+- **Web/Mac共通**：[専用メタデータ](<../src/render/life-art.ts>)を独立検証。専用コマは全体scale1・回転0・横ずれ0、地上はlift0、跳ねる時だけ8pxの短い弧。失敗したシートのみ元16コマへ戻る。戦闘・手動結果へ重ねず、呼びかけはプレビューだけ優先。手動ゲーム中でも受動壁紙の生活は止めない。非表示／静止／スリープの停止方針は不変。
+- **実行済み検証**：`npm run check`・`npm run build`、placeholder Webビルドが成功（Node **256件・skipなし**、型検査、既定5素材再現）。`npm run mac:test`と`-- --local-preview`はSwift **各39件・8 suites成功**。15/30/60fps決定性・尺の下限・全六種出現・呼びかけ／戦闘／受動壁紙の分離・24キーの接地／余白／非重複／透過／80色／SHA・Web/native未知キー拒否・optional故障独立・一人だけ描画を回帰検査。独立レビューの指摘も修正した。
+- **描画QA**：最終アプリの正しいproduction歩行範囲から実際のseed時刻を計算し、CoreGraphicsで**272連続フレーム**を15fps相当で書き出した。[6仕草一覧](<../private-art/qa/heroine-life/six-gestures-native.png>)／[全キーの連続確認](<../private-art/qa/heroine-life/all-gestures-filmstrip-native.png>)を目視。[GIF](<../private-art/qa/heroine-life/six-gestures-native.gif>)は仕草間の待ち時間だけを省いたネイティブ書き出しで、可視デスクトップの受入試験ではない。
+- **個人用Build14**：[アプリ](<../private-art/macos-out/20261112213257-5a6c6a4f/くじらの散歩道.app>)／[ZIP](<../private-art/macos-out/20261112213257-5a6c6a4f/KujiraWallpaper-LifeMotion-B14-arm64-local-preview.zip>)、SHA-256 `544db0326ea86e204ed8ddff8541bc09ff7e7593a14738f1ef1c144c8a9b8ee7`。アドホック署名・自己テスト2種・ZIP展開後の全byte照合／署名／単体実行まで成功。専用sheet/atlas同梱byteとmanifest SHAも照合。DMG未作成、未公証・Apple Siliconローカル専用。旧版を終了して新版を開く。自動置換や公開配布はしていない。
+- **残る受入／次の行動**：実壁紙での仕草の読みやすさ・頻度・キーの切替、他Mac、可視Web/Safari/Chrome、Space／スリープ／30分負荷は未確認。静止画やGIFの合格で実機合格と言わない。必要なら本人の感想から個々の間／追加中割を詰める。元絵を上書きせず、新素材をforce-addしない。Playwright等の導入、壁紙／ログイン設定の変更なし。後続依頼で本体の`life-motion-build14`タグ付きソース同期と、別リポジトリのDSH v0.6.0追従を進める。GitHubに生成素材を追加しない。既存タグは不変。
+
+## 直前：静かな来客・リツカ／ユメの生成アート（2026-11-13）
+
+- ユーザー指摘「ボスキャラが家に来るが動きが全然ない」「キャラの作り込みが微妙なのがいる」「画像生成できないかな」への改修。承認済み主人公16コマ・背景・マット・リュミエ8姿勢シートはbyte不変で、新依存・新設定なし。
+- **動きと間**：歩行速度を18→30px/秒へ。歩行位相は歩いた距離（`stride=22px`）から作るため、停止・再歩行でも足が飛ばない。最初の停止で会釈、以降は「見る」「もじもじする」を交互に。退室は近い側の端へ。滞在最長は90→100秒。待機中も琥珀の小さな瞬き・呼吸・視線で、静止画の置き物に見えないようにした。
+- **生成アート**：汐見のリツカ（潮切りショートボブ＋高い潮尾、波打ちスカーフ、黒羽織・白シャツ・琥珀の帯、腰の短刀、潮図の巻物）と紙灯のユメ（夜紫の長髪＋紙タグ付き三つ編み、折り紙リボン、生成りのブラウス＋製本エプロン、道具帯、本と提灯）の8姿勢をGPT Imageで新規生成。1536×1024マスター→二値透過・足元48/108・共有80色の96×112px×8枚に加工し、`private-art/runtime/fighters/{shio,yume}/`へ配置。マスター・プロンプト・参照画像・処理スクリプト・台帳SHAはGit対象外で保存。公開・再配布・Mac同梱はpending、デザイン最終承認や連続動作の実機受け入れではない。
+- **来客と戦闘**：ローカル版の来客は生成アトラスの`move`と`recover`を歩行位相で交互に表示する2コマ歩行＋上下動・前傾・足元の粒。最初の停止は`exit`（会釈）、待機は`idle`。endlessの生成ライバル戦闘にも同アトラスを使用。placeholder・画像のない環境・読込失敗時は従来のコード描画（描き直したリツカ／ユメ）へ戻る。手動アリーナのボス枠はリュミエのまま。
+- **ネイティブ対応**：`configuration.bosses`と`layout.bossAtlases`（任意・独立）を追加。`Assets`がライバルごとにsheet/atlas/manifest SHA/寸法/設定一致を検証してフレームを保持し、`DrawCommand.bossId`で`ScenePainter`が正しいシートを選ぶ。1体の破損が他2体やlegacy Lumieを落とさない。Macビルドの同梱リストも3体分へ更新。
+- **検証**：`npm run check`は型検査＋Node **235件・skipなし**＋既定5素材byte再現成功。`npm run build`（通常）とplaceholder Webビルド成功。`npm run mac:test`と`-- --local-preview`はSwift **各32件・7 suites成功**。新規に生成シートの二値透過/接地/80色/台帳SHA、native per-boss選択、1体破損時の独立フォールバック、来客のmove/recover切替と会釈フレームを検査。CoreGraphicsの来客・生成ライバル静止画を再生成して目視。
+- **未変更**：手動アリーナのボス枠はリュミエのまま。壁紙をゲーム面に戻していない。来客は非戦闘・非HUDのまま。実壁紙での連続動作・テンポ・負荷・他Mac受入、実機の画像読込/描画は未実施。Playwright等は導入していない。
+- **ローカルMac成果物（Build 13・個人用）**：`node scripts/build-macos.mjs --local-preview`成功。3体のsheet/atlas同梱、アドホック署名、`--self-test`と`--fighters-self-test`、ZIP展開後検証まで成功。`private-art/macos-out/20261112205831-fc885719/くじらの散歩道.app` / `KujiraWallpaper-Backgrounds-B13-arm64-local-preview.zip`（SHA-256 `75650099a9831de3caeddaa54737a63a89fa0b1dc498ae96828f4af364a706e5`）。DMGは未作成、Developer ID署名・公証・実機UI受入は未実施。
 
 ## 現在：書斎・戦闘背景を各2種類追加（2026-11-12）
 

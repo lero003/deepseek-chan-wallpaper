@@ -4,9 +4,11 @@ import { existsSync } from 'node:fs';
 import { resolve, dirname, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
+import { crc32, inflateSync } from 'node:zlib';
 import { SUNSET_LAYOUT, PLACEHOLDER_LAYOUT } from '../src/art/scene-profiles.ts';
 import { createWorld, advanceWorld, seedFromText } from '../src/world/world.ts';
 import { parseAtlas } from '../src/render/atlas.ts';
+import { parseLifeAtlas } from '../src/render/life-art.ts';
 import { motesFor, scenePlan } from '../src/render/scene-plan.ts';
 import { createGame, advanceGame } from '../src/fighters/game.ts';
 import { STAGE_WIDTH } from '../src/fighters/definitions.ts';
@@ -16,6 +18,54 @@ import { combatArtFixtures } from './combat-art-fixtures.mjs';
 
 export const projectRoot = fileURLToPath(new URL('../', import.meta.url));
 export const hash = bytes => createHash('sha256').update(bytes).digest('hex');
+
+// Validate optional PNGs before selecting them for packaging, without a native tool
+// or extra image dependency. ImageIO still independently decodes them at app startup.
+function validateLifePNG(png, atlas) {
+  const invalid = () => { throw new Error('Life PNG data or dimensions do not match its atlas.'); };
+  if (png.length < 33 || !png.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))) invalid();
+  let offset = 8, header, ended = false, paletteEntries = 0;
+  const compressed = [];
+  while (offset < png.length) {
+    if (offset + 12 > png.length) invalid();
+    const length = png.readUInt32BE(offset), end = offset + length + 12;
+    if (end > png.length) invalid();
+    const type = png.toString('ascii', offset + 4, offset + 8);
+    const data = png.subarray(offset + 8, end - 4);
+    if (!/^[A-Za-z]{4}$/.test(type) || crc32(png.subarray(offset + 4, end - 4)) !== png.readUInt32BE(end - 4)) invalid();
+    if (offset === 8 && type !== 'IHDR') invalid();
+    if (type === 'IHDR') {
+      if (header || length !== 13) invalid();
+      header = data;
+    } else if (type === 'IDAT') compressed.push(data);
+    else if (type === 'PLTE') {
+      if (paletteEntries || length === 0 || length > 768 || length % 3 !== 0) invalid();
+      paletteEntries = length / 3;
+    } else if (type === 'IEND') {
+      if (length !== 0 || end !== png.length) invalid();
+      ended = true;
+    } else if (type[0] === type[0].toUpperCase()) invalid();
+    offset = end;
+  }
+  if (!header || !ended || compressed.length === 0) invalid();
+  const width = header.readUInt32BE(0), height = header.readUInt32BE(4), depth = header[8], color = header[9];
+  const depths = { 0: [1, 2, 4, 8, 16], 2: [8, 16], 3: [1, 2, 4, 8], 4: [8, 16], 6: [8, 16] };
+  if (width !== atlas.frameWidth * atlas.columns || height !== atlas.frameHeight * atlas.rows
+    || !depths[color]?.includes(depth) || header[10] !== 0 || header[11] !== 0 || header[12] > 1
+    || (color === 3 && (paletteEntries === 0 || paletteEntries > 2 ** depth))) invalid();
+  const channels = { 0: 1, 2: 3, 3: 1, 4: 2, 6: 4 }[color];
+  const passes = header[12] === 0 ? [[0, 0, 1, 1]]
+    : [[0, 0, 8, 8], [4, 0, 8, 8], [0, 4, 4, 8], [2, 0, 4, 4], [0, 2, 2, 4], [1, 0, 2, 2], [0, 1, 1, 2]];
+  const rows = passes.flatMap(([x, y, dx, dy]) => {
+    const w = Math.max(0, Math.ceil((width - x) / dx)), h = Math.max(0, Math.ceil((height - y) / dy));
+    return w > 0 ? Array(h).fill(Math.ceil(w * channels * depth / 8) + 1) : [];
+  });
+  const expected = rows.reduce((sum, count) => sum + count, 0);
+  const pixels = inflateSync(Buffer.concat(compressed), { maxOutputLength: expected });
+  if (pixels.length !== expected) invalid();
+  let cursor = 0;
+  for (const count of rows) { if (pixels[cursor] > 4) invalid(); cursor += count; }
+}
 
 export async function prepareMacResources({ localPreview = false, output } = {}) {
   const root = await realpath(projectRoot);
@@ -54,21 +104,63 @@ export async function prepareMacResources({ localPreview = false, output } = {})
       paths.push(item.scene, item.matte);
     }
   }
-  // Rival art is an optional ignored enhancement, only in explicit local-preview mode.
-  // The committed placeholder never imports or bundles private files.
-  let boss;
-  const bossPaths = { sheet: 'fighters/lumie/sheet.png', atlas: 'fighters/lumie/atlas.json' };
-  if (localPreview && Object.values(bossPaths).every(name => existsSync(resolve(source, name)))) {
-    for (const name of Object.values(bossPaths)) {
-      const input = resolve(source, name);
-      if (await realpath(input) !== input || !(await lstat(input)).isFile()) throw new Error(`Refuse linked or non-file rival asset: ${name}`);
+  // Additional quiet-life art is independent from the approved sixteen frames. Only
+  // an explicitly authorized local preview may select it, after both files validate.
+  let life;
+  const lifePaths = { sheet: 'character/life/sheet.png', atlas: 'character/life/atlas.json' };
+  if (localPreview && Object.values(lifePaths).every(name => existsSync(resolve(source, name)))) {
+    try {
+      const buffers = {};
+      for (const name of Object.values(lifePaths)) {
+        const input = resolve(source, name);
+        if (await realpath(input) !== input || !(await lstat(input)).isFile()) throw new Error(`Refuse linked or non-file life asset: ${name}`);
+        const bytes = await readFile(input);
+        const records = manifest.assets.filter(asset => asset.path === name);
+        if (records.length !== 1 || records[0].sha256 !== hash(bytes)
+          || typeof records[0].author !== 'string' || !records[0].author.trim()
+          || typeof records[0].license !== 'string' || !records[0].license.trim()) throw new Error(`Life asset provenance mismatch: ${name}`);
+        buffers[name] = bytes;
+      }
+      const lifeAtlas = parseLifeAtlas(JSON.parse(buffers[lifePaths.atlas].toString('utf8')));
+      validateLifePNG(buffers[lifePaths.sheet], lifeAtlas);
+      life = lifePaths;
+      layout = { ...layout, lifeAtlas };
+      paths.push(life.sheet, life.atlas);
+    } catch (error) {
+      console.warn('[kujira] Optional life sheet unavailable; keeping approved sixteen frames.', error.message);
     }
-    const bossAtlas = parseBossAtlas(JSON.parse(await readFile(resolve(source, bossPaths.atlas), 'utf8')));
-    boss = bossPaths;
-    layout = { ...layout, bossAtlas,
-      provenance: `${layout.provenance} 綴星リュミエは文章・思考を着想にGPT Imageで新規制作した非公式オリジナルライバル。Claude／Anthropicの公式キャラクター・提携作品ではありません。公式ロゴ・第三者素材なし。8姿勢はローカル専用で、専用戦闘アニメーションの自然さは未確認です。` };
-    paths.push(boss.sheet, boss.atlas);
   }
+  // Rival art is an optional ignored enhancement, only in explicit local-preview mode.
+  // Each rival has its own optional sheet/atlas: one missing or invalid rival must not
+  // remove the others, and the committed placeholder never imports or bundles private files.
+  const rivalCandidates = {
+    lumie: { sheet: 'fighters/lumie/sheet.png', atlas: 'fighters/lumie/atlas.json' },
+    shio: { sheet: 'fighters/shio/sheet.png', atlas: 'fighters/shio/atlas.json' },
+    yume: { sheet: 'fighters/yume/sheet.png', atlas: 'fighters/yume/atlas.json' },
+  };
+  const bosses = {};
+  const bossAtlases = {};
+  if (localPreview) {
+    for (const [id, candidate] of Object.entries(rivalCandidates)) {
+      if (!Object.values(candidate).every(name => existsSync(resolve(source, name)))) continue;
+      try {
+        for (const name of Object.values(candidate)) {
+          const input = resolve(source, name);
+          if (await realpath(input) !== input || !(await lstat(input)).isFile()) throw new Error(`Refuse linked or non-file rival asset: ${name}`);
+        }
+        bossAtlases[id] = parseBossAtlas(JSON.parse(await readFile(resolve(source, candidate.atlas), 'utf8')));
+        bosses[id] = candidate;
+        paths.push(candidate.sheet, candidate.atlas);
+      } catch (error) {
+        console.warn(`[kujira] Optional rival ${id} unavailable; keeping its code fallback.`, error.message);
+      }
+    }
+  }
+  if (Object.keys(bosses).length > 0) {
+    layout = { ...layout, ...(bossAtlases.lumie ? { bossAtlas: bossAtlases.lumie } : {}), bossAtlases,
+      provenance: `${layout.provenance} 綴星リュミエ・汐見のリツカ・紙灯のユメはいずれもGPT Imageで新規制作した非公式オリジナルライバルで、公式キャラクター・第三者素材ではありません。8姿勢シートはローカル専用で、公開・再配布・Mac同梱の許諾はpending、専用戦闘アニメーションの自然さは未確認です。` };
+  }
+  const boss = bosses.lumie;
   // Optional painted terrace backdrop for the fixed manual arena (local-preview only).
   // Absent in the committed placeholder; a missing file simply keeps the code-drawn stage.
   let arena;
@@ -119,7 +211,9 @@ export async function prepareMacResources({ localPreview = false, output } = {})
   const core = Buffer.from(chunk.code);
   await writeFile(resolve(dest, 'world.js'), core);
   const configuration = { schemaVersion: 1, localPreviewOnly: true, coreSha256: hash(core), atlas, layout, stage: { width: STAGE_WIDTH },
-    ...(variants.length > 0 ? { variants } : {}), ...(boss ? { boss } : {}), ...(arena ? { arena } : {}), ...(Object.keys(sprites).length ? { sprites } : {}) };
+    ...(variants.length > 0 ? { variants } : {}), ...(boss ? { boss } : {}),
+    ...(Object.keys(bosses).length > 0 ? { bosses } : {}), ...(life ? { life } : {}),
+    ...(arena ? { arena } : {}), ...(Object.keys(sprites).length ? { sprites } : {}) };
   await writeFile(resolve(dest, 'configuration.json'), JSON.stringify(configuration, null, 2) + '\n');
   await writeFile(resolve(dest, 'manifest.json'), JSON.stringify({ ...manifest, assets,
     localAppPreview: { userAuthorized: localPreview, publicationAuthorized: false, thirdPartyRightsVerified: false },

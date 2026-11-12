@@ -1,4 +1,6 @@
 > 2026-11-12追記：追加依頼により舞台は4→6へ。`garden-dawn`朝凪の温室・`courtyard-snow`雪あかりの中庭を追加。ローカルWeb/DSHは新規480×270生成画像、placeholderは専用コード描画。以下のPart A/B時点の件数は履歴で、最新検証はcurrent_status.mdとbackground-additions.mdを参照。
+>
+> 2026-11-13追記：追加依頼により、汐見のリツカと紙灯のユメにもGPT Imageの8姿勢シートをローカル生成し、来客・endless戦闘・Macの任意アートへ追加した。3体とも独立した任意シートで、未提供・不正時は従来のコード描画へ戻る。公開・再配布・Mac同梱の許諾はpendingのまま。
 
 # 無限ボスラッシュ / DSH接続契約
 
@@ -13,8 +15,8 @@
 | ボスID | 表示名 / 肩書き | 基準HP | 素材 |
 | --- | --- | --- | --- |
 | `lumie` | 綴星リュミエ / 琥珀の思考家 | 30 | 既存のローカル8姿勢。未提供・不正なら従来のコード描画 |
-| `shio` | 汐見のリツカ / 潮読みの剣士（仮） | 24 | 青緑のパレット・短剣のコード描画。画像なし |
-| `yume` | 紙灯のユメ / 夜想の装丁師（仮） | 36 | 紫のパレット・紙灯のコード描画。画像なし |
+| `shio` | 汐見のリツカ / 潮読みの剣士 | 24 | ローカル生成8姿勢（GPT Image・ローカル専用）。未提供・不正なら青緑のコード描画 |
+| `yume` | 紙灯のユメ / 夜想の装丁師 | 36 | ローカル生成8姿勢（GPT Image・ローカル専用）。未提供・不正なら紫のコード描画 |
 
 | ステージID | 表示名 | 素材 |
 | --- | --- | --- |
@@ -23,7 +25,7 @@
 | `terrace-rain` | 雨音のテラス | 雲・雨筋・青灰色の海のコード描画（無音） |
 | `pier-dawn` | 朝凪の桟橋 | 朝日・木の桟橋のコード描画 |
 
-追加PNG・画像生成・第三者ファイルはない。承認済み生活16コマ、背景3種・マット、既存戦闘画像のbyteは変更していない。新しい案も個人用試作で、公開・再配布の許諾やライセンス追加ではない。
+2026-11-12時点では追加PNG・画像生成・第三者ファイルはなかった。2026-11-13にリツカ／ユメのローカル生成8姿勢を追加したが、第三者ファイルはなく、承認済み生活16コマ、背景5種・各マット、既存戦闘画像、リュミエ8姿勢のbyteは変更していない。新しい案も個人用試作で、公開・再配布の許諾やライセンス追加ではない。
 
 ボス・背景は別々のseed付きシャッフルバッグで選び、直前との重複を避ける。ボスのバッグ更新ごとに周回+1。HPは`min(baseHP * 2, baseHP + (cycle - 1) * 4)`。対面100/110/130ticks、撃破・ダウン後の安全な`interlude`は60ticks。各対戦の開始時にHP5・ゲージ0へ戻す。カメラは960固定。単一ロスターのバッグも停止しない。
 
@@ -56,6 +58,7 @@ command(game, 'home'); // endless=null、mode=auto、phase=rest
 - `ArtProfile.bossUrls: Partial<Record<BossId, string>>`と`RenderAppearance.bossAtlases`。読込後の画像は`SceneImages.bosses`へ渡す。
 - `RenderAppearance.arenaBackdrops: Partial<Record<StageId, string>>`。480×270の読込済み画像は`SceneImages.arenas`へ渡す。
 - 従来の`bossUrl/bossAtlas/SceneImages.boss`はリュミエ用に維持。ID未指定の既存sprite命令は従来の経路を使う。新sprite命令には`bossId`が入る。
+- Macは`configuration.bosses`（ライバルIDごとのsheet/atlas）と`layout.bossAtlases`を任意で持ち、`Assets`が1体ずつSHA・寸法・設定一致を検証する。`DrawCommand.bossId`で`ScenePainter`が正しいシートを選び、1体の破損は他2体とlegacy Lumieを落とさない。
 - 画像寸法とatlasをボス単位で検査し、不正なものだけコード描画へ戻す。ステージ背景も独立に検査。キャッシュはステージID・サイズ変更で更新し、外周は舞台ごとの単色にする。
 - 個人用PNGを加える場合はignoredの`private-art/runtime/`に置き、同フォルダーの台帳とローカルプロファイルに記録する。`--mode placeholder`は制作素材をimportしない。新しい外部配信やネットワーク取得は追加しない。
 

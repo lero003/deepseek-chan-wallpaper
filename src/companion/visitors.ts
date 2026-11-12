@@ -3,7 +3,12 @@ import { BOSSES } from '../fighters/definitions.ts';
 
 export const VISITS = { firstMinTicks: 75 * 60, firstSpreadTicks: 30 * 60,
   gapMinTicks: 120 * 60, gapSpreadTicks: 60 * 60, stayMinTicks: 45 * 60,
-  staySpreadTicks: 15 * 60, maximumTicks: 90 * 60, speed: 18 } as const;
+  staySpreadTicks: 15 * 60, maximumTicks: 100 * 60,
+  /** Room walk; near the heroine's own 74, but unhurried. */
+  speed: 30,
+  /** Feet travel this many pixels per full two-step cycle: stride phase is distance, not frame count. */
+  stride: 22,
+  pauseMinTicks: 110, pauseSpreadTicks: 220 } as const;
 
 /** An isolated stream: a visitor can never change life, encounters or battle order. */
 function choose(state: VisitsState): number {
@@ -44,16 +49,35 @@ function pickId(state: VisitsState): BossId {
 function destination(game: FightersGame, guestX: number): number {
   const { left, right } = game.world.range;
   const state = game.visits;
-  const candidates = [left, left + (right - left) * .3, left + (right - left) * .7, right]
-    .filter(x => Math.abs(x - game.world.actor.x) >= 64 && Math.abs(x - guestX) >= 28);
-  const pool = candidates.length ? candidates : [Math.abs(left - guestX) > Math.abs(right - guestX) ? left : right];
+  const actorX = game.world.actor.x;
+  // Most wanders pick a quiet side of the room, but one option approaches the heroine:
+  // the guest came to visit, not only to patrol a rail. Candidate filtering keeps both
+  // actors readable and never overlaps their small bodies.
+  const near = Math.max(left, Math.min(right, actorX + (guestX < actorX ? 88 : -88)));
+  const candidates = [left, left + (right - left) * .3, left + (right - left) * .7, right, near]
+    .filter(x => Math.abs(x - actorX) >= 64 && Math.abs(x - guestX) >= 28);
+  const pool = candidates.length ? candidates
+    : [Math.abs(left - guestX) > Math.abs(right - guestX) ? left : right];
   return pool[Math.floor(choose(state) * pool.length)]!;
 }
 function move(guest: VisitGuest): boolean {
   const dx = guest.targetX - guest.x;
-  if (Math.abs(dx) < VISITS.speed / 60) { guest.x = guest.targetX; return true; }
-  guest.facing = dx < 0 ? -1 : 1; guest.x += guest.facing * VISITS.speed / 60;
+  if (Math.abs(dx) <= VISITS.speed / 60 + 1e-9) {
+    guest.walked += Math.abs(dx); guest.x = guest.targetX; return true;
+  }
+  guest.facing = dx < 0 ? -1 : 1;
+  const step = guest.facing * VISITS.speed / 60;
+  guest.x += step; guest.walked += Math.abs(step);
   return false;
+}
+function startPause(game: FightersGame, guest: VisitGuest): void {
+  const state = game.visits;
+  guest.state = 'pausing'; guest.stateAge = 0;
+  guest.pauseUntil = guest.age + VISITS.pauseMinTicks + Math.round(choose(state) * VISITS.pauseSpreadTicks);
+  guest.facing = game.world.actor.x < guest.x ? -1 : 1;
+  // A first arrival earns a proper bow; after that the guest simply settles, looks or fidgets.
+  guest.pauseKind = guest.greeted ? (choose(state) < .55 ? 'gaze' : 'fidget') : 'notice';
+  guest.greeted = true;
 }
 /** Only quiet, actively advanced rest time counts. One non-combat guest at most. */
 export function advanceVisits(game: FightersGame): void {
@@ -66,14 +90,17 @@ export function advanceVisits(game: FightersGame): void {
     state.guest = { bossId: pickId(state), x, y: Math.min(254, game.world.floorY + 12), facing: fromLeft ? 1 : -1,
       state: 'arriving', age: 0, stateAge: 0, targetX: destination(game, x),
       leaveAt: VISITS.stayMinTicks + Math.round(choose(state) * VISITS.staySpreadTicks),
-      pauseUntil: 0, exitX: fromLeft ? -48 : 528 };
+      pauseUntil: 0, exitX: fromLeft ? -48 : 528,
+      walked: 0, pauseKind: 'notice', greeted: false };
   }
   const guest = state.guest;
   if (!guest) return;
   guest.age++; guest.stateAge++;
   if (guest.age >= VISITS.maximumTicks) { cancelVisit(game); return; }
   if (guest.age >= guest.leaveAt && guest.state !== 'leaving') {
-    guest.state = 'leaving'; guest.stateAge = 0; guest.targetX = guest.exitX;
+    guest.state = 'leaving'; guest.stateAge = 0;
+    // Leave by the nearer edge so the exit always finishes inside the lifetime budget.
+    guest.exitX = guest.x < 240 ? -48 : 528; guest.targetX = guest.exitX;
   }
   if (guest.state === 'pausing') {
     if (guest.age >= guest.pauseUntil) {
@@ -81,8 +108,6 @@ export function advanceVisits(game: FightersGame): void {
     }
   } else if (move(guest)) {
     if (guest.state === 'leaving') { cancelVisit(game); return; }
-    guest.state = 'pausing'; guest.stateAge = 0;
-    guest.pauseUntil = guest.age + 150 + Math.round(choose(state) * 210);
-    guest.facing = game.world.actor.x < guest.x ? -1 : 1;
+    startPause(game, guest);
   }
 }

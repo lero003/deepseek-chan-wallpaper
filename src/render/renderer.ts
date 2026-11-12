@@ -14,6 +14,8 @@ import { sceneryQuads } from '../fighters/scenery.ts';
 import type { BossAtlas, DrawCommand } from '../fighters/render-types.ts';
 import { parseBossAtlas } from '../fighters/render-types.ts';
 import { parsePoseAtlas } from '../fighters/pose-art.ts';
+import { parseLifeAtlas } from './life-art.ts';
+import type { LifeAtlas } from './life-art.ts';
 import type { PoseAtlas, PoseSheet } from '../fighters/pose-art.ts';
 
 /** One selectable background: the approved room art plus its optional wide matte. */
@@ -26,6 +28,7 @@ export interface VariantImages {
 export interface SceneImages {
   background: HTMLImageElement | null;
   character: HTMLImageElement | null;
+  life?: HTMLImageElement | null;
   /** Optional local rival; missing/corrupt images never block the scene. */
   boss?: HTMLImageElement | null;
   bosses?: Partial<Record<BossId, HTMLImageElement | null>>;
@@ -61,6 +64,7 @@ export class SceneRenderer {
   private readonly backdropContext: CanvasRenderingContext2D;
   private readonly images: SceneImages;
   private readonly atlas: SpriteAtlas;
+  private readonly lifeSprite?: { image: HTMLImageElement; atlas: LifeAtlas };
   private readonly bossAtlas: BossAtlas | null;
   private readonly bossImage: HTMLImageElement | null;
   private readonly bosses: Partial<Record<BossId, { image: HTMLImageElement; atlas: BossAtlas }>> = {};
@@ -113,6 +117,12 @@ export class SceneRenderer {
       ? images.arena : null;
     this.canvas = canvas; this.context = context; this.backdrop = backdrop; this.backdropContext = backdropContext;
     this.images = images; this.atlas = atlas; this.bossAtlas = bossAtlas; this.bossImage = bossImage;
+    try {
+      const info = parseLifeAtlas(appearance.lifeAtlas), image = images.life;
+      if (image && image.naturalWidth === info.frameWidth * info.columns && image.naturalHeight === info.frameHeight * info.rows) {
+        this.lifeSprite = { image, atlas: info };
+      }
+    } catch { /* Optional gesture resources fail independently of the approved heroine. */ }
     this.appearance = appearance; this.motes = motesFor(seed);
     this.matte = matte; this.variants = variants; this.arenaImage = arenaImage;
     for (const id of Object.keys(BOSSES) as BossId[]) {
@@ -340,11 +350,20 @@ export class SceneRenderer {
     ctx.globalAlpha = 1;
     if (plan.battle) this.drawCommands(plan.battle.commands);
     else if (this.images.character) {
-      const sx = plan.frame % this.atlas.columns * this.atlas.frameWidth;
-      const sy = Math.floor(plan.frame / this.atlas.columns) * this.atlas.frameHeight;
-      ctx.save(); ctx.translate(originX + plan.x, originY + plan.floorY); ctx.scale(plan.facing, 1);
-      ctx.drawImage(this.images.character, sx, sy, this.atlas.frameWidth, this.atlas.frameHeight,
-        -this.atlas.anchor.x, -this.atlas.anchor.y, this.atlas.frameWidth, this.atlas.frameHeight);
+      const life = this.lifeSprite && Number.isSafeInteger(plan.lifeFrame) && plan.lifeFrame! >= 0 && plan.lifeFrame! < 24
+        ? this.lifeSprite : null;
+      const info = life?.atlas ?? this.atlas;
+      const frame = life ? plan.lifeFrame! : plan.frame;
+      const image = life?.image ?? this.images.character;
+      const sx = frame % info.columns * info.frameWidth;
+      const sy = Math.floor(frame / info.columns) * info.frameHeight;
+      const motion = plan.motion;
+      ctx.save();
+      ctx.translate(originX + plan.x + (motion?.offsetX ?? 0), originY + plan.floorY - (motion?.lift ?? 0));
+      if (motion?.rotation) ctx.rotate(motion.rotation);
+      ctx.scale(plan.facing * (motion?.scaleX ?? 1), motion?.scaleY ?? 1);
+      ctx.drawImage(image, sx, sy, info.frameWidth, info.frameHeight,
+        -info.anchor.x, -info.anchor.y, info.frameWidth, info.frameHeight);
       ctx.restore();
     }
     if (plan.overlay) this.drawCommands(plan.overlay);

@@ -42,6 +42,38 @@ public struct Atlas: Codable, Equatable, Sendable {
     }
 }
 
+/// Optional quiet-life acting sheet. Never changes the approved sixteen-frame Atlas,
+/// and is decoded only inside Assets' independent optional-resource boundary.
+public struct LifeAtlas: Codable, Equatable, Sendable {
+    public let version: Int
+    public let frameWidth: Int; public let frameHeight: Int; public let columns: Int; public let rows: Int
+    public let anchor: Anchor
+    public let animations: [String: Animation]
+    public func validate() throws {
+        let keys = ["hop", "giggle", "sway", "peek", "stretch", "daydream"]
+        guard version == 1, frameWidth == 80, frameHeight == 128, columns == 4, rows == 6,
+              anchor == Anchor(x: 40, y: 124), Set(animations.keys) == Set(keys) else {
+            throw KujiraError.invalid("オプション生活アトラスの寸法・足元・演技が不正です。")
+        }
+        var used = Set<Int>()
+        for key in keys {
+            guard let animation = animations[key], animation.frames.count == 4,
+                  (1...60000).contains(animation.frameDurationMs) else {
+                throw KujiraError.invalid("生活演技のコマ数・表示時間が不正です。")
+            }
+            if let times = animation.frameDurationsMs,
+               times.count != 4 || times.contains(where: { !(1...60000).contains($0) }) {
+                throw KujiraError.invalid("生活演技のフレーム別表示時間が不正です。")
+            }
+            for frame in animation.frames {
+                guard (0..<24).contains(frame), used.insert(frame).inserted else {
+                    throw KujiraError.invalid("生活演技のフレームが欠落・重複しています。")
+                }
+            }
+        }
+    }
+}
+
 /// Independent 6–8 pose sheet. The approved heroine Atlas remains sixteen frames.
 public struct BossAtlas: Codable, Equatable, Sendable {
     public let version: Int
@@ -147,6 +179,9 @@ public struct NativeConfiguration: Codable, Sendable {
     public let stage: StageInfo?
     public let variants: [NativeVariant]?
     public let boss: NativeBoss?
+    /// Optional per-rival sheets. Absent entries keep their code-only fallback; the
+    /// legacy single `boss` field remains valid for older prepared resources.
+    public let bosses: [String: NativeBoss]?
     public let arena: NativeArena?
     public var stageWidth: Int { max(1440, stage?.width ?? 1440) }
 }
@@ -197,6 +232,8 @@ public struct DrawCommand: Codable, Sendable {
     public let frame: Int?; public let facing: Int?; public let scaleX: Double?; public let scaleY: Double?
     /// Nil selects the unchanged heroine sheet; boss has a camera-relative code fallback.
     public let sheet: String?; public let fallback: [DrawCommand]?
+    /// Optional per-rival sprite selection. Nil keeps the legacy single rival sheet.
+    public let bossId: String?
     public let text: String?; public let size: Double?
 }
 public struct BattleFrame: Codable, Sendable {
@@ -206,9 +243,17 @@ public struct BattleFrame: Codable, Sendable {
     /// Fixed manual terrace arena: paint the local backdrop when available, else the code stage.
     public let arena: Bool?
 }
+/// Presentation-only acting transform for the quiet heroine; pivot stays at the feet.
+public struct SceneMotion: Codable, Sendable {
+    public let rotation: Double; public let scaleX: Double; public let scaleY: Double
+    public let lift: Double; public let offsetX: Double
+}
 public struct ScenePlan: Codable, Sendable {
     public let tick: Int; public let state: String; public let x: Double; public let floorY: Double
     public let facing: Int; public let frame: Int; public let quads: [Quad]
+    /// Optional additional acting frame; `frame` always remains a valid old16 fallback.
+    public let lifeFrame: Int?
+    public let motion: SceneMotion?
     public let game: GameUI?; public let battle: BattleFrame?; public let overlay: [DrawCommand]?
 }
 public struct Viewport: Codable, Hashable, Sendable {

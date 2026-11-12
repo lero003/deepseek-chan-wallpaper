@@ -1,4 +1,6 @@
 import type { FightersGame } from '../fighters/types.ts';
+import type { Emote } from '../world/world.ts';
+import { activeEmote } from '../world/world.ts';
 import type { Behavior, Mood } from '../world/world.ts';
 import { BOSSES } from '../fighters/definitions.ts';
 
@@ -20,6 +22,15 @@ export const CALL_COOLDOWN_TICKS = 1200;
 export const HOME_LINE_TICKS = 180;
 
 export const CALL_CAPTION = 'ん、呼んだ？';
+/** Short out-of-scene lines for the quiet-life performances; never a dialogue box. */
+export const EMOTE_CAPTIONS: Readonly<Record<Emote, string>> = {
+  hop: 'ぴょこっ。',
+  giggle: 'ふふ、ごきげん。',
+  sway: 'ごきげん、ゆらゆら。',
+  peek: '……ちらっ。',
+  stretch: 'のびー。',
+  daydream: 'ぼんやり、夢の途中。',
+};
 export const HOME_CAPTION = 'ふう。書斎がいちばん。';
 export const REST_CAPTION = 'ひと休みしよう。';
 
@@ -65,6 +76,8 @@ export function companionLine(game: FightersGame): string {
   if (game.homeLine && game.tick < game.homeLineUntil) return game.homeLine;
   if (game.phase !== 'rest') return 'テラスで自動対戦。';
   if (game.visits.guest) return `${BOSSES[game.visits.guest.bossId].name}が遊びに来ています。`;
+  const emote = activeEmote(game.world.actor);
+  if (emote) return EMOTE_CAPTIONS[emote.emote];
   return lifeCaption(game.world.actor.state, game.world.mood);
 }
 

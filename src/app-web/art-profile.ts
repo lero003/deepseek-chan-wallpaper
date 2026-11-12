@@ -2,6 +2,7 @@ import type { BossId, StageId } from '../fighters/types.ts';
 import type { Scene } from '../world/world.ts';
 import type { BossAtlas } from '../fighters/render-types.ts';
 import type { AmbienceProfile } from '../render/ambience.ts';
+import type { LifeAtlas } from '../render/life-art.ts';
 import type { PoseAtlas, PoseSheet } from '../fighters/pose-art.ts';
 
 export interface AssetCredit {
@@ -29,6 +30,8 @@ export interface MatteInfo {
 }
 
 export interface RenderAppearance {
+  /** Extra gesture keys, independent of the accepted sixteen life frames. */
+  readonly lifeAtlas?: LifeAtlas;
   readonly arenaBackdrops?: Partial<Record<StageId, string>>;
   readonly bossAtlases?: Partial<Record<BossId, BossAtlas>>;
   readonly ceilingColor?: string;
@@ -90,6 +93,8 @@ export interface ArtProfile extends RenderAppearance {
   readonly label: string;
   readonly backgroundUrl: string;
   readonly characterUrl: string;
+  /** Optional extra quiet-life gesture sheet; never imported by the placeholder. */
+  readonly lifeUrl?: string;
   /** Optional original rival image; no local file is required by the placeholder profile. */
   readonly bossUrl?: string;
   readonly bossUrls?: Partial<Record<BossId, string>>;
