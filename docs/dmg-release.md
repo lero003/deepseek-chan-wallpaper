@@ -56,6 +56,7 @@ ZIP版（`KujiraWallpaper-LifeMotion-B14-arm64-local-preview.zip`）でも同じ
 ## リリースの扱い
 
 - 最新は `life-motion-build14-dmg`（Published／Prerelease）。アプリ本体のソースタグは`life-motion-build14`。どちらも非公開リポジトリ内の個人テスト用で、一般公開リリースではない。リポジトリがPRIVATEのため、タグとリリースは外部からは見えない。
-- Build 11〜13の既存タグ・リリースは変更しない。Build 14はDMG・ZIP・SHA256SUMSを添付した新しい個人用プレリリースとして追加する。
+- Build 11〜13の既存タグ・リリースは変更しない。Build 14はDMG・ZIP・SHA256SUMSを添付した新しい個人用プレリリースとして追加した。
+- DMG SHA-256 `c5c78d112c04110f1ba9e85fc1ee249520f244419d4b4bddfc235bdee076c070`、ZIP SHA-256 `544db0326ea86e204ed8ddff8541bc09ff7e7593a14738f1ef1c144c8a9b8ee7`。発行後に再ダウンロードして`shasum -a 256 -c SHA256SUMS.txt`、DMGの読取専用マウント・署名・自己テスト、ZIP展開アプリの署名・自己テストを確認した。
 - リポジトリの可視性・Pages・自動起動は変更しない。
 - チェックサムとビルド記録は `private-art/macos-out/`（Git対象外）とリリース添付の `SHA256SUMS.txt` に残す。
