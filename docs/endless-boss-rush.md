@@ -78,7 +78,7 @@ command(game, 'home'); // endless=null、mode=auto、phase=rest
 - **B1-3 UI**：ボス名・肩書き・舞台・撃破・復帰・周回をHUDへ、撃破ボス数・周回を結果へ追加。未計測の扱いを維持。
 - **B1-4/5、B2**：store/static-audit/禁止API/Slot ID/6PNG監査、client再ビルド・構文検査・全テスト、README/VERIFICATION更新とDSH実ページの手動受け入れ。
 
-Part B側はコード変更・client生成・Node78テスト・監査まで完了。実DSH/HMRの手動受け入れ・再インストールは未実施。GitHub同期は非公開のソース、個人用Releaseは私有画像を含まないplaceholder版として準備する。一般公開・Pages・npm公開はしない。
+Part B側はコード変更・client生成・Node78テスト・監査まで完了。実DSH/HMRの手動受け入れ・再インストールは未実施。GitHubへ非公開ソースを同期し、[DSH v0.2.0](https://github.com/lero003/DeepSeek-Chan-Fighters-DSH/releases/tag/v0.2.0)は私有画像を含まないplaceholder版ZIPを発行済み。GitHubからの再取得とSHA/構文/2PNG監査も成功。一般公開・Pages・npm公開はしない。
 
 ## 変更ファイル
 

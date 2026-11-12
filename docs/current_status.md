@@ -1,6 +1,6 @@
 # 現在の状態 / 引き継ぎ
 
-更新: 2026-11-12 · 無限ボスラッシュPart A（ローカルソース・未配布） · 非公開Web／個人用Mac試作 · 固定アリーナ・アーケード v0.8（Build 9）+ 背景別環境演出・生活微バリエーション + 生成アート + 壁紙の自動対戦 + 戦闘背景の外周を単色フレーム化 + Build 11 個人テスト用リリース
+更新: 2026-11-12 · 無限ボスラッシュPart A/B（非公開Release） · 非公開Web／個人用Mac試作 · 固定アリーナ・アーケード v0.8（Build 9）+ 背景別環境演出・生活微バリエーション + 生成アート + 壁紙の自動対戦 + 戦闘背景の外周を単色フレーム化 + Build 11 個人テスト用リリース
 
 ## 無限ボスラッシュ / DSH用API（2026-11-12、Part A/B）
 
@@ -9,7 +9,8 @@
 - **受け口**：`command('endless')`（冪等）/`command('home')`、`gameUI.endless`、ボスごとのURL/atlasとステージ画像の任意マップ。DSH向け`gamePlan(..., 'wallpaper')`は戦闘＋背景・キャラを描きHUDなし。元指示書§4.6の早期return案と§5.3が矛盾するため§5.3を採用し、Macの受動面はnative-bridgeで静かな生活を維持。既存auto/manual・90秒時計の経路は維持。
 - **実行済み検証**：`npm run check`（型検査＋Node **221件成功・skipなし**＋既定5素材byte再現）、`npm run build`、placeholderビルド（PNGは既定2点のみ）、`npm run mac:test`と`npm run mac:test -- --local-preview`（Swift **各27件・5 suites成功**）。30分相当・15/30/60fpsでボス/舞台/HP順と最終状態が一致、seed47で90撃破・31周目。単一ロスター、ダウン復帰、安全区間、素材異常の独立フォールバック、背景キャッシュと単色外周、停止復帰を検証。既存テストの削除・無効化・緩和なし。
 - **未実施**：Safari/Chromeの手動5分以上スモーク、実Macの可視/壁紙/スリープ確認、実時間30分の負荷、DSH実ページの受け入れ。シミュレーションと描画命令の検査であり、ブラウザーE2E・実機の合格ではない。Playwright/専用ブラウザーは導入・使用していない。
-- **Part B**：別フォルダーDSHのv0.2.0も実装済み（endless1回、settle→home、HUD/facts/result、任意artマップ、静止設定切替）。ビルド・構文・Node78件・6PNG監査成功。素材を含まないソース同期と、2PNGのplaceholder版個人用Releaseを準備。実DSH/HMR確認は未実施。Macパッケージは作り直しておらず、既存Build 11にこのソース変更が入った意味ではない。
+- **Part B**：別フォルダーDSHのv0.2.0も実装済み（endless1回、settle→home、HUD/facts/result、任意artマップ、静止設定切替）。ビルド・構文・Node78件・6PNG監査成功。私有画像を含まないソースを非公開GitHubへ同期し、2PNGのplaceholder版個人用Releaseを発行済み。実DSH/HMR確認は未実施。Macパッケージは作り直しておらず、既存Build 11にこのソース変更が入った意味ではない。
+- **GitHubの実測**：壁紙ソース`7cdb128`をpushし、[endless-boss-rush-20261112](https://github.com/lero003/deepseek-chan-wallpaper/releases/tag/endless-boss-rush-20261112)をPublished/prereleaseで発行（新しいMacバイナリなし）。DSHは非公開リポジトリを作成・ソースをpush、[v0.2.0](https://github.com/lero003/DeepSeek-Chan-Fighters-DSH/releases/tag/v0.2.0)は`5d0d7d1`からplaceholder ZIPを添付。ZIP SHA-256 `b953e138d5fb98508420b879af1f5460bf5138e95b2a090b406a9f4305922e75`、85,458 bytes。GitHubから再取得してSHA/構文/2PNG byte一致監査/SOURCEを確認。両repoはprivate・Pages=false、private-art/通常clientはGit対象外。既存Build11と公開済みタグは変更していない。
 - 詳細なAPI・素材状態・変更ファイル・手動手順：[endless-boss-rush.md](<endless-boss-rush.md>)。
 
 ## 戦闘背景の外周を端の引き伸ばしから単色フレームへ（2026-11-12）

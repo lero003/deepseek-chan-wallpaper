@@ -20,6 +20,8 @@
 
 「**無限ボスラッシュ**」は自動操縦で眺める別モードです。綴星リュミエ・汐見のリツカ・紙灯のユメと、夕凪／月夜／雨音のテラス・朝凪の桟橋をseed付きの順番で巡ります。雑魚・90秒制限・リザルトはなく、ダウンしても復帰。「書斎へ戻る」で終了します。追加2体と3面は画像不要のコード描画。Macに新UIはなく、受動壁紙は従来の生活のままです。[API・ロスター・DSH側の後続作業](<docs/endless-boss-rush.md>)を参照してください。
 
+[無限モードの個人用ソースRelease](https://github.com/lero003/deepseek-chan-wallpaper/releases/tag/endless-boss-rush-20261112)と[DSHプラグインv0.2.0（placeholder版）](https://github.com/lero003/DeepSeek-Chan-Fighters-DSH/releases/tag/v0.2.0)を非公開GitHubに発行しています。新しいMacアプリ／DMGの配布ではありません。
+
 [構成・数値調整・検証と残タスク](<docs/fighters-mvp.md>)を参照してください。専用戦闘アニメの大量制作や、手動の操作感・実機負荷の合格まで完了したという意味ではありません。
 
 ## Mac版
