@@ -57,7 +57,7 @@ ZIP版（`KujiraWallpaper-MultiDisplay-B15-arm64-local-preview.zip`）でも同�
 ## リリースの扱い
 
 - 最新は `multi-display-build15-dmg`（Published／Prerelease）。アプリ本体のソースタグは`multi-display-build15`。どちらも非公開リポジトリ内の個人テスト用で、一般公開リリースではない。リポジトリがPRIVATEのため、タグとリリースは外部からは見えない。
-- Build 11〜14の既存タグ・リリースは変更しない。Build 15はDMG・ZIP・SHA256SUMSを添付した新しい個人用プレリリースとして追加する。
-- DMG SHA-256 `bb6df49c430e8f98322eb11432511c23f8303c4b552f35589a48a257313b25d2`、ZIP SHA-256 `0dab112f2433048216ba7b6683556ef9bab6c2c3216959382d0b45c83531b23e`。発行後に再ダウンロードして`shasum -a 256 -c SHA256SUMS.txt`、DMGの読取専用マウント・署名・自己テスト、ZIP展開アプリの署名・自己テストを確認する。
+- Build 11〜14の既存タグ・リリースは変更しない。Build 15はDMG・ZIP・SHA256SUMSを添付した新しい個人用プレリリースとして追加した。
+- DMG SHA-256 `bb6df49c430e8f98322eb11432511c23f8303c4b552f35589a48a257313b25d2`、ZIP SHA-256 `0dab112f2433048216ba7b6683556ef9bab6c2c3216959382d0b45c83531b23e`。発行後に再ダウンロードして`shasum -a 256 -c SHA256SUMS.txt`、DMGの読取専用マウント・署名・自己テスト、ZIP展開アプリの署名・自己テストを確認した。
 - リポジトリの可視性・Pages・自動起動は変更しない。
 - チェックサムとビルド記録は `private-art/macos-out/`（Git対象外）とリリース添付の `SHA256SUMS.txt` に残す。

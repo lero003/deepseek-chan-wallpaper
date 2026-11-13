@@ -1,6 +1,6 @@
 # 現在の状態 / 引き継ぎ
 
-更新: 2026-11-13 · Build15 全ディスプレイ同期（DMG作成済み・個人用プレリリースは手続き中） · Build14 DMGは公開済み · 非公開Web／個人用Mac試作
+更新: 2026-11-13 · Build15 全ディスプレイ同期（非公開DMGプレリリース公開済み・物理マルチ画面は未受入） · 既存タグ不変 · 非公開Web／個人用Mac試作
 
 ## 現在：全ディスプレイ同期（Build15 / 2026-11-13）
 
@@ -12,7 +12,8 @@
 - 実行済み：`npm run mac:test -- --local-preview`と`npm run mac:test`（placeholder）が各**43件・9 suites成功**。既存の描画・素材・来客・戦闘テストも同時に通過。実機で複数ディスプレイを接続した可視確認、Space/フルスクリーン、ホットプラグ、異解像度の見え方、クリック透過は未確認。この環境で確認できた物理画面は1台で、複数画面の実表示は自動テストでは代替できない。
 - **Build15アプリ**：[アプリ](<../private-art/macos-out/20261113011722-55c20fb4/くじらの散歩道.app>)／[ZIP](<../private-art/macos-out/20261113011722-55c20fb4/KujiraWallpaper-MultiDisplay-B15-arm64-local-preview.zip>)、SHA-256 `0dab112f2433048216ba7b6683556ef9bab6c2c3216959382d0b45c83531b23e`。CFBundleVersion15、アドホック署名、起動スモーク、ZIP展開後の自己テスト2種まで成功。
 - **Build15 DMG**：[DMG](<../private-art/macos-out/20261113011812-0ea6c48c-dmg/KujiraWallpaper-MultiDisplay-B15-arm64.dmg>) 4,934,675 bytes / SHA-256 `bb6df49c430e8f98322eb11432511c23f8303c4b552f35589a48a257313b25d2`。Build15入力チェック、読取専用マウント、署名検証、イメージ内・コピー後の自己テスト2種、`hdiutil verify`に成功。配布セットは`private-art/macos-out/release-b15/`。
-- 次の行動：Build15 DMGを非公開プレリリースへ登録し、再ダウンロード検証を記録する。既存Build14のタグ・Releaseは変更しない。
+- **公開**：[GitHub個人用プレリリース](https://github.com/lero003/deepseek-chan-wallpaper/releases/tag/multi-display-build15-dmg)をPublished／Prereleaseで発行。添付3点のsize／sha256 digest一致、再ダウンロード後の`shasum -c`、DMGの読取専用マウント・署名・自己テスト、ZIP展開アプリの署名・自己テストを確認した。既存Build14以前のタグ・Releaseは変更していない。
+- 次の行動：実機で2台以上のディスプレイを接続し、全画面同期・追加/切断/配置変更・Space/フルスクリーン・クリック透過・スリープ復帰を手動確認する。
 
 ## 直前：DeepSeekちゃん本人の生活モーション（Build14 / 2026-11-13）
 
