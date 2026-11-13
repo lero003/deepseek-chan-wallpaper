@@ -45,7 +45,7 @@ npm run mac:build -- --placeholder
 
 **Apple Silicon向けの個人用試作・未公証です。** 署名・同梱素材・展開後の単体起動は検証しますが、可視アニメーション・Space・実機スリープ・長時間負荷の受け入れは別です。[Mac版のビルドと操作手順](<docs/macos.md>)を参照してください。
 
-非公開リポジトリの**個人テスト用リリース**に、他のMacで試せるDMGとZIPを添付しています。一般公開リリースではありません。最新は[生活モーション Build 14](<https://github.com/lero003/deepseek-chan-wallpaper/releases/tag/life-motion-build14-dmg>)。DMGの取得・起動・Gatekeeper・制限は[リリースDMGの試用](<docs/dmg-release.md>)を参照してください。
+非公開リポジトリの**個人テスト用リリース**に、他のMacで試せるDMGとZIPを添付しています。一般公開リリースではありません。最新は[全ディスプレイ同期 Build 15](<https://github.com/lero003/deepseek-chan-wallpaper/releases/tag/multi-display-build15-dmg>)。DMGの取得・起動・Gatekeeper・制限は[リリースDMGの試用](<docs/dmg-release.md>)を参照してください。
 
 ## Web版の起動
 
