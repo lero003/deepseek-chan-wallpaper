@@ -1,8 +1,19 @@
 # 現在の状態 / 引き継ぎ
 
-更新: 2026-11-13 · 主人公の生活24キー / Build14 DMG個人用プレリリース · 既存タグ・Releaseは不変 · 非公開Web／個人用Mac試作
+更新: 2026-11-13 · Build15 全ディスプレイ同期（アプリ作成済み） · Build14 DMGは公開済み · 非公開Web／個人用Mac試作
 
-## 現在：DeepSeekちゃん本人の生活モーション（2026-11-13）
+## 現在：全ディスプレイ同期（Build15 / 2026-11-13）
+
+- ユーザー依頼「メインディスプレイ以外にも同期して出したい」への対応。接続中の各`NSScreen`について、同じ共有`ScenePlan`を描くクリック透過`WallpaperPanel`を1枚ずつ置く。メインディスプレイ専用の分岐はない。
+- パネルは各画面の`frame`（グローバル座標）をそのまま使い、各画面のピクセル数から従来どおり整数倍率とワイドマットを選ぶ。ミラーリングで同じ座標になる画面は1枚に統合し、重複ウィンドウを作らない。無効な矩形はパネルにしない。
+- ディスプレイの追加・切断・配置変更（`NSApplication.didChangeScreenParametersNotification`）で全パネルを張り直す。新規画面には追加、消えた画面のパネルは閉じる。既存のクリック透過、デスクトップアイコン下のレイヤー、Space参加、スリープ/非表示停止は各パネルで同じ。
+- メニュー/ツールバーは「壁紙を表示（全ディスプレイ）」「壁紙をOFF（全ディスプレイ）」に変更。表示中のパネル数をツールチップに出す。壁紙ON/OFFは従来どおり明示操作のみで、元の壁紙設定・ログイン自動起動は変更しない。
+- 追加した純粋ロジックは[WallpaperDisplays.swift](<../src/app-mac/Core/WallpaperDisplays.swift>)、回帰は[WallpaperDisplaysTests.swift](<../tests/native/WallpaperDisplaysTests.swift>)。横並び・負座標・ミラー重複・空/非有限フレーム・切断/再配置を検査対象にした。
+- 実行済み：`npm run mac:test -- --local-preview`と`npm run mac:test`（placeholder）が各**43件・9 suites成功**。既存の描画・素材・来客・戦闘テストも同時に通過。実機で複数ディスプレイを接続した可視確認、Space/フルスクリーン、ホットプラグ、異解像度の見え方、クリック透過は未確認。この環境で確認できた物理画面は1台で、複数画面の実表示は自動テストでは代替できない。
+- **Build15アプリ**：[アプリ](<../private-art/macos-out/20261113011722-55c20fb4/くじらの散歩道.app>)／[ZIP](<../private-art/macos-out/20261113011722-55c20fb4/KujiraWallpaper-MultiDisplay-B15-arm64-local-preview.zip>)、SHA-256 `0dab112f2433048216ba7b6683556ef9bab6c2c3216959382d0b45c83531b23e`。CFBundleVersion15、アドホック署名、起動スモーク、ZIP展開後の自己テスト2種まで成功。
+- 次の行動：Build15のDMGを作成・検証し、非公開プレリリースへ登録する。既存Build14のタグ・Releaseは変更しない。
+
+## 直前：DeepSeekちゃん本人の生活モーション（Build14 / 2026-11-13）
 
 - **優先順位**：中断した改修を引き継ぎ、ボスの愛嬌より主人公の仕草を優先。「立ち絵の拡大縮小だけ」を完成扱いせず、承認済みヒレ耳基準絵＋元シートを参照して**6種類×4キー**を新規生成した。跳ねる・くすくす笑う・小さく踊る・照れ覗きと手振り・のび・自分の尾との戯れ。表情・手足・髪・尾が異なる専用コマを予備→演技→余韻→元idleの順に使う。
 - **素材保全**：[追加シート](<../private-art/runtime/character/life/sheet.png>)は80×128・4×6・足元40/124・接地123行・元の80色・二値alpha。承認済み16コマを含む既存27素材のSHA不変。[加工](<../private-art/production/life/prepare_life.py>)を再実行し、sheet/atlasのbyte再現を確認した。原本・処理記録・QAはignored、権利pendingを維持。

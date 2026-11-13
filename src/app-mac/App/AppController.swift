@@ -23,8 +23,8 @@ final class AppController: NSObject, NSWindowDelegate {
     private var timerFPS = 0
     private var previewWindow: NSWindow?
     private var previewRequested = false
-    private var wallpaperWindow: WallpaperPanel?
-    private var wallpaperView: SceneView?
+    private var wallpaperWindows: [WallpaperPanel] = []
+    private var wallpaperViews: [SceneView] = []
     private var views: [SceneView] = []
     private var statusItem: NSStatusItem?
     private var pauseItem: NSMenuItem?
@@ -127,7 +127,7 @@ final class AppController: NSObject, NSWindowDelegate {
         backgroundPopup = backgrounds
         let pause = NSButton(title: "一時停止", target: self, action: #selector(togglePause(_:)))
         let wallpaper = NSButton(title: "壁紙にする", target: self, action: #selector(toggleWallpaper(_:)))
-        wallpaper.toolTip = "主画面にだけ表示します。元の壁紙設定は変更しません。"
+        wallpaper.toolTip = "接続中のすべてのディスプレイに表示します。元の壁紙設定は変更しません。"
         // B02: low power moved into the settings menu so the toolbar fits the 720pt minimum width.
         let settings = NSButton(title: "設定", target: self, action: #selector(openSettingsMenu(_:)))
         settings.toolTip = "省電力・エフェクト・自動対戦の頻度"
@@ -277,7 +277,7 @@ final class AppController: NSObject, NSWindowDelegate {
         memoryItem = add("メモリ使用量（プロセス）: 計測中", nil)
         memoryItem?.isEnabled = false
         _ = add("プレビューを開く", #selector(openPreview(_:)))
-        wallpaperItem = add("壁紙を表示（主画面のみ）", #selector(toggleWallpaper(_:)))
+        wallpaperItem = add("壁紙を表示（全ディスプレイ）", #selector(toggleWallpaper(_:)))
         let backgroundMenu = NSMenu(title: "背景"); backgroundMenu.autoenablesItems = false
         let backgroundParent = add("背景", nil); backgroundParent.submenu = backgroundMenu
         for (index, label) in (["夕凪の書斎（標準）"] + assets.variants.map(\.label)).enumerated() {
@@ -326,47 +326,67 @@ final class AppController: NSObject, NSWindowDelegate {
         synchronize()
     }
     @objc func toggleWallpaper(_ sender: Any?) {
-        if wallpaperWindow != nil { stopWallpaper(); return }
+        if !wallpaperWindows.isEmpty { stopWallpaper(); return }
         do { try startWallpaper() } catch { fail(error.localizedDescription) }
     }
     private func startWallpaper() throws {
-        guard let screen = NSScreen.screens.first else { throw KujiraError.invalid("主画面を確認できません。プレビューでご確認ください。") }
+        guard wallpaperWindows.isEmpty else { return }
+        let displays = NSScreen.screens.map { screen in
+            let id = (screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber)?.uint32Value ?? 0
+            return WallpaperDisplay(id: id, frame: screen.frame)
+        }
+        let frames = WallpaperDisplayLayout.frames(for: displays)
+        guard !frames.isEmpty else { throw KujiraError.invalid("接続中のディスプレイを確認できません。プレビューでご確認ください。") }
         let desktop = Int(CGWindowLevelForKey(.desktopWindow))
         let icons = Int(CGWindowLevelForKey(.desktopIconWindow))
         guard desktop + 1 < icons else { throw KujiraError.invalid("デスクトップアイコンの背後に表示するレイヤーを確保できません。") }
-        let window = WallpaperPanel(contentRect: screen.frame, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
-        window.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle, .fullScreenAuxiliary]
-        window.hidesOnDeactivate = false
-        window.isFloatingPanel = false
-        window.isOpaque = true
-        window.backgroundColor = .black
-        window.hasShadow = false
-        window.ignoresMouseEvents = true
-        window.isExcludedFromWindowsMenu = true
-        window.animationBehavior = .none
-        window.isReleasedWhenClosed = false
-        window.isRestorable = false
-        window.delegate = self
-        let view = makeSceneView(wallpaper: true)
-        view.autoresizingMask = [.width, .height]
-        window.contentView = view
-        window.setFrame(screen.frame, display: false)
-        // Set the level LAST: NSPanel floating policy must never move this above icons/apps.
-        window.level = NSWindow.Level(rawValue: desktop + 1)
-        guard window.level.rawValue == desktop + 1, window.level.rawValue < icons, window.ignoresMouseEvents else {
-            views.removeAll { $0 === view }
-            throw KujiraError.invalid("安全な壁紙レイヤーを設定できません。")
+        var createdWindows: [WallpaperPanel] = []
+        var createdViews: [SceneView] = []
+        do {
+            for frame in frames {
+                let window = WallpaperPanel(contentRect: frame, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
+                window.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle, .fullScreenAuxiliary]
+                window.hidesOnDeactivate = false
+                window.isFloatingPanel = false
+                window.isOpaque = true
+                window.backgroundColor = .black
+                window.hasShadow = false
+                window.ignoresMouseEvents = true
+                window.isExcludedFromWindowsMenu = true
+                window.animationBehavior = .none
+                window.isReleasedWhenClosed = false
+                window.isRestorable = false
+                window.delegate = self
+                let view = makeSceneView(wallpaper: true)
+                view.autoresizingMask = [.width, .height]
+                window.contentView = view
+                window.setFrame(frame, display: false)
+                // Set the level LAST: NSPanel floating policy must never move this above icons/apps.
+                window.level = NSWindow.Level(rawValue: desktop + 1)
+                guard window.level.rawValue == desktop + 1, window.level.rawValue < icons, window.ignoresMouseEvents else {
+                    throw KujiraError.invalid("安全な壁紙レイヤーを設定できません。")
+                }
+                createdWindows.append(window)
+                createdViews.append(view)
+            }
+        } catch {
+            for view in createdViews { views.removeAll { $0 === view } }
+            for window in createdWindows { window.close() }
+            throw error
         }
-        wallpaperWindow = window; wallpaperView = view
-        window.orderFrontRegardless()
+        wallpaperWindows = createdWindows
+        wallpaperViews = createdViews
+        // Every connected display receives the same plan; mirrored screens share one panel.
+        for window in wallpaperWindows { window.orderFrontRegardless() }
         synchronize()
     }
     private func stopWallpaper() {
-        let window = wallpaperWindow
-        wallpaperWindow = nil
-        if let view = wallpaperView { views.removeAll { $0 === view } }
-        wallpaperView = nil
-        window?.close()
+        let windows = wallpaperWindows
+        let stoppedViews = wallpaperViews
+        wallpaperWindows = []
+        wallpaperViews = []
+        for view in stoppedViews { views.removeAll { $0 === view } }
+        for window in windows { window.close() }
         synchronize()
     }
 
@@ -395,7 +415,9 @@ final class AppController: NSObject, NSWindowDelegate {
         observe(workspace, NSWorkspace.accessibilityDisplayOptionsDidChangeNotification) { $0.synchronize() }
         observe(.default, .NSProcessInfoPowerStateDidChange) { $0.synchronize() }
         observe(.default, NSApplication.didChangeScreenParametersNotification) { owner in
-            if owner.wallpaperWindow != nil {
+            if !owner.wallpaperWindows.isEmpty {
+                // Rebuild the per-display panels so a newly connected display appears and
+                // a removed one cannot leave a stale window at an old coordinate.
                 owner.stopWallpaper()
                 do { try owner.startWallpaper() } catch { owner.fail(error.localizedDescription) }
             } else { owner.synchronize() }
@@ -408,7 +430,7 @@ final class AppController: NSObject, NSWindowDelegate {
         policy.reducedMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
         policy.sleeping = systemSleeping || displaysSleeping
         let visiblePreview = previewRequested && previewWindow?.isVisible == true && previewWindow?.occlusionState.contains(.visible) == true
-        let visibleWallpaper = wallpaperWindow?.isVisible == true && wallpaperWindow?.occlusionState.contains(.visible) == true
+        let visibleWallpaper = wallpaperWindows.contains { $0.isVisible && $0.occlusionState.contains(.visible) }
         policy.hasVisibleSurface = visiblePreview || visibleWallpaper
         do { try synchronizeGameFocus() } catch { fail(error.localizedDescription); return }
         let running = policy.shouldAnimate && !modalOpen
@@ -434,13 +456,13 @@ final class AppController: NSObject, NSWindowDelegate {
         pauseButton?.isEnabled = !policy.reducedMotion
         backgroundPopup?.selectItem(at: backgroundVariantIndex)
         for (index, item) in backgroundItems.enumerated() { item.state = index == backgroundVariantIndex ? .on : .off }
-        let wallpaperOn = wallpaperWindow != nil
+        let wallpaperOn = !wallpaperWindows.isEmpty
         wallpaperItem?.state = wallpaperOn ? .on : .off
-        wallpaperItem?.title = wallpaperOn ? "壁紙をOFF（主画面のみ）" : "壁紙を表示（主画面のみ）"
+        wallpaperItem?.title = wallpaperOn ? "壁紙をOFF（全ディスプレイ）" : "壁紙を表示（全ディスプレイ）"
         wallpaperButton?.title = wallpaperOn ? "壁紙をOFF" : "壁紙にする"
         wallpaperButton?.toolTip = wallpaperOn
-            ? "主画面に表示中。押すとOFFになります。元の壁紙設定は変更しません。"
-            : "主画面にだけ表示します。元の壁紙設定は変更しません。"
+            ? "\(wallpaperWindows.count)画面に表示中。押すとOFFになります。元の壁紙設定は変更しません。"
+            : "接続中のすべてのディスプレイに表示します。元の壁紙設定は変更しません。"
         lowPowerItem?.state = policy.userLowPower ? .on : .off
         lowPowerItem?.title = policy.systemLowPower ? "省電力（OS設定でも有効）" : "省電力にする"
         settingsLowPowerItem?.state = policy.userLowPower ? .on : .off
@@ -522,7 +544,10 @@ final class AppController: NSObject, NSWindowDelegate {
     private func fail(_ message: String) {
         guard !failed else { return }
         failed = true; stopTimer()
-        wallpaperWindow?.close(); wallpaperWindow = nil
+        for view in wallpaperViews { views.removeAll { $0 === view } }
+        for window in wallpaperWindows { window.close() }
+        wallpaperWindows = []
+        wallpaperViews = []
         statusLabel?.stringValue = "表示を停止しました"
         let alert = NSAlert(); alert.alertStyle = .warning
         alert.messageText = "風景の表示を停止しました"
@@ -558,7 +583,8 @@ final class AppController: NSObject, NSWindowDelegate {
         stopTimer()
         for (center, token) in observers { center.removeObserver(token) }
         observers.removeAll()
-        wallpaperWindow?.close(); wallpaperWindow = nil
+        for window in wallpaperWindows { window.close() }
+        wallpaperWindows = []; wallpaperViews = []
         previewWindow?.close(); previewWindow = nil
         views.removeAll()
         if let item = statusItem { NSStatusBar.system.removeStatusItem(item) }
@@ -568,7 +594,8 @@ final class AppController: NSObject, NSWindowDelegate {
         ["profile": assets.configuration.layout.id, "previewCreated": previewWindow != nil,
          "processFootprintBytes": ProcessMemory.footprintBytes().map { Int($0) } as Any,
          "backgroundVariant": painter.currentVariantID, "backgroundVariants": assets.variants.map(\.id),
-         "wallpaperEnabled": wallpaperWindow != nil, "originalWallpaperChanged": false,
+         "wallpaperEnabled": !wallpaperWindows.isEmpty, "wallpaperDisplays": wallpaperWindows.count,
+         "originalWallpaperChanged": false,
          "statusMenuCreated": statusItem != nil, "timerRunning": timer != nil,
          "visibleSurface": policy.hasVisibleSurface, "fightersControlsCreated": fightersControls != nil,
          "gameMode": plan.game?.mode ?? "unknown", "manualInputFocus": manualInputFocus,

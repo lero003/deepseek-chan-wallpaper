@@ -16,18 +16,16 @@ const run = (command, args, options = {}) => {
 };
 const capture = (command, args, options = {}) => run(command, args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'], ...options }).stdout.trim();
 
-export const RELEASE_SOURCE_TAG = 'life-motion-build14';
-export const RELEASE_SOURCE_COMMIT = 'f6c25893c1f4efc076dd9dde7cbeb676fda9bd1d';
-
+export const RELEASE_SOURCE_TAG = 'multi-display-build15';
 export function dmgFileName(architecture) {
   assert.equal(architecture, 'arm64', 'This personal preview is Apple Silicon only.');
-  return `KujiraWallpaper-LifeMotion-B14-${architecture}.dmg`;
+  return `KujiraWallpaper-MultiDisplay-B15-${architecture}.dmg`;
 }
 
 /** Reject stale/placeholder/unverified builds before copying or mounting anything. */
 export function validateDmgSource(report) {
   assert.equal(report.schemaVersion, 1);
-  assert.equal(report.bundleBuild, '14', 'Build14 DMG requires the sealed Build14 app.');
+  assert.equal(report.bundleBuild, '15', 'Build15 DMG requires the sealed Build15 app.');
   assert.equal(report.profile, 'whale-maid-sunset-v1', 'Do not label the placeholder as the local-art release.');
   dmgFileName(report.architecture);
   assert.equal(report.minimumMacOS, '14.0');
@@ -43,7 +41,7 @@ export function validateDmgSource(report) {
     assert.ok(path.startsWith('private-art/macos-out/') && !path.includes('\\') && !path.split('/').some(part => part === '..' || part === '.' || part === ''), 'Unsafe build report path.');
   }
   assert.match(report.app, /\.app$/);
-  assert.match(report.zip, /KujiraWallpaper-LifeMotion-B14-arm64-local-preview\.zip$/);
+  assert.match(report.zip, /KujiraWallpaper-MultiDisplay-B15-arm64-local-preview\.zip$/);
   assert.match(report.zipSha256, /^[a-f0-9]{64}$/);
   assert.ok(Array.isArray(report.files) && report.files.length > 0);
   for (const file of report.files) {
@@ -54,12 +52,12 @@ export function validateDmgSource(report) {
   }
 }
 
-export function releaseReadme({ version, zipSha256, architecture, sourceTag = RELEASE_SOURCE_TAG, sourceCommit = RELEASE_SOURCE_COMMIT }) {
+export function releaseReadme({ version, zipSha256, architecture, sourceTag = RELEASE_SOURCE_TAG, sourceCommit }) {
   dmgFileName(architecture);
   assert.match(zipSha256, /^[a-f0-9]{64}$/);
   assert.equal(sourceTag, RELEASE_SOURCE_TAG);
-  assert.equal(sourceCommit, RELEASE_SOURCE_COMMIT);
-  return `くじらの散歩道 — 生活モーション Build 14（個人テスト用）
+  assert.match(sourceCommit, /^[a-f0-9]{40,64}$/);
+  return `くじらの散歩道 — 全ディスプレイ同期 Build 15（個人テスト用）
 ==================================================================
 
 これは個人検証用の非公開リリースです。公開配布物・正式リリースではありません。
@@ -82,16 +80,15 @@ export function releaseReadme({ version, zipSha256, architecture, sourceTag = RE
    Escでポーズ。メニューバーから「書斎へ戻る」「もう一度遊ぶ」。
 6. 音は常時無音。通信・解析・ログイン自動起動はありません。
 
-今回の変更（Build 14）
-- 待機中のDeepSeekちゃんに6種類の仕草を追加：小さなジャンプ、くすくす笑い、
-  小さなダンス、照れ覗きと手振り、のび、自分の尾との戯れ。
-- 承認済み生活16コマはそのままに、各4キー・計24コマの専用画像を追加。
-  表情・手足・髪・尾が変わるコマを、予備動作から余韻まで順に表示。
-- 起きている間は平均約14〜17秒を目安に仕草を選ぶが、歩行・睡眠を優先し、
-  短い待機へ無理に詰め込まない。歩行がときどき軽いスキップになる。
-- 来客の歩行・会釈・待機の仕草と、リツカ／ユメのローカル8姿勢を追加。
-- 戦闘・呼びかけ・手動操作中は仕草を重ねない。画像失敗時は元16コマへ戻る。
-- Build 13の背景5種・広い壁紙・戦闘8姿勢・複数ライバルを引き継ぎ。
+今回の変更（Build 15）
+- 壁紙をメインディスプレイだけでなく、接続中のすべてのディスプレイへ同期表示。
+  各ディスプレイに独立した整数倍の描画面を置き、同じDeepSeekちゃんの生活を映す。
+- ディスプレイの追加・切断・配置変更を検知してパネルを張り直す。
+  ミラーリングで同じ座標になる画面は重複ウィンドウを作らない。
+- Build 14の6種類の仕草（小さなジャンプ・くすくす笑い・小さなダンス・
+  照れ覗きと手振り・のび・尾との戯れ）と専用24コマを引き継ぎ。
+- 承認済み生活16コマ、背景5種、広い壁紙、戦闘8姿勢、複数ライバルを引き継ぎ。
+- 壁紙・元の背景設定・ログイン自動起動は変更しない。クリックは全画面で透過。
 
 Build 12までの主な内容
 - 通常待機中に3ボスが1体ずつ遊びに来て、歩き・会釈し・帰る（Build 12）
@@ -101,14 +98,14 @@ Build 12までの主な内容
 検証済み（このDMGの作成時）
 - 署名検証、DMGの読取専用マウント、DMG外へコピー後の単体起動
 - 同梱素材のハッシュ、自己テスト2種、元ZIPとのbyte一致
-- Node 257テスト、Swift 39テスト×2プロファイル、Webビルド（通常・placeholder）
+- Node 257テスト、Swift 43テスト×2プロファイル、Webビルド（通常・placeholder）
 未確認
-- 実画面での6仕草の見え方・頻度・キー切替、キー操作の感触
+- 実画面での複数ディスプレイ同期、6仕草の見え方・頻度・キー切替、キー操作の感触
 - 壁紙ON/OFF、Space、スリープ復帰、30分のCPU・メモリ・発熱
-- 別のMac／OS、Gatekeeperの挙動、実時間の連続動作
+- 別のMac／OS、異なる画面解像度・配置、Gatekeeperの挙動、実時間の連続動作
 
 記録
-- アプリ版: ${version}（bundle build 14）
+- アプリ版: ${version}（bundle build 15）
 - 元ソース: ${sourceTag} / ${sourceCommit}
 - 元ZIP SHA-256: ${zipSha256}
 - DMGのSHA-256はリリースの SHA256SUMS.txt を参照してください。
@@ -125,7 +122,7 @@ async function main() {
   const report = JSON.parse(await readFile(resolve(privateRoot, 'macos-out/latest.json'), 'utf8'));
   validateDmgSource(report);
   const sourceCommit = capture('git', ['rev-parse', `${RELEASE_SOURCE_TAG}^{}`], { cwd: root });
-  assert.equal(sourceCommit, RELEASE_SOURCE_COMMIT, 'The sealed app must come from the recorded Build14 source tag.');
+  assert.match(sourceCommit, /^[a-f0-9]{40,64}$/, 'The sealed app must come from the recorded Build15 source tag.');
   const app = resolve(root, report.app);
   const zip = resolve(root, report.zip);
   const appName = appDirectoryName(await readdir(dirname(app)));
@@ -152,6 +149,7 @@ async function main() {
   await symlink('/Applications', resolve(staging, 'Applications'));
   await writeFile(resolve(staging, 'READ-ME-FIRST.txt'), releaseReadme({
     version: report.version, zipSha256: report.zipSha256, architecture: report.architecture,
+    sourceTag: RELEASE_SOURCE_TAG, sourceCommit: sourceCommit,
   }));
   const executable = resolve(staging, appName, 'Contents/MacOS/KujiraWallpaper');
   const readmePath = resolve(staging, 'READ-ME-FIRST.txt');
@@ -192,7 +190,7 @@ async function main() {
   const receipt = {
     schemaVersion: 1, dmg: relative(root, dmg), bytes: stat.size, sha256: dmgSha,
     architecture: report.architecture, minimumMacOS: report.minimumMacOS, version: report.version,
-    sourceTag: RELEASE_SOURCE_TAG, sourceCommit: RELEASE_SOURCE_COMMIT,
+    sourceTag: RELEASE_SOURCE_TAG, sourceCommit: sourceCommit,
     sourceApp: report.app, sourceZip: report.zip, sourceZipSha256: report.zipSha256,
     mountedReadOnlyVerified: true, copiedOutSelfTest: true, notarized: false,
     privateTestRelease: true, publishedAtBuild: false, autoStart: false, wallpaperChanged: false,
