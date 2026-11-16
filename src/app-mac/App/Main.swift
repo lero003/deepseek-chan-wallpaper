@@ -83,6 +83,17 @@ struct KujiraMain {
             print("NATIVE_FIGHTERS_SELF_TEST_PASS: auto event/home, manual commands, battle renderer, passive wallpaper, return. Not GUI keyboard acceptance.")
             return
         }
+        if let output = try value("--render-sparring") {
+            let seconds = Double(try value("--time") ?? "12") ?? 12
+            guard seconds.isFinite, seconds >= 0, seconds <= 180 else { throw KujiraError.invalid("対戦書き出し時間が不正です。") }
+            try engine.command("sparring")
+            _ = try engine.replayGameJSON(frames: Int(seconds * 60), step: 1.0 / 60)
+            let plan = try engine.snapshot(presentation: "wallpaper")
+            let (width, height) = try dimensions()
+            try ScenePainter.writePNG(painter.bitmap(plan, width: width, height: height), to: URL(fileURLWithPath: output))
+            print("NATIVE_SPARRING_RENDER_PASS: native renderer export, not desktop acceptance.")
+            return
+        }
         if let output = try value("--render-manual") {
             let seconds = Double(try value("--time") ?? "8") ?? 8
             guard seconds.isFinite, seconds >= 0, seconds <= 180 else { throw KujiraError.invalid("手動書き出し時間が不正です。") }

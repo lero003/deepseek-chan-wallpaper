@@ -32,7 +32,7 @@
       <main id="main-content">
         <figure class="scene" id="scene" aria-busy="true">
           <div class="static-scene" aria-hidden="true"></div>
-          <canvas id="world" width="480" height="270" role="img" aria-label="海辺の書斎。クジラ娘が歩いたり眠ったりしています。" aria-describedby="scene-description">
+          <canvas id="world" width="480" height="270" tabindex="0" role="img" aria-label="海辺の書斎。クジラ娘が歩いたり眠ったりしています。" aria-describedby="scene-description battle-help">
             海辺のドット絵を表示するには、Canvasに対応したブラウザーが必要です。
           </canvas>
           <figcaption class="sr-only" id="scene-description">音のない、眺めるための壁紙です。手前の一時停止ボタンで動きを止められます。OSの「視差効果を減らす」設定では静止表示になります。</figcaption>
@@ -40,12 +40,33 @@
           <p class="scene-error" id="scene-error" role="alert" hidden></p>
           <noscript><p class="scene-error">静かな背景を表示しています。クジラ娘を動かすにはJavaScriptを有効にしてください。</p></noscript>
         </figure>
+        <div class="battle-controls" id="battle-controls" hidden>
+          <p id="battle-help">画面を選んで操作：矢印 / WASDで移動、Jで攻撃、Kで回避、Lで必殺技。Escで一時停止。</p>
+          <div class="battle-actions">
+            <button type="button" data-move="left" aria-label="左へ移動">←</button>
+            <button type="button" data-move="up" aria-label="奥へ移動">↑</button>
+            <button type="button" data-move="down" aria-label="手前へ移動">↓</button>
+            <button type="button" data-move="right" aria-label="右へ移動">→</button>
+            <button type="button" data-action="attack">攻撃 J</button>
+            <button type="button" data-action="dodge">回避 K</button>
+            <button type="button" data-action="special">必殺 L</button>
+            <button type="button" id="battle-retry">再挑戦</button>
+            <button type="button" id="battle-home">書斎へ戻る</button>
+          </div>
+        </div>
       </main>
 
       <footer class="site-footer">
         <div class="scene-caption"><span class="scene-number" aria-hidden="true">01</span><div><p class="scene-name" id="scene-name">海辺の書斎</p><p class="scene-thought" id="scene-thought">ただ、ここにいる。</p><p class="tagline">おっとり。ときどき、ぼうっと。</p><p class="preview-note">非公式ファン作品</p></div></div>
         <div class="playback-control">
           <div class="control-row">
+            <label class="background-picker">モード
+              <select id="mode-setting" disabled>
+                <option value="quiet">書斎で過ごす</option>
+                <option value="sparring">リュミエとゆっくり対戦</option>
+                <option value="manual">手動で3連戦</option>
+              </select>
+            </label>
             <div class="background-picker">
               <span class="picker-label" id="background-label">背景</span>
               <select id="background-setting" aria-labelledby="background-label" hidden></select>
@@ -67,6 +88,7 @@
           <li>「背景」で気分に合わせて部屋を切り替えられます（夕凪・月夜・雨音・朝凪・雪あかり）。</li>
           <li>動きを止めたいときは「一時停止」。ずっと静止画で眺める設定もあります。</li>
           <li>バッテリーが気になる場合は「省電力」でゆっくり描画にできます。</li>
+          <li>「リュミエとゆっくり対戦」は、HP表示も勝敗もない眺めるモード。「手動で3連戦」では自分で操作できます。</li>
         </ul>
       </section>
       <section class="about-section">

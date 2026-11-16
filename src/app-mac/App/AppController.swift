@@ -2,9 +2,7 @@ import AppKit
 import CoreGraphics
 import KujiraCore
 
-/// The quiet wallpaper app: a seaside study picture, a menu bar item, and nothing else.
-/// The fighters feature is shelved — the shared engine still runs the quiet life
-/// (auto-bouts are switched off), but no combat UI or input exists on this surface.
+/// Quiet life or ambient Lumie sparring, with manual combat only outside wallpaper mode.
 @MainActor
 final class AppController: NSObject, NSWindowDelegate {
     let assets: Assets
@@ -40,6 +38,12 @@ final class AppController: NSObject, NSWindowDelegate {
     private var backgroundItems: [NSMenuItem] = []
     private var previewItem: NSMenuItem?
     private var settingsButton: NSButton?
+    private var modePopup: NSPopUpButton?
+    private var retryButton: NSButton?
+    private var homeButton: NSButton?
+    private var modeItems: [NSMenuItem] = []
+    private var ambientSparring = false
+    private var heldKeys = Set<UInt16>()
     private let pauseSymbol = NSImage(systemSymbolName: "pause.fill", accessibilityDescription: "一時停止中")
     private var observers: [(NotificationCenter, NSObjectProtocol)] = []
     private var systemSleeping = false
@@ -52,8 +56,7 @@ final class AppController: NSObject, NSWindowDelegate {
         let engine = try SceneEngine(assets: assets)
         self.engine = engine
         self.painter = ScenePainter(engine: engine)
-        // Shelved fighters: the quiet life never schedules an auto-bout. Peaceful
-        // visitors are independent of this switch and keep coming.
+        // Ambient modes are explicit; the old periodic mob bout stays disabled.
         try engine.command("frequency", value: "off")
         let initial = try engine.snapshot()
         self.plan = initial
@@ -77,6 +80,11 @@ final class AppController: NSObject, NSWindowDelegate {
                 }
             }
             self.plan = try engine.snapshot(); self.wallpaperPlan = self.plan
+            ambientSparring = UserDefaults.standard.bool(forKey: "ambientSparring")
+            if ambientSparring {
+                try engine.command("sparring")
+                self.plan = try engine.snapshot(); self.wallpaperPlan = self.plan
+            }
         }
     }
 
@@ -156,6 +164,24 @@ final class AppController: NSObject, NSWindowDelegate {
         self.settingsMenu = settingsMenu
         let scene = makeSceneView()
         previewScene = scene
+        scene.onKey = { [weak self] key, down, repeated in self?.handleKey(key, down: down, repeated: repeated) ?? false }
+        scene.onFocusChanged = { [weak self] in
+            guard let self else { return }
+            self.heldKeys.removeAll()
+            do { try self.engine.setMovement(x: 0, y: 0); try self.engine.setManualFocus(false) }
+            catch { self.fail(error.localizedDescription) }
+            // AppKit updates firstResponder after this callback returns.
+            DispatchQueue.main.async { [weak self] in self?.synchronize() }
+        }
+        let modes = NSPopUpButton(frame: .zero, pullsDown: false)
+        modes.addItems(withTitles: ["書斎で過ごす", "リュミエとゆっくり対戦", "手動で3連戦（壁紙OFF時）"])
+        modes.autoenablesItems = false
+        modes.target = self; modes.action = #selector(changeMode(_:)); modePopup = modes
+        let retry = NSButton(title: "再挑戦", target: self, action: #selector(retryBattle(_:)))
+        let home = NSButton(title: "書斎へ戻る", target: self, action: #selector(goHome(_:)))
+        retryButton = retry; homeButton = home
+        let modeBar = NSStackView(views: [modes, NSView(), retry, home])
+        modeBar.orientation = .horizontal; modeBar.spacing = 12
         // The one quiet caption under the scene: the shared observation line
         // (life, small gestures, peaceful visitors). The footer owns stop reasons.
         let caption = NSTextField(labelWithString: "ただ、ここにいる。")
@@ -173,13 +199,17 @@ final class AppController: NSObject, NSWindowDelegate {
         status.toolTip = "再生状態と停止理由（一時停止・静止設定・スリープなど）"
         let footer = NSStackView(views: [note, NSView(), status])
         footer.orientation = .horizontal; footer.spacing = 12
-        for view in [toolbar, scene, caption, footer] { view.translatesAutoresizingMaskIntoConstraints = false; root.addSubview(view) }
+        for view in [toolbar, modeBar, scene, caption, footer] { view.translatesAutoresizingMaskIntoConstraints = false; root.addSubview(view) }
         NSLayoutConstraint.activate([
             toolbar.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 16),
             toolbar.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -16),
             toolbar.topAnchor.constraint(equalTo: root.topAnchor, constant: 12), toolbar.heightAnchor.constraint(equalToConstant: 38),
             scene.leadingAnchor.constraint(equalTo: root.leadingAnchor), scene.trailingAnchor.constraint(equalTo: root.trailingAnchor),
-            scene.topAnchor.constraint(equalTo: toolbar.bottomAnchor, constant: 12),
+            modeBar.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 16),
+            modeBar.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -16),
+            modeBar.topAnchor.constraint(equalTo: toolbar.bottomAnchor, constant: 8),
+            modeBar.heightAnchor.constraint(equalToConstant: 28),
+            scene.topAnchor.constraint(equalTo: modeBar.bottomAnchor, constant: 8),
             scene.bottomAnchor.constraint(equalTo: caption.topAnchor, constant: -8),
             caption.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 16), caption.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -16),
             caption.bottomAnchor.constraint(equalTo: footer.topAnchor, constant: -8),
@@ -205,8 +235,57 @@ final class AppController: NSObject, NSWindowDelegate {
     /// Change-guarded: the tick runs up to 30 times a second.
     private func updateCaption() {
         guard let captionLabel else { return }
-        let line = plan.game?.companionLine ?? ""
+        let line = plan.game?.manual == true
+            ? "矢印 / WASD: 移動 · J: 攻撃 · K: 回避 · L: 必殺 · Esc: 一時停止（画面をクリックして操作）"
+            : plan.game?.mode == "sparring" ? "リュミエと、ゆっくり。HP表示も勝ち負けもない対戦。" : plan.game?.companionLine ?? ""
         if captionLabel.stringValue != line { captionLabel.stringValue = line }
+        retryButton?.isHidden = plan.game?.manual != true || !["retry", "result"].contains(plan.game?.phase ?? "")
+    }
+    @objc private func changeMode(_ sender: NSPopUpButton) { selectMode(sender.indexOfSelectedItem) }
+    @objc private func changeModeMenu(_ sender: NSMenuItem) { selectMode(sender.tag) }
+    private func selectMode(_ index: Int) {
+        guard !failed, index >= 0, index <= 2, index != 2 || wallpaperWindows.isEmpty else { return }
+        do {
+            heldKeys.removeAll()
+            try engine.command("home")
+            if index == 2 {
+                try engine.command("play")
+                if policy.manuallyPaused { try engine.command("pause") }
+                showPreview(activate: true)
+                previewWindow?.makeFirstResponder(previewScene)
+            } else {
+                ambientSparring = index == 1
+                if persistSettings { UserDefaults.standard.set(ambientSparring, forKey: "ambientSparring") }
+                if ambientSparring { try engine.command("sparring") }
+            }
+            synchronize()
+        } catch { fail(error.localizedDescription) }
+    }
+    @objc private func retryBattle(_ sender: Any?) {
+        guard wallpaperWindows.isEmpty else { return }
+        do {
+            try engine.command("retry")
+            if policy.manuallyPaused { try engine.command("pause") }
+            previewWindow?.makeFirstResponder(previewScene); synchronize()
+        }
+        catch { fail(error.localizedDescription) }
+    }
+    @objc private func goHome(_ sender: Any?) { selectMode(0) }
+    private func handleKey(_ key: UInt16, down: Bool, repeated: Bool) -> Bool {
+        guard !failed, wallpaperWindows.isEmpty, plan.game?.manual == true else { return false }
+        let horizontal: [UInt16: Double] = [0: -1, 123: -1, 2: 1, 124: 1]
+        let vertical: [UInt16: Double] = [13: -1, 126: -1, 1: 1, 125: 1]
+        let actions: [UInt16: String] = [38: "attack", 6: "attack", 40: "dodge", 7: "dodge", 37: "special", 8: "special"]
+        guard horizontal[key] != nil || vertical[key] != nil || actions[key] != nil || key == 53 else { return false }
+        do {
+            if down { heldKeys.insert(key) } else { heldKeys.remove(key) }
+            if key == 53 && down && !repeated { togglePause(nil) }
+            else if let action = actions[key], down && !repeated { try engine.command(action) }
+            let x = max(-1, min(1, heldKeys.reduce(0.0) { $0 + (horizontal[$1] ?? 0) }))
+            let y = max(-1, min(1, heldKeys.reduce(0.0) { $0 + (vertical[$1] ?? 0) }))
+            try engine.setMovement(x: x, y: y)
+        } catch { fail(error.localizedDescription) }
+        return true
     }
     @objc private func changeBackgroundPopup(_ sender: NSPopUpButton) { applyBackground(sender.indexOfSelectedItem) }
     @objc private func setBackgroundMenu(_ sender: NSMenuItem) { applyBackground(sender.tag) }
@@ -236,6 +315,12 @@ final class AppController: NSObject, NSWindowDelegate {
         memoryItem?.isEnabled = false
         previewItem = add("プレビューを開く", #selector(openPreview(_:)))
         wallpaperItem = add("壁紙を表示（全ディスプレイ）", #selector(toggleWallpaper(_:)))
+        let modesMenu = NSMenu(title: "モード"); modesMenu.autoenablesItems = false
+        let modesParent = add("モード", nil); modesParent.submenu = modesMenu
+        for (index, title) in ["書斎で過ごす", "リュミエとゆっくり対戦", "手動で3連戦（壁紙OFF時）"].enumerated() {
+            let entry = NSMenuItem(title: title, action: #selector(changeModeMenu(_:)), keyEquivalent: "")
+            entry.target = self; entry.tag = index; modesMenu.addItem(entry); modeItems.append(entry)
+        }
         let backgroundMenu = NSMenu(title: "背景"); backgroundMenu.autoenablesItems = false
         let backgroundParent = add("背景", nil); backgroundParent.submenu = backgroundMenu
         for (index, label) in (["\(assets.configuration.layout.label)（標準）"] + assets.variants.map(\.label)).enumerated() {
@@ -358,6 +443,9 @@ final class AppController: NSObject, NSWindowDelegate {
     private func startWallpaper() throws {
         guard wallpaperWindows.isEmpty else { return }
         let built = try buildWallpaperPanels()
+        try engine.setWallpaperActive(true)
+        if plan.game?.manual == true && ambientSparring { try engine.command("sparring") }
+        heldKeys.removeAll()
         wallpaperWindows = built.windows
         wallpaperViews = built.views
         // Every connected display receives the same plan; mirrored screens share one panel.
@@ -365,6 +453,7 @@ final class AppController: NSObject, NSWindowDelegate {
         synchronize()
     }
     private func stopWallpaper() {
+        do { try engine.setWallpaperActive(false) } catch { fail(error.localizedDescription); return }
         let windows = wallpaperWindows
         let stoppedViews = wallpaperViews
         wallpaperWindows = []
@@ -433,6 +522,14 @@ final class AppController: NSObject, NSWindowDelegate {
         let visibleWallpaper = wallpaperWindows.contains { $0.isVisible && $0.occlusionState.contains(.visible) }
         policy.hasVisibleSurface = visiblePreview || visibleWallpaper
         let running = policy.shouldAnimate && !modalOpen
+        let manualFocus = running && visiblePreview && previewWindow?.isKeyWindow == true
+            && previewWindow?.firstResponder === previewScene && wallpaperWindows.isEmpty
+        if !manualFocus { heldKeys.removeAll() }
+        do {
+            if plan.game?.manual == true && plan.game?.paused != policy.manuallyPaused { try engine.command("pause") }
+            try engine.setManualFocus(manualFocus)
+        }
+        catch { fail(error.localizedDescription); return }
         if running {
             if timer == nil || timerFPS != policy.fps {
                 stopTimer(); clock.reset(); _ = clock.sample(ProcessInfo.processInfo.systemUptime)
@@ -453,6 +550,14 @@ final class AppController: NSObject, NSWindowDelegate {
         backgroundPopup?.selectItem(at: backgroundVariantIndex)
         for (index, item) in backgroundItems.enumerated() { item.state = index == backgroundVariantIndex ? .on : .off }
         let wallpaperOn = !wallpaperWindows.isEmpty
+        let selectedMode = plan.game?.manual == true ? 2 : plan.game?.mode == "sparring" ? 1 : 0
+        modePopup?.selectItem(at: selectedMode)
+        modePopup?.item(at: 2)?.isEnabled = !wallpaperOn
+        homeButton?.isHidden = selectedMode == 0
+        for item in modeItems {
+            item.state = item.tag == selectedMode ? .on : .off
+            item.isEnabled = item.tag != 2 || !wallpaperOn
+        }
         wallpaperItem?.state = wallpaperOn ? .on : .off
         wallpaperItem?.title = wallpaperOn ? "壁紙をOFF（全ディスプレイ）" : "壁紙を表示（全ディスプレイ）"
         wallpaperButton?.title = wallpaperOn ? "壁紙をOFF" : "壁紙にする"
@@ -498,7 +603,7 @@ final class AppController: NSObject, NSWindowDelegate {
         let alert = NSAlert()
         alert.messageText = "くじらの散歩道"
         let memory = ProcessMemory.formatted().map { "\nメモリ使用量（プロセスfootprint）: \($0)" } ?? ""
-        alert.informativeText = "海辺の小さな書斎で、クジラ娘がのんびり暮らすドット絵の壁紙です。歩いたり、窓辺でぼんやりしたり、ときどきお昼寝したり。眺めるだけで楽しめます。音はありません。\n\n「DeepSeekちゃん（クジラ娘）」をモチーフにした非公式のファン作品です。キャラクターの原案・デザインは、この子を生み出したファンコミュニティと原案者に帰属します。DeepSeek社との提携・承認はありません。\n壁紙設定は書き換えず、OFF・終了で元の壁紙に戻ります。通信・音声・通知・分析・ログイン自動起動はありません。" + memory
+        alert.informativeText = "海辺の書斎での暮らしと、リュミエとのゆっくりした対戦を眺めるドット絵の壁紙です。ゆっくり対戦にはHP表示も勝敗もありません。壁紙OFF時は「手動で3連戦」を選べます。音はありません。\n\n「DeepSeekちゃん（クジラ娘）」をモチーフにした非公式のファン作品です。キャラクターの原案・デザインは、この子を生み出したファンコミュニティと原案者に帰属します。DeepSeek社との提携・承認はありません。\n壁紙設定は書き換えず、OFF・終了で元の壁紙に戻ります。通信・音声・通知・分析・ログイン自動起動はありません。" + memory
         let scroll = NSScrollView(frame: NSRect(x: 0, y: 0, width: 560, height: 280))
         scroll.hasVerticalScroller = true; scroll.borderType = .bezelBorder
         let text = NSTextView(frame: scroll.bounds)
@@ -565,6 +670,8 @@ final class AppController: NSObject, NSWindowDelegate {
         statusLabel?.stringValue = "表示を停止しました"
         // Nothing may pretend the scene is still live after a rendering failure.
         for item in [pauseItem, wallpaperItem, lowPowerItem, previewItem] { item?.isEnabled = false }
+        for item in modeItems { item.isEnabled = false }
+        modePopup?.isEnabled = false; retryButton?.isEnabled = false; homeButton?.isEnabled = false
         for item in backgroundItems { item.isEnabled = false }
         pauseButton?.isEnabled = false; wallpaperButton?.isEnabled = false
         backgroundPopup?.isEnabled = false; settingsButton?.isEnabled = false
@@ -580,12 +687,18 @@ final class AppController: NSObject, NSWindowDelegate {
             // Closing the preview must release its window backing store and scene view; the
             // menu can recreate it later. Keeping them alive was the largest avoidable heap cost.
             previewRequested = false
+            if plan.game?.manual == true {
+                do { try engine.command("home"); if ambientSparring { try engine.command("sparring") } }
+                catch { fail(error.localizedDescription) }
+            }
+            heldKeys.removeAll()
             if let scene = previewScene { views.removeAll { $0 === scene } }
             previewScene = nil
             captionLabel = nil
             previewWindow = nil
             pauseButton = nil; wallpaperButton = nil; statusLabel = nil
             backgroundPopup = nil
+            modePopup = nil; retryButton = nil; homeButton = nil
             settingsMenu = nil; settingsLowPowerItem = nil
         }
         synchronize()
@@ -617,6 +730,7 @@ final class AppController: NSObject, NSWindowDelegate {
          "timerRunning": timer != nil,
          "visibleSurface": policy.hasVisibleSurface, "captionCreated": captionLabel != nil,
          "autoBoutsScheduled": false,
+         "modeControlCreated": modePopup != nil, "manualRequiresWallpaperOff": true,
          "scope": "Native startup only; not physical wallpaper/Spaces/sleep acceptance."]
     }
 }

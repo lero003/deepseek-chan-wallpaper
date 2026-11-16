@@ -1,6 +1,7 @@
 import art from '@kujira-art';
 import { ACTOR_HALF_WIDTH, applyMood, seedFromText } from '../world/world.ts';
-import { createGame, advanceGame, command } from '../fighters/game.ts';
+import { createGame, advanceGame, command, setFocus, setMovement } from '../fighters/game.ts';
+import { keyIntent } from '../fighters/input.ts';
 import { gamePlan } from '../fighters/render-plan.ts';
 import { motesFor } from '../render/scene-plan.ts';
 import type { SpriteAtlas } from '../render/atlas.ts';
@@ -47,9 +48,7 @@ const seedText = (new URL(window.location.href).searchParams.get('seed') || 'sea
 const game = createGame(seedFromText(seedText), art.scene);
 const world = game.world;
 const motes = motesFor(world.seed);
-// The fighters feature is shelved: this is a quiet wallpaper. Auto-bouts stay off
-// (the shared engine and its regression tests remain, but nothing schedules them);
-// peaceful visitors are part of the quiet life and keep coming.
+// Quiet life remains the default; continuous sparring is an explicit mode.
 command(game, 'frequency', 'off');
 // The personal settings this browser remembers, restored before the first
 // synchronize; the background waits for its image.
@@ -89,13 +88,15 @@ element<HTMLElement>('#credit-summary').textContent = `素材台帳 · ${manifes
  *  observation line (life, emotes, peaceful visitors). Never aria-live. */
 function updateCaption(): void {
   const stop = stopNote(conditions, failed);
-  const line = stop ? stop.reason : companionLine(game);
+  const line = stop ? stop.reason : game.mode === 'sparring' ? 'リュミエと、ゆっくり。勝ち負けのない対戦。'
+    : game.mode === 'manual' ? '手動で3連戦 · 画面を選んで操作できます。' : companionLine(game);
   if (sceneThought.textContent !== line) sceneThought.textContent = line;
 }
 
 function draw(reason: 'animation' | 'resize' = 'animation'): void {
   if (shouldPaintFrame(conditions, reason) && activeAtlas && renderer) renderer.drawPlan(gamePlan(game, activeAtlas, renderer.activeAppearance, !conditions.reducedMotion && !conditions.still, 'preview', motes));
   updateCaption();
+  updateBattleControls();
 }
 
 const loop = new AnimationLoop({
@@ -115,6 +116,9 @@ function synchronize(): void {
   conditions.reducedMotion = media.matches;
   conditions.still = stillSetting.checked;
   const animate = shouldAnimate(conditions);
+  if (!animate) clearMovement();
+  if (game.mode === 'manual' && game.paused !== conditions.paused) command(game, 'pause');
+  setFocus(game, animate && document.activeElement === canvas);
   loop.setRunning(animate);
   pauseButton.disabled = !conditions.ready || conditions.reducedMotion || conditions.still;
   pauseButton.setAttribute('aria-pressed', String(conditions.paused));
@@ -131,6 +135,80 @@ function synchronize(): void {
   if (status.textContent !== text) status.textContent = text;
   if (!animate) draw();
   updateCaption();
+  updateBattleControls();
+}
+
+const modeSetting = element<HTMLSelectElement>('#mode-setting');
+const battleControls = element<HTMLElement>('#battle-controls');
+const retryButton = element<HTMLButtonElement>('#battle-retry');
+const held = new Set<string>();
+const pointers = new Map<number, string>();
+function movement(): void {
+  const keys = [...held, ...pointers.values()];
+  const intents = keys.map(keyIntent);
+  setMovement(game, Math.sign(intents.reduce((sum, item) => sum + (item?.kind === 'move' && item.axis === 'x' ? item.direction : 0), 0)),
+    Math.sign(intents.reduce((sum, item) => sum + (item?.kind === 'move' && item.axis === 'y' ? item.direction : 0), 0)));
+}
+function clearMovement(): void { held.clear(); pointers.clear(); setMovement(game, 0, 0); }
+function updateBattleControls(): void {
+  modeSetting.disabled = !conditions.ready;
+  battleControls.hidden = game.mode !== 'manual';
+  retryButton.hidden = !['retry', 'result'].includes(game.phase);
+  const label = game.mode === 'manual' ? '手動で3連戦。画面を選んでキーまたは下のボタンで操作。'
+    : game.mode === 'sparring' ? 'テラスでリュミエとゆっくり対戦。勝ち負けのない自動対戦です。' : art.description;
+  if (canvas.getAttribute('aria-label') !== label) canvas.setAttribute('aria-label', label);
+}
+function selectMode(value: string): void {
+  clearMovement();
+  command(game, 'home');
+  if (value === 'sparring') command(game, 'sparring');
+  if (value === 'manual') { command(game, 'play'); canvas.focus(); }
+  modeSetting.value = value;
+  synchronize(); draw('resize');
+}
+modeSetting.addEventListener('change', () => selectMode(modeSetting.value), { signal });
+element<HTMLButtonElement>('#battle-home').addEventListener('click', () => selectMode('quiet'), { signal });
+retryButton.addEventListener('click', () => { command(game, 'retry'); canvas.focus(); synchronize(); }, { signal });
+canvas.addEventListener('focus', synchronize, { signal });
+canvas.addEventListener('blur', () => { clearMovement(); synchronize(); }, { signal });
+window.addEventListener('blur', () => { clearMovement(); setFocus(game, false); }, { signal });
+window.addEventListener('focus', synchronize, { signal });
+canvas.addEventListener('keydown', event => {
+  if (game.mode !== 'manual' || event.metaKey || event.ctrlKey || event.altKey) return;
+  const intent = keyIntent(event.key);
+  if (!intent) return;
+  event.preventDefault();
+  if (intent.kind === 'move') { held.add(event.key); movement(); }
+  else if (!event.repeat) {
+    if (intent.kind === 'pause') { conditions.paused = !conditions.paused; synchronize(); }
+    else command(game, intent.action);
+  }
+}, { signal });
+canvas.addEventListener('keyup', event => { if (keyIntent(event.key)) { held.delete(event.key); movement(); } }, { signal });
+for (const button of battleControls.querySelectorAll<HTMLButtonElement>('[data-action], [data-move]')) {
+  button.addEventListener('pointerdown', event => {
+    if (event.button !== 0) return;
+    event.preventDefault(); canvas.focus(); synchronize();
+    button.setPointerCapture(event.pointerId);
+    const key = ({ left: 'a', right: 'd', up: 'w', down: 's' } as Record<string, string>)[button.dataset.move ?? ''];
+    if (key) { pointers.set(event.pointerId, key); movement(); }
+    else if (button.dataset.action) command(game, button.dataset.action);
+  }, { signal });
+  const release = (event: PointerEvent) => { pointers.delete(event.pointerId); movement(); };
+  button.addEventListener('pointerup', release, { signal });
+  button.addEventListener('pointercancel', release, { signal });
+  button.addEventListener('lostpointercapture', release, { signal });
+  // Keyboard/assistive-technology activation has no pointerdown.
+  button.addEventListener('click', event => {
+    if (event.detail !== 0) return;
+    canvas.focus(); synchronize();
+    if (button.dataset.action) command(game, button.dataset.action);
+    const key = ({ left: 'a', right: 'd', up: 'w', down: 's' } as Record<string, string>)[button.dataset.move ?? ''];
+    if (key) {
+      held.add(key); movement();
+      window.setTimeout(() => { held.delete(key); if (!signal.aborted) movement(); }, 180);
+    }
+  }, { signal });
 }
 
 function resize(): void {
@@ -366,6 +444,8 @@ if (import.meta.hot) {
     loop.dispose();
     dprQuery?.removeEventListener('change', onDevicePixelRatioChange);
     if (dialog.open) dialog.close();
+    clearMovement();
+    modeSetting.value = 'quiet'; modeSetting.disabled = true; battleControls.hidden = true;
     credits.replaceChildren();
     backgroundSetting.hidden = true;
     backgroundStatic.hidden = false;

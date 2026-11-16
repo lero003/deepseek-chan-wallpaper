@@ -7,6 +7,7 @@ import type { BossId, Enemy, EnemyKind, EnemyVariant, FightersGame } from './typ
 export function spawnEnemy(game: FightersGame, kind: EnemyKind, variant: EnemyVariant, x: number, y: number,
   facing: -1 | 1, entering = true, bossId?: BossId): Enemy | null {
   if (game.enemies.length >= LIMITS.enemies) return null;
+  if (game.mode === 'sparring' && (kind !== 'boss' || bossId !== 'lumie' || game.enemies.length > 0)) return null;
   if (game.route === 'endless' && (kind !== 'boss' || game.phase !== 'boss' || game.enemies.length > 0)) return null;
   // The arena's final roster is one boss, never summoned visitors or a duplicate boss.
   if (game.route === 'arena' && ARENA_ROUNDS[game.section]?.boss
@@ -55,7 +56,7 @@ export function updateEnemies(game: FightersGame): void {
     }
     if (enemy.state === 'stunned') {
       moveOnFloor(enemy, enemy.vx / 60, 0, game.stage); enemy.vx *= .86;
-      if (enemy.age >= 22) { enemy.state = 'move'; enemy.age = 0; enemy.readyAt = game.combatTick + 20; }
+      if (enemy.age >= 22) { enemy.state = 'move'; enemy.age = 0; enemy.readyAt = game.mode === 'sparring' ? Math.max(enemy.readyAt, game.combatTick + 110) : game.combatTick + 20; }
       continue;
     }
     if (!inBattle(game) || game.combatTick < game.graceUntil) continue;
@@ -66,7 +67,7 @@ export function updateEnemies(game: FightersGame): void {
     const enraged = enemy.kind === 'boss' && enemy.hp <= enemy.maxHP / 2;
     if (enemy.state === 'move') {
       const desiredRange = enemy.kind === 'slime' ? 30 : isFixedArena(game.route) ? tuning?.range ?? 48 : enemy.kind === 'popup' ? 106 : 92;
-      moveOnFloor(enemy, Math.abs(dx) > desiredRange ? Math.sign(dx) * stats.speed / 60 : 0,
+      moveOnFloor(enemy, Math.abs(dx) > desiredRange ? Math.sign(dx) * stats.speed / 60 * (game.mode === 'sparring' ? .55 : 1) : 0,
         Math.abs(dy) > 5 ? Math.sign(dy) * 14 / 60 : 0, game.stage);
       if (Math.abs(dx) <= desiredRange + 20 && Math.abs(dy) < 18 && game.combatTick >= enemy.readyAt) {
         if (enemy.kind === 'popup' && enemy.variant === 0 && decision(game) < .10) {
@@ -120,7 +121,7 @@ export function updateEnemies(game: FightersGame): void {
         const patterns = enemy.bossId ? BOSSES[enemy.bossId].patterns : null;
         enemy.pattern = patterns?.length ? patterns[Math.floor(decision(game) * patterns.length)]! : enemy.pattern + 1;
         enemy.vx = 0;
-        enemy.readyAt = game.combatTick + Math.round((stats.cooldown + decision(game) * 22) * (enraged ? .64 : 1));
+        enemy.readyAt = game.combatTick + Math.round((stats.cooldown + decision(game) * 22) * (enraged ? .64 : 1) * (game.mode === 'sparring' ? 2.5 : 1));
       }
     }
   }

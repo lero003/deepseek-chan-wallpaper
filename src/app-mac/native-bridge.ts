@@ -27,6 +27,7 @@ export function create(configurationJSON: string, seedText = 'seaside-v01', aren
   // Only the host's runtime-validated image enables painted-scene overlay suppression.
   // A configured but missing/corrupt image must keep the complete code-stage ambience.
   const arenaArt = arenaAvailable === true;
+  let wallpaperActive = false;
   const snapshot = (decorations: boolean) => JSON.stringify(scenePlan(world, atlas, motes, appearance, decorations));
   const gameSnapshot = (decorations = true, presentation = 'preview') => {
     if (presentation !== 'preview' && presentation !== 'wallpaper') throw new Error('Invalid presentation.');
@@ -40,7 +41,16 @@ export function create(configurationJSON: string, seedText = 'seaside-v01', aren
   return {
     gameSnapshotJSON: gameSnapshot,
     advanceGameJSON: (seconds: number, decorations = true, presentation = 'preview') => { advanceGame(game, seconds); return gameSnapshot(decorations, presentation); },
-    commandJSON: (name: string, value?: unknown) => { command(game, name, value); return JSON.stringify(gameUI(game)); },
+    commandJSON: (name: string, value?: unknown) => {
+      if (!wallpaperActive || !['play', 'retry', 'attack', 'dodge', 'special'].includes(name)) command(game, name, value);
+      return JSON.stringify(gameUI(game));
+    },
+    wallpaperJSON: (active: boolean) => {
+      if (typeof active !== 'boolean') throw new Error('Invalid wallpaper state.');
+      wallpaperActive = active;
+      if (active && game.mode === 'manual') command(game, 'home');
+      return JSON.stringify(gameUI(game));
+    },
     focusJSON: (focused: boolean) => { if (typeof focused !== 'boolean') throw new Error('Invalid focus.'); setFocus(game, focused); return JSON.stringify(gameUI(game)); },
     movementJSON: (x: number, y: number) => { setMovement(game, x, y); return JSON.stringify(gameUI(game)); },
     gameJSON: () => JSON.stringify(game),

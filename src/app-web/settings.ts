@@ -2,8 +2,7 @@
  * The personal settings this quiet wallpaper remembers — nothing else.
  *
  * Still (the persistent pause), low power and background id. Battle progress,
- * score and keys are never stored; the fighters feature is shelved and has no
- * settings surface. Storage is best-effort: private browsing, disabled storage
+ * score, mode and keys are never stored. Storage is best-effort: private browsing, disabled storage
  * or a full quota must never break the scene, and every value is validated on
  * read so corrupt or foreign data falls back to the defaults field by field.
  */

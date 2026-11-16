@@ -23,15 +23,16 @@ test('local production selects its ignored art module but explicit placeholder m
   assert.equal(selectArtEntry('/project', 'placeholder', () => true), resolve('/project/src/app-web/default-art.ts'));
 });
 
-test('public mode selects the quiet-only web entry, and never bypasses the placeholder guard', async () => {
+test('public mode selects the battle-capable web entry, and never bypasses the placeholder guard', async () => {
   assert.equal(selectArtEntry('/project', 'public', () => true), resolve('/project/private-art/runtime/art-public.ts'));
   assert.equal(selectArtEntry('/project', 'public', () => false), resolve('/project/src/app-web/default-art.ts'));
-  // The public entry must not import combat-only assets: they stay out of the public bundle.
+  // The authorized public surface includes the terrace and manual-combat cast.
   const source = await readFile(new URL('private-art/runtime/art-public.ts', root), 'utf8').catch(() => null);
   if (source !== null) {
-    assert.ok(!/scene\/arena\//.test(source), 'public entry imports a combat arena');
-    assert.ok(!/character\/combat\//.test(source), 'public entry imports combat poses');
-    assert.ok(!/fighters\/(slime|popup)\//.test(source), 'public entry imports combat enemies');
+    assert.match(source, /scene\/arena\/terrace\.png/);
+    assert.match(source, /character\/combat\//);
+    assert.match(source, /fighters\/slime\//);
+    assert.match(source, /fighters\/popup\//);
     assert.ok(/fighters\/lumie\//.test(source), 'peaceful visitors keep their sheets');
   }
 });

@@ -60,7 +60,25 @@ for (const name of ['world.js', 'configuration.json', 'manifest.json', 'characte
   await mkdir(dirname(destination), { recursive: true });
   await copyFile(resolve(prepared.resources, name), destination);
 }
-await writeFile(resolve(resources, 'README.txt'), "くじらの散歩道 — Build 17（静かな壁紙）\n\n海辺の小さな書斎で、クジラ娘がのんびり暮らすドット絵の壁紙アプリです。\n歩いたり、窓辺でぼんやりしたり、ときどきお昼寝したり。眺めるだけで楽しめます。音はありません。\n\n使い方\n・初回はプレビューのみ。壁紙は「壁紙にする」で明示的にONにします。\n・壁紙は接続中のすべてのディスプレイへ同じ風景を同期表示し、クリック透過です。画面の追加・切断・配置変更にも追従します。\n・OFF・終了で元の壁紙に戻ります。元の壁紙設定は変更せず、ログイン自動起動も登録しません。\n・メニューバーの「くじら」からプレビュー・壁紙ON/OFF・背景・一時停止・省電力・作品についてを操作します。壁紙ON・一時停止は項目自体にも表示されます。\n・メニューを開いている間は風景も一休みし、閉じると再開します。\n\n楽しみ方\n・背景は夕凪・月夜・雨音・朝凪・雪あかりの5種。ツールバー／メニューバーから切り替え、選択は保存されます。\n・DeepSeekちゃんは、ぴょこんと跳ねる・くすくす笑う・小さく踊る・照れて手を振る・のび・自分の尾との戯れ、の6種類の仕草をときどき見せます。\n・待機75〜105秒後から、リュミエ・リツカ・ユメが1体ずつ静かに遊びに来て、歩いたり立ち止まったりして帰ります。以降は2〜3分の待機を挟みます。戦闘はありません。\n・省電力（15fps）・一時停止をメニューから選べます。OSの「視差効果を減らす」では静止します。非表示・スリープ中は進みません。\n\nこの作品について\n・「DeepSeekちゃん（クジラ娘）」をモチーフにした非公式のファン作品です。キャラクターの原案・デザインはファンコミュニティと原案者に帰属します。DeepSeek社との提携・承認はありません。\n・背景とキャラクターはこのプロジェクトのために制作したドット絵です。外部の画像・フォントは読み込みません。\n・Apple Silicon用・個人用のローカル試作、アドホック署名・未公証です。公開・第三者配布は未許諾。素材の公開・再配布許諾は未確認です。\n・通信・音声・通知・分析・ログイン自動起動はありません。\n\nBuild 17: ファイターズ（手動・自動の対戦、呼びかけ）はお蔵入りとなり、ボタン・説明・設定を画面から撤去しました。完全に静かな壁紙アプリです。来客の演出は戦闘ではないため残しています。作品についての文章を整理しました。");
+await writeFile(resolve(resources, 'README.txt'), `くじらの散歩道 — Build 19
+
+海辺の書斎と、勝ち負けのないリュミエとの対戦を眺めるドット絵の壁紙アプリです。
+
+・初回はプレビューのみ。「壁紙にする」で明示的にONにします。
+・モードは「書斎で過ごす」「リュミエとゆっくり対戦」「手動で3連戦」。
+・ゆっくり対戦はリュミエのみ。近づく→打ち合う→後ろ跳び・後ろ歩き・背を向けて離れる→一呼吸を繰り返します。HP表示・スコア・勝敗はなく、自動で続きます。
+・手動対戦は壁紙OFF時だけ。画面をクリックし、矢印/WASDで移動、Jで攻撃、Kで回避、Lで必殺技、Escで一時停止。
+・手動対戦中に壁紙ONにすると、選んでいた書斎／ゆっくり対戦へ戻ります。
+・敗北・TIME UP時は「再挑戦」、いつでも「書斎へ戻る」で終了できます。
+・背景・書斎／ゆっくり対戦・一時停止・省電力の設定は保存されます。手動対戦の進行は保存しません。
+・壁紙は全ディスプレイへ同期表示するクリック透過のパネルです。元の壁紙設定を変更しません。
+・OSの「視差効果を減らす」、スリープ・非表示・メニュー表示中は停止します。
+・通信・音声・通知・分析・ログイン自動起動はありません。
+
+非公式ファン作品。キャラクター原案・デザインはファンコミュニティと原案者に帰属します。DeepSeek社との提携・承認はありません。
+Apple Silicon用・個人用ローカル試作。アドホック署名・未公証。Macアプリの公開・第三者配布は未許諾。素材の再配布ライセンスは付与していません。
+`);
+
 const executable = resolve(macos, 'KujiraWallpaper');
 await copyFile(sourceBinary, executable); await chmod(executable, 0o755);
 run('/usr/bin/strip', ['-S', executable]);
@@ -75,7 +93,7 @@ await writeFile(resolve(contents, 'Info.plist'), `<?xml version="1.0" encoding="
 <key>CFBundleDisplayName</key><string>くじらの散歩道（個人用試作）</string>
 <key>CFBundlePackageType</key><string>APPL</string>
 <key>CFBundleShortVersionString</key><string>${xml(version)}</string>
-<key>CFBundleVersion</key><string>17</string>
+<key>CFBundleVersion</key><string>19</string>
 <key>CFBundleIconFile</key><string>AppIcon</string>
 <key>LSMinimumSystemVersion</key><string>14.0</string>
 <key>LSUIElement</key><false/>
@@ -109,6 +127,7 @@ run(executable, ['--fighters-self-test']);
 const smokeOutput = capture(executable, ['--smoke-test']);
 assert.ok(smokeOutput.includes('NATIVE_STARTUP_PASS'), `Startup smoke failed: ${smokeOutput}`);
 assert.ok(smokeOutput.includes('"previewCloseReopenVerified":true'), 'Preview close/reopen cleanup was not verified.');
+assert.ok(smokeOutput.includes('"modeControlCreated":true'), 'The mode selector must be present.');
 run(executable, ['--render-preview', resolve(output, 'native-preview.png'), '--time', '6']);
 run(executable, ['--render-preview', resolve(output, 'native-preview-wide.png'), '--time', '6', '--width', '2048', '--height', '864']);
 for (const variant of prepared.configuration.variants ?? []) {
@@ -120,6 +139,7 @@ run(executable, ['--render-room-event', resolve(output, 'native-room-event-wide.
 if ((prepared.configuration.variants ?? []).some(variant => variant.id === 'night')) {
   run(executable, ['--render-room-event', resolve(output, 'native-room-event-night-wide.png'), '--variant', 'night', '--time', '3', '--width', '2048', '--height', '864']);
 }
+run(executable, ['--render-sparring', resolve(output, 'native-sparring-wide.png'), '--time', '12', '--width', '2048', '--height', '864']);
 run(executable, ['--render-manual', resolve(output, 'native-manual.png'), '--time', '5']);
 run(executable, ['--render-manual', resolve(output, 'native-boss.png'), '--capture-boss', '--time', '180']);
 const phasePreviews = ['intro', 'roundClear', 'bossIntro', 'victory', 'result'];
@@ -141,7 +161,7 @@ assert.ok(files.every(file => !/(^|\/)(node_modules|production|concepts|research
 const architecture = capture('/usr/bin/lipo', ['-archs', executable]);
 const libraries = capture('/usr/bin/otool', ['-L', executable]);
 const systemLibraries = systemLibraryPaths(libraries);
-const zip = resolve(output, `KujiraWallpaper-QuietWallpaper-B17-${architecture.replaceAll(' ', '-')}-local-preview.zip`);
+const zip = resolve(output, `KujiraWallpaper-Sparring-B19-${architecture.replaceAll(' ', '-')}-local-preview.zip`);
 run('/usr/bin/ditto', ['-c', '-k', '--sequesterRsrc', '--keepParent', app, zip]);
 // Legacy unzip console output can corrupt Japanese names under C locales.
 // Validate the real archive more strictly: extract, compare every byte, verify and execute.
@@ -164,13 +184,13 @@ const report = { schemaVersion: 1, app: relative(root, app), zip: relative(root,
   profile: prepared.layout.id, version, signing: 'ad-hoc hardened runtime, bundled-code JIT entitlement only', notarized: false,
   localPreviewOnly: true, published: false, thirdPartyRightsVerified: false, originalWallpaperChangedDuringBuild: false,
   archiveVerified: true, relocatedStandaloneSelfTest: true, relocatedFightersSelfTest: true,
-  gameplay: 'quiet-wallpaper + peaceful-visitors + backgrounds-5 + heroine-life-24 + multi-display (fighters shelved: engine retained for regression, no combat UI)', bundleBuild: '17',
+  gameplay: 'quiet-life + no-result Lumie sparring + manual arena only with wallpaper OFF + multi-display', bundleBuild: '19',
   startupSmoke: 'preview-create-close-reopen verified; wallpaper stayed OFF',
   bundledLifeGestures: prepared.configuration.life ? ['hop', 'giggle', 'sway', 'peek', 'stretch', 'daydream'] : [],
   bundledCombatSheets: Object.keys(prepared.configuration.sprites ?? {}),
   gamePreviews: ['native-room-event.png', 'native-room-event-wide.png',
      ...((prepared.configuration.variants ?? []).some(variant => variant.id === 'night') ? ['native-room-event-night-wide.png'] : []),
-     'native-manual.png', 'native-boss.png', ...phasePreviews.map(phase => `native-arena-${phase}.png`)].map(name => relative(root, resolve(output, name))),
+     'native-sparring-wide.png', 'native-manual.png', 'native-boss.png', ...phasePreviews.map(phase => `native-arena-${phase}.png`)].map(name => relative(root, resolve(output, name))),
   backgroundVariants: (prepared.configuration.variants ?? []).map(variant => variant.id),
   backgroundPreviews: (prepared.configuration.variants ?? []).map(variant => relative(root, resolve(output, `native-preview-${variant.id}-wide.png`))),
   autoStartEnabled: false, desktopAcceptance: 'manual-not-run', systemLibraries, files };

@@ -5,6 +5,7 @@ import type { ScenePlan, Mote } from '../render/scene-plan.ts';
 import type { RenderAppearance } from '../app-web/art-profile.ts';
 import { ARENA, ATTACKS, BOSS, isFixedArena } from './definitions.ts';
 import { drawEndlessAmbience } from './endless-art.ts';
+import { sparringLift } from './sparring.ts';
 import { drawArenaHud } from './arena-presentation.ts';
 import { gameUI } from './game.ts';
 import { CALL_POSE_TICKS } from '../companion/companion.ts';
@@ -62,7 +63,8 @@ export function gamePlan(game: FightersGame, atlas: SpriteAtlas, appearance: Ren
   const roomRoute = game.route === 'room';
   const camera = home ? 120 : Math.round(game.cameraX);
   const p = new Painter(camera);
-  const hero = game.hero;
+  const heroLift = sparringLift(game, 'hero');
+  const hero = heroLift ? { ...game.hero, y: game.hero.y - heroLift } : game.hero;
   const tick = game.tick;
   const low = game.effectsLow;
   const shadowColor = appearance.shadowColor ?? C.shadow;
@@ -85,7 +87,7 @@ export function gamePlan(game: FightersGame, atlas: SpriteAtlas, appearance: Ren
     const enemiesById = new Map(visible.map(enemy => [enemy.id, enemy] as const));
     for (const actor of orderedActors(game)) {
       if (actor.kind === 'hero') {
-        drawShadow(painter, hero.x, hero.y, hero.state === 'down' ? 20 : 15, .26);
+        drawShadow(painter, hero.x, game.hero.y, hero.state === 'down' ? 20 : 15, .26);
         drawHero(painter);
         continue;
       }
@@ -93,7 +95,8 @@ export function gamePlan(game: FightersGame, atlas: SpriteAtlas, appearance: Ren
       if (!enemy) continue;
       drawShadow(painter, enemy.x, enemy.y, enemy.kind === 'boss' ? 27 : enemy.kind === 'popup' ? 14 : 13,
         enemy.state === 'exit' ? .14 : .24);
-      drawEnemy(painter, enemy, tick, castAppearance);
+      const lift = sparringLift(game, 'rival');
+      drawEnemy(painter, lift ? { ...enemy, y: enemy.y - lift } : enemy, tick, castAppearance);
       // 思索のステップ is a straight lunge: mark the floor lane it will take, so the
       // dash is a reaction test rather than an unreadable hit.
       if (isFixedArena(game.route) && enemy.kind === 'boss' && enemy.state === 'windup' && enemy.pattern % 4 === 2) {

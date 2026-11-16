@@ -9,6 +9,43 @@ private struct ArenaBotState: Decodable { let hero: ArenaBotHero; let enemies: [
 @MainActor
 struct FightersTests {
     private func engine() throws -> SceneEngine { try SceneEngine(assets: CoreTests().assets()) }
+    @Test func ambientDuelRepeatedlySeparatesAndReengages() throws {
+        let engine = try engine()
+        try engine.command("sparring")
+        var far = false, cycles = 0
+        for _ in 0..<720 {
+            let json = try engine.replayGameJSON(frames: 15, step: 1.0 / 60)
+            let state = try JSONDecoder().decode(ArenaBotState.self, from: Data(json.utf8))
+            let rival = try #require(state.enemies.first)
+            let gap = abs(state.hero.x - rival.x)
+            if gap > 150 { far = true }
+            if gap < 65 && far { cycles += 1; far = false }
+            #expect(state.hero.x >= 978 && state.hero.x <= 1422)
+            #expect(rival.x >= 978 && rival.x <= 1422)
+            #expect(state.phase == "boss")
+        }
+        #expect(cycles >= 8)
+    }
+    @Test func ambientLumieDuelHasNoResultAndWallpaperBlocksManualEntry() throws {
+        let engine = try engine()
+        try engine.command("frequency", value: "off")
+        try engine.command("sparring")
+        _ = try engine.replayGameJSON(frames: 1800 * 30, step: 1.0 / 30)
+        let frame = try engine.snapshot(presentation: "wallpaper")
+        #expect(frame.game?.mode == "sparring")
+        #expect(frame.game?.phase == "boss" && frame.game?.outcome == "none")
+        #expect(frame.game?.hp == 5 && frame.game?.enemies == 1)
+        #expect(frame.game?.arcade.score == 0)
+        #expect(frame.battle?.cameraX == 960)
+        #expect(frame.battle?.commands.contains { $0.kind == "text" } == false)
+        try engine.command("play"); try engine.setManualFocus(true)
+        try engine.setWallpaperActive(true)
+        try engine.command("play")
+        #expect(try engine.snapshot().game?.manual == false)
+        try engine.setWallpaperActive(false)
+        try engine.command("play")
+        #expect(try engine.snapshot().game?.manual == true)
+    }
     @Test func thirtyMinuteFullGameMatchesV8AtEveryFrameRate() throws {
         let engine = try engine()
         let data = try Data(contentsOf: engine.assets.root.appendingPathComponent("test-fixtures.json"))

@@ -53,6 +53,7 @@ export function startEndlessBattle(game: FightersGame): void {
   cancelVisit(game);
   clearInputs(game);
   game.mode = 'endless'; game.route = 'endless'; game.paused = false; game.focused = false;
+  game.sparring = null;
   game.stage = arenaStage(game.scene); game.cameraX = ARENA.cameraX;
   game.endless = newEndlessState(); game.outcome = 'none'; game.cue = null;
   game.runTicks = 0; game.runStats = newStats(); game.arcade = newArcade();

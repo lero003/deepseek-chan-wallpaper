@@ -10,7 +10,7 @@ export const inBattle = (game: FightersGame): boolean => game.phase === 'battle'
 export function damageEnemy(game: FightersGame, enemy: Enemy, amount: number, knockback: number): void {
   if (isFixedArena(game.route) && !inBattle(game) || enemy.hp <= 0 || enemy.state === 'exit') return;
   const before = enemy.hp;
-  enemy.hp = Math.max(0, enemy.hp - amount);
+  enemy.hp = game.mode === 'sparring' ? enemy.maxHP : Math.max(0, enemy.hp - amount);
   // Small hits do not erase a boss telegraph; the third hit/special can interrupt it.
   if (enemy.kind !== 'boss' || enemy.hp === 0 || amount >= 2) {
     enemy.vx = game.hero.facing * knockback; enemy.vy = 0; enemy.age = 0;
@@ -43,12 +43,12 @@ export function damageEnemy(game: FightersGame, enemy: Enemy, amount: number, kn
 export function damageHero(game: FightersGame, fromX: number): void {
   const hero = game.hero;
   if (isFixedArena(game.route) && !inBattle(game) || game.combatTick < game.graceUntil || game.combatTick < hero.invulnerableUntil || hero.hp <= 0) return;
-  hero.hp = Math.max(game.mode === 'auto' ? 1 : 0, hero.hp - 1);
+  hero.hp = game.mode === 'sparring' ? HERO.hp : Math.max(game.mode === 'auto' ? 1 : 0, hero.hp - 1);
   recordStat(game, 'damageTaken'); arcadeDamage(game);
   hero.gauge = Math.min(100, hero.gauge + 5); hero.state = hero.hp === 0 ? 'down' : 'hurt'; hero.age = 0;
   hero.invulnerableUntil = game.combatTick + 58;
   hero.vx = hero.x >= fromX ? 55 : -55; hero.vy = 0; hero.attackQueue = 0;
-  effect(game, 'stars', hero.x, hero.y - 83, 'あっ');
+  effect(game, 'stars', hero.x, hero.y - 83, game.mode === 'sparring' ? '' : 'あっ');
   effect(game, 'spark', hero.x, hero.y - 52, '', 20);
   effect(game, 'dust', hero.x - hero.facing * 12, hero.y, '', 22, { vy: -10 });
   if (game.mode === 'auto' && hero.hp === 1) {

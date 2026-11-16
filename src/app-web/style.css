@@ -72,7 +72,12 @@ canvas { position: absolute; width: 100%; height: 100%; inset: 0; display: block
 .control-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 12px; }
 .background-picker { display: inline-flex; align-items: center; gap: 8px; min-height: 42px; }
 .picker-label { font-size: 10px; color: var(--muted); letter-spacing: .08em; }
-.background-picker select { max-width: 170px; min-height: 42px; border: 1px solid var(--line); border-radius: 3px; padding: 8px 6px; color: inherit; background: transparent; font: inherit; font-size: 11px; cursor: pointer; }
+.background-picker select { max-width: 170px; min-height: 42px; border: 1px solid var(--line); border-radius: 3px; padding: 8px 6px; color: #253044; background: #f5f0e7; color-scheme: light; font: inherit; font-size: 11px; cursor: pointer; }
+/* Native option popups can retain a white surface even on a dark page. Give both
+   sides of the color pair explicitly, including browsers that honor option CSS. */
+.background-picker select option { color: #253044; background: #f5f0e7; }
+.background-picker select option:checked { color: #182536; background: #d8e4e8; }
+#mode-setting { max-width: none; min-width: 17em; }
 .background-picker select:hover { border-color: #8da58d; }
 .background-static { display: inline-flex; align-items: center; min-height: 42px; font-size: 11px; letter-spacing: .06em; }
 .playback-status { margin: 0; max-width: 27em; color: var(--muted); font-size: 10px; letter-spacing: .06em; text-align: right; line-height: 1.6; }
@@ -173,3 +178,9 @@ select:focus-visible { outline: 2px solid #dfd9b5; outline-offset: 3px; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; scroll-behavior: auto !important; }
 }
+/* Combat controls stay outside the picture; the ambient duet has no HUD. */
+.battle-controls { padding: 12px 0; color: var(--muted, #b9b5b0); font-size: 12px; }
+.battle-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.battle-actions button { padding: 8px 12px; border: 1px solid currentColor; border-radius: 6px; background: transparent; color: inherit; touch-action: none; }
+.control-row { flex-wrap: wrap; }
+#world:focus-visible { outline: 2px solid #c8dce3; outline-offset: -3px; }

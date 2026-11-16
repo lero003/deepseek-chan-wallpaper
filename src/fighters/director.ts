@@ -46,6 +46,7 @@ export function scheduleRest(game: FightersGame): void {
 export function startEpisode(game: FightersGame, route: Route): void {
   if (route === 'endless') { startEndlessBattle(game); return; }
   game.endless = null;
+  game.sparring = null;
   cancelVisit(game);
   clearInputs(game);
   const room = route === 'room';
@@ -75,6 +76,7 @@ export function returnHome(game: FightersGame): void {
   if (isFixedArena(game.route)) { game.effects = []; game.hitstop = 0; }
   if (game.route === 'endless') game.route = 'full';
   game.endless = null;
+  game.sparring = null;
   const homeOffset = game.route === 'room' ? 0 : game.stage.homeOffset;
   game.stage = studyStage(game.scene);
   game.cameraX = 0; game.hero = newHero(game.world.actor.x + homeOffset, game.world.floorY);
@@ -345,6 +347,7 @@ export function autoIntent(game: FightersGame): void {
 function clampi(value: number, min: number, max: number): number { return Math.max(min, Math.min(max, value)); }
 
 export function updateDirector(game: FightersGame): void {
+  if (game.mode === 'sparring') { constrainArenaActors(game); return; }
   if (game.route === 'endless') { constrainArenaActors(game); updateEndless(game); return; }
   if (game.phase === 'rest') {
     if (game.frequency !== 'off' && game.tick >= game.nextEventAt && game.mode === 'auto') {

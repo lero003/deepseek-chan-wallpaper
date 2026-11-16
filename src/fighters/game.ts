@@ -6,6 +6,7 @@ import { updateEnemies } from './enemy-brain.ts';
 import { AREAS } from './definitions.ts';
 import { autoIntent, desiredCamera, enterPhase, retrySection, returnHome, routeSections, scheduleRest, startEpisode, startWallpaperBout, updateDirector } from './director.ts';
 import { endlessUI, startEndlessBattle } from './endless.ts';
+import { sparringIntent, startSparring } from './sparring.ts';
 import { clearInputs } from './events.ts';
 import { newHero, newStats } from './factory.ts';
 import { direction } from './movement.ts';
@@ -21,7 +22,7 @@ export function createGame(seed: number, scene: Scene = SEASIDE): FightersGame {
     nextEventAt: 0, restReactionAt: 0, eventStartedAt: 0, lastProgressAt: 0, graceUntil: 0, hitstop: 0,
     randomState: (world.seed ^ 0x7fa82b19) >>> 0 || 1, nextId: 1, episode: 'boss',
     route: 'full', section: 0, sectionLocked: false, wave: 0, routeTick: 0, areaIndex: 0, areaBannerUntil: 0, bossSpawned: false,
-    roomVariant: 0, runTicks: 0, runStats: newStats(), arcade: newArcade(), endless: null,
+    roomVariant: 0, runTicks: 0, runStats: newStats(), arcade: newArcade(), endless: null, sparring: null,
     hero: newHero(world.actor.x + 120, world.floorY), enemies: [], projectiles: [], effects: [],
     input: { x: 0, y: 0 }, pendingDodge: false, pendingSpecial: false, cameraX: 120, firstWhiff: true, whiffAttackId: -1,
     message: '', messageUntil: 0, outcome: 'none', stats: newStats(),
@@ -46,6 +47,7 @@ export function requestAction(game: FightersGame, action: Action): void {
 }
 export function command(game: FightersGame, name: string, value?: unknown): void {
   switch (name) {
+    case 'sparring': startSparring(game); break;
     case 'endless': startEndlessBattle(game); break;
     case 'play':
       if (game.mode === 'endless') return;
@@ -100,8 +102,13 @@ function step(game: FightersGame): void {
     // Both actors and hostile projectiles are frozen outside a live round, not just input.
     // The passive wallpaper bout is auto-piloted; a manual round reads the user's input.
     if (inBattle(game)) {
-      if (game.mode !== 'manual') autoIntent(game);
-      updateHero(game); updateEnemies(game); updateProjectiles(game);
+      if (game.mode === 'sparring') {
+        if (sparringIntent(game)) { updateHero(game); updateEnemies(game); }
+      } else {
+        if (game.mode !== 'manual') autoIntent(game);
+        updateHero(game); updateEnemies(game);
+      }
+      updateProjectiles(game);
     } else if (game.phase === 'victory') updateEnemies(game);
   } else if (['intro', 'battle', 'bossIntro', 'boss'].includes(game.phase)) {
     if (game.mode !== 'manual') autoIntent(game);
@@ -141,7 +148,7 @@ export function gameUI(game: FightersGame): GameUI {
     ? endless.cycle * bossCount - game.endless.bossBag.length : Math.min(total, game.section + 1);
   const roundLabel = endless?.bossName ?? sections[round - 1]?.label ?? '';
   const progress = total <= 1 ? 1 : Math.min(1, (game.section + (game.phase === 'roundClear' ? 1 : game.sectionLocked ? .5 : 0)) / total);
-  const ready = game.mode !== 'endless' && (!arena || inBattle(game) && game.focused && !game.paused);
+  const ready = game.mode !== 'endless' && game.mode !== 'sparring' && (!arena || inBattle(game) && game.focused && !game.paused);
   const phaseLabel = endless?.phaseLabel ?? (arena ? ARENA_PHASE_NAMES[game.phase] : PHASE_NAMES[game.phase]);
   const call = callState(game);
   return { endless, callReady: call.ready, callReason: call.reason, companionLine: companionLine(game),

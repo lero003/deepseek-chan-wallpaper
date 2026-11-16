@@ -41,6 +41,7 @@ public final class SceneEngine {
         _ = try string("commandJSON", arguments)
     }
     public func setManualFocus(_ focused: Bool) throws { _ = try string("focusJSON", [focused]) }
+    public func setWallpaperActive(_ active: Bool) throws { _ = try string("wallpaperJSON", [active]) }
     public func setMovement(x: Double, y: Double) throws { _ = try string("movementJSON", [x, y]) }
     /// Select a background in the shared core so ambient palette and life rhythm follow the image.
     public func setVariant(_ index: Int) throws { _ = try string("setVariantJSON", [index]) }

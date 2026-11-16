@@ -2,7 +2,14 @@ import type { World, Scene, Facing } from '../world/world.ts';
 import type { ArcadeState, ArcadeUI } from './arcade.ts';
 import type { CompanionCue } from '../companion/companion.ts';
 
-export type Mode = 'auto' | 'manual' | 'endless';
+export type Mode = 'auto' | 'manual' | 'endless' | 'sparring';
+export type SparringMotion = 'walk' | 'backstep' | 'hop' | 'turn';
+export interface SparringMove { kind: SparringMotion; fromX: number; toX: number }
+export interface SparringState {
+  phase: 'approach' | 'exchange' | 'separate' | 'rest';
+  startedAt: number; until: number; cycle: number;
+  hero: SparringMove; rival: SparringMove;
+}
 export type Phase = 'rest' | 'intro' | 'battle' | 'roundClear' | 'bossIntro' | 'boss' | 'interlude' | 'victory' | 'return' | 'result' | 'retry';
 export type Route = 'short' | 'skirmish' | 'auto' | 'full' | 'room' | 'arena' | 'endless';
 export type BossId = 'lumie' | 'shio' | 'yume';
@@ -75,7 +82,7 @@ export interface FightersGame {
   randomState: number; nextId: number; episode: 'quiet' | 'skirmish' | 'boss';
   route: Route; section: number; sectionLocked: boolean; wave: number; routeTick: number;
   /** Unpaused/focused elapsed steps, including hitstop; retry/result screens do not count. */
-  runTicks: number; runStats: GameStats; arcade: ArcadeState; endless: EndlessState | null;
+  runTicks: number; runStats: GameStats; arcade: ArcadeState; endless: EndlessState | null; sparring: SparringState | null;
   /** Which ROOM_INCIDENTS composition the current room event picked. Unused on the long routes. */
   roomVariant: number;
   areaIndex: number; areaBannerUntil: number; bossSpawned: boolean;
