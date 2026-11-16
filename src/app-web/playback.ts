@@ -18,6 +18,23 @@ export function shouldPaintFrame(conditions: Readonly<Pick<PlaybackConditions, '
   return !conditions.suspended && (reason === 'resize' || !conditions.hidden);
 }
 
+/**
+ * One honest stop reason plus a resume hint, in priority order; null while running.
+ * "Not ready" outranks the user toggles: while assets are still loading, promising
+ * "close the dialog to resume" or "press resume" would point at a disabled control.
+ */
+export function stopNote(conditions: Readonly<PlaybackConditions>, failed: boolean): { reason: string; guidance: string } | null {
+  if (failed) return { reason: '静止背景を表示中', guidance: 'ページを再読み込みしてください' };
+  if (conditions.reducedMotion) return { reason: 'OSの視差効果を減らすに合わせて静止中', guidance: 'OS設定の変更で再開' };
+  if (!conditions.ready) return { reason: '準備中', guidance: '' };
+  if (conditions.still) return { reason: '静止画で眺めるがON', guidance: '設定でオフにすると再開' };
+  if (conditions.paused) return { reason: 'ひと休みしています', guidance: '再開' };
+  if (conditions.hidden) return { reason: 'タブが非表示のため停止中', guidance: '戻ると再開します' };
+  if (conditions.suspended) return { reason: 'ページ離脱中は停止中', guidance: '戻ると再開します' };
+  if (conditions.dialogOpen) return { reason: '設定を開いている間は一休み', guidance: '閉じると再開' };
+  return null;
+}
+
 /** Both explicit resume and an unreported sleep gap discard elapsed wall time. */
 export class FrameClock {
   private previous: number | null = null;

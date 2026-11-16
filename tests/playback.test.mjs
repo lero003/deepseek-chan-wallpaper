@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { AnimationLoop, FrameClock, shouldAnimate } from '../src/app-web/playback.ts';
+import { AnimationLoop, FrameClock, shouldAnimate, stopNote } from '../src/app-web/playback.ts';
 import { advanceWorld, createWorld } from '../src/world/world.ts';
 
 function scheduler() {
@@ -134,4 +134,20 @@ test('a manual pause is not lost when visibility or motion preferences change', 
   conditions.reducedMotion = true;
   conditions.reducedMotion = false;
   assert.equal(shouldAnimate(conditions), false);
+});
+
+test('the stop note is honest while loading: no resume promise before ready', () => {
+  // Loading with the dialog open or a remembered pause must not promise a resume
+  // that the still-disabled controls cannot deliver yet.
+  assert.deepEqual(stopNote({ ...ready, ready: false, dialogOpen: true }, false), { reason: '準備中', guidance: '' });
+  assert.deepEqual(stopNote({ ...ready, ready: false, paused: true }, false), { reason: '準備中', guidance: '' });
+  assert.deepEqual(stopNote({ ...ready, ready: false, still: true }, false), { reason: '準備中', guidance: '' });
+  // Failure and the OS motion preference still outrank everything.
+  assert.match(stopNote({ ...ready, ready: false }, true).reason, /静止背景/);
+  assert.match(stopNote({ ...ready, ready: false, reducedMotion: true }, false).reason, /視差効果/);
+  // Once ready, the user toggles explain themselves in priority order.
+  assert.match(stopNote({ ...ready, still: true, paused: true }, false).reason, /静止画/);
+  assert.match(stopNote({ ...ready, paused: true, dialogOpen: true }, false).reason, /ひと休み/);
+  assert.match(stopNote({ ...ready, dialogOpen: true }, false).reason, /設定を開いている/);
+  assert.equal(stopNote(ready, false), null);
 });

@@ -4,13 +4,34 @@ import ImageIO
 import UniformTypeIdentifiers
 import CoreText
 
+/// A backdrop bitmap depends only on the logical viewport, never on the target's
+/// point size: two windows with the same logical scene share one cached image.
+private struct BackdropKey: Hashable { let width: Int; let height: Int; let originX: Int; let originY: Int }
+private struct ViewportSize: Hashable { let width: Int; let height: Int }
+
+/// Small LRU: evict one oldest entry instead of dropping every display's cached
+/// backdrop whenever a live resize walks through a handful of sizes.
+private struct BackdropCache {
+    private var images: [BackdropKey: CGImage] = [:]
+    private var order: [BackdropKey] = []
+    func image(for key: BackdropKey) -> CGImage? { images[key] }
+    mutating func store(_ image: CGImage, for key: BackdropKey, limit: Int = 4) {
+        if images[key] != nil { images[key] = image; return }
+        if order.count >= limit { images.removeValue(forKey: order.removeFirst()) }
+        images[key] = image; order.append(key)
+    }
+    mutating func removeAll() { images.removeAll(keepingCapacity: false); order.removeAll(keepingCapacity: false) }
+    var isEmpty: Bool { images.isEmpty }
+}
+
 @MainActor
 public final class ScenePainter {
     public let engine: SceneEngine
-    private var backdrops: [Viewport: CGImage] = [:]
+    private var backdrops = BackdropCache()
     private var colors: [String: CGColor] = [:]
-    private var wideBackdrops: [Viewport: CGImage] = [:]
-    private var arenaBackdrops: [Viewport: CGImage] = [:]
+    private var wideBackdrops = BackdropCache()
+    private var arenaBackdrops = BackdropCache()
+    private var viewports: [ViewportSize: Viewport] = [:]
     private var fonts: [Double: CTFont] = [:]
     private var variantIndex = 0
     public init(engine: SceneEngine) { self.engine = engine }
@@ -29,8 +50,8 @@ public final class ScenePainter {
         // Keep the shared core's ambient palette and life rhythm in sync with the image.
         try engine.setVariant(index)
         variantIndex = index
-        backdrops.removeAll(keepingCapacity: false)
-        wideBackdrops.removeAll(keepingCapacity: false)
+        backdrops.removeAll()
+        wideBackdrops.removeAll()
     }
     private var activeBackground: CGImage {
         variantIndex == 0 ? engine.assets.background : engine.assets.variants[variantIndex - 1].background
@@ -65,8 +86,12 @@ public final class ScenePainter {
         context.draw(image, in: CGRect(origin: .zero, size: rect.size))
         context.restoreGState()
     }
+    private func backdropKey(_ viewport: Viewport) -> BackdropKey {
+        BackdropKey(width: viewport.width, height: viewport.height, originX: viewport.originX, originY: viewport.originY)
+    }
     private func backdrop(_ viewport: Viewport) throws -> CGImage {
-        if let cached = backdrops[viewport] { return cached }
+        let key = backdropKey(viewport)
+        if let cached = backdrops.image(for: key) { return cached }
         let ctx = try context(width: viewport.width, height: viewport.height)
         let layout = engine.assets.configuration.layout
         let w = CGFloat(viewport.width), h = CGFloat(viewport.height), ox = CGFloat(viewport.originX), oy = CGFloat(viewport.originY)
@@ -92,13 +117,13 @@ public final class ScenePainter {
             image(background, rect: CGRect(x: ox, y: oy, width: 480, height: 270), context: ctx)
         }
         guard let result = ctx.makeImage() else { throw KujiraError.invalid("背景をキャッシュできません。") }
-        if backdrops.count >= 4 { backdrops.removeAll(keepingCapacity: true) }
-        backdrops[viewport] = result
+        backdrops.store(result, for: key)
         return result
     }
 
     private func wideBackdrop(_ viewport: Viewport) throws -> CGImage {
-        if let cached = wideBackdrops[viewport] { return cached }
+        let key = backdropKey(viewport)
+        if let cached = wideBackdrops.image(for: key) { return cached }
         let width = engine.assets.configuration.stageWidth
         let ctx = try context(width: width, height: viewport.height)
         let layout = engine.assets.configuration.layout
@@ -112,8 +137,7 @@ public final class ScenePainter {
         ctx.setAlpha(1)
         image(engine.assets.background, rect: CGRect(x: 120, y: viewport.originY, width: 480, height: 270), context: ctx)
         guard let result = ctx.makeImage() else { throw KujiraError.invalid("横拡張の背景を作れません。") }
-        if wideBackdrops.count >= 4 { wideBackdrops.removeAll(keepingCapacity: true) }
-        wideBackdrops[viewport] = result
+        wideBackdrops.store(result, for: key)
         return result
     }
 
@@ -122,7 +146,8 @@ public final class ScenePainter {
     /// column, matching the Web canvas renderer.
     private func arenaBackdropImage(_ viewport: Viewport) throws -> CGImage? {
         guard let arena = engine.assets.arenaBackdrop else { return nil }
-        if let cached = arenaBackdrops[viewport] { return cached }
+        let key = backdropKey(viewport)
+        if let cached = arenaBackdrops.image(for: key) { return cached }
         let ctx = try context(width: viewport.width, height: viewport.height)
         let layout = engine.assets.configuration.layout
         // Must match ARENA_FRAME_COLOR in src/art/scene-profiles.ts; the shared layout
@@ -131,8 +156,7 @@ public final class ScenePainter {
         ctx.fill(CGRect(x: 0, y: 0, width: CGFloat(viewport.width), height: CGFloat(viewport.height)))
         image(arena, rect: CGRect(x: CGFloat(viewport.originX), y: CGFloat(viewport.originY), width: 480, height: 270), context: ctx)
         guard let result = ctx.makeImage() else { throw KujiraError.invalid("アリーナ背景をキャッシュできません。") }
-        if arenaBackdrops.count >= 4 { arenaBackdrops.removeAll(keepingCapacity: true) }
-        arenaBackdrops[viewport] = result
+        arenaBackdrops.store(result, for: key)
         return result
     }
     /// Each generated rival has its own independently loaded sheet/atlas. A nil id keeps
@@ -203,7 +227,16 @@ public final class ScenePainter {
     public func draw(_ plan: ScenePlan, width: Double, height: Double, in context: CGContext) throws {
         guard width > 0, height > 0 else { return }
         guard (0..<engine.assets.frames.count).contains(plan.frame), abs(plan.facing) == 1 else { throw KujiraError.invalid("描画フレームが不正です。") }
-        let viewport = try engine.viewport(width: width, height: height)
+        // The viewport is a pure function of the size; memoize it so steady-state
+        // wallpaper frames skip a JavaScriptCore round-trip per view per tick.
+        let size = ViewportSize(width: Int(width.rounded()), height: Int(height.rounded()))
+        let viewport: Viewport
+        if let cached = viewports[size] { viewport = cached }
+        else {
+            viewport = try engine.viewport(width: width, height: height)
+            if viewports.count >= 8 { viewports.removeAll(keepingCapacity: true) }
+            viewports[size] = viewport
+        }
         let background = try backdrop(viewport)
         context.saveGState()
         defer { context.restoreGState() }
@@ -267,8 +300,8 @@ public final class ScenePainter {
     /// Drop the battle backdrop caches when the manual battle is over (several MB at 2048×864).
     public func releaseBattleBackdrops() {
         guard !wideBackdrops.isEmpty || !arenaBackdrops.isEmpty else { return }
-        wideBackdrops.removeAll(keepingCapacity: false)
-        arenaBackdrops.removeAll(keepingCapacity: false)
+        wideBackdrops.removeAll()
+        arenaBackdrops.removeAll()
     }
 
     public func makeIcon(size: Int) throws -> CGImage {

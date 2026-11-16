@@ -60,7 +60,7 @@ for (const name of ['world.js', 'configuration.json', 'manifest.json', 'characte
   await mkdir(dirname(destination), { recursive: true });
   await copyFile(resolve(prepared.resources, name), destination);
 }
-await writeFile(resolve(resources, 'FIGHTERS-README.txt'), `くじらの散歩道 — DeepSeekちゃんファイターズ Build 15（全ディスプレイ同期）\n\n初回はプレビューのみ。壁紙は「壁紙にする」で明示的にONにします。\n普段は静かな書斎。DeepSeekちゃんは、ぴょこんと跳ねる・くすくす笑う・小さく踊る・照れて手を振る・のび・自分の尾との戯れ、の6種類の仕草を見せます。各4キーの専用姿勢は元の生活16コマと別シートで、拡大縮小で動きを代用しません。起きている間の目安は約14〜17秒ごと（歩行・睡眠を優先するため固定間隔ではありません）。静止・非表示・スリープでは進まず、戦闘や呼びかけのプレビューには重ねません。\n待機75〜105秒後から、リュミエ・リツカ・ユメが1体ずつ遊びに来て、歩いたり立ち止まったりして帰ります。以降は2〜3分の待機を挟みます。「対戦なし」でも来客はあり、戦闘が始まると退きます。静止・非表示・スリープ中は従来どおり更新しません。\n自動対戦は既定で帰還後3〜5分の待ち時間。テラスでの自動操縦の対戦が途中から始まり、増援が続いて約30秒で決着、カメラ固定・HUDやボスなしで書斎へ帰ります。「対戦を見る」で今すぐ確認できます。プレビューの「呼んでみる」で、くつろぐDeepSeekちゃんが小さく応えます（書斎で休んでいる時だけ・壁紙には影響しません）。\n「テラスで3連戦」で手動。横スクロールなし、雑魚戦2回のあと綴星リュミエと一騎打ち。各ラウンドはREADYのあとFIGHTで開始、90秒のアーケード時計つき。開戦準備・ラウンド間は安全に停止し、自動で次の相手へ進みます。WASD／矢印で間合いを調整、J/Zで3段攻撃、K/Xで回避、L/Cでゲージ100の必殺技、Escでゲームポーズ。\n命中・KO・コンボ倍率・クリアボーナスでSCOREが入り、被弾なし・継続なし・速さでランクが変わります。敗北やTIME UPはそのラウンドの得点を巻き戻して再挑戦（CONTINUE回数は残ります）。\n「書斎へ戻る」でオートへ。敗北時は「このラウンドを再挑戦」、勝利後は「もう一戦」で最初から。手動入力は前面プレビューだけ。\n戦闘の背景は16:9以外の画面でも端を引き伸ばさず、濃い単色の額で囲みます（手動アリーナ・壁紙の自動対戦とも）。\n壁紙は接続中の全ディスプレイへ同じ世界を同期表示し、全モードでクリック透過です。画面の追加・切断・配置変更にも追従します。手動ゲーム中の壁紙は静かな生活を表示します。\n元の壁紙設定は変更しません。停止・終了はメニューバーから。ログイン自動起動は登録しません。\n少なめ／通常／対戦なし、控えめエフェクト、省電力をメニューから選べます。背景はツールバー／メニューバーから夕凪・月夜・雨音・朝凪・雪あかりを切り替え（設定は保存）。音は常時無音です。\nOS Reduce Motionでは既存方針どおり静止。遊ぶにはその設定を人の判断でご確認ください。\n\nApple Silicon用・個人用のローカル試作、アドホック署名・未公証です。公開・第三者配布は未許諾。\nローカル版には生成テラス背景、主人公戦闘8キー姿勢、既存雑魚2種の6姿勢×3バリエーション、綴星リュミエ・汐見のリツカ・紙灯のユメの8姿勢を追加。承認済み生活16コマ・背景5種・各マットは不変。追加の生活24キーは同じ承認デザインを参照した任意のローカル素材で、公開許諾はpendingです。ライバルごとの別シートが独立して読込に失敗した場合は従来描画へ戻ります。placeholderには制作画像を含めません。3体のライバルはClaudeの文章・思考、潮読み、紙灯と製本を着想にしたオリジナル美少女のローカル制作案（公式キャラ/Anthropic社の承認ではありません）。連続動作の自然さ・手動の操作感・実機負荷は未受け入れです。\n自動テスト／単体起動／ネイティブ描画器の検証は、可視キー操作・壁紙ON/OFF・Space・スリープ・実時間30分負荷の合格ではありません。\n旧版が起動中なら終了してからこの版を開いてください。\n`);
+await writeFile(resolve(resources, 'README.txt'), "くじらの散歩道 — Build 17（静かな壁紙）\n\n海辺の小さな書斎で、クジラ娘がのんびり暮らすドット絵の壁紙アプリです。\n歩いたり、窓辺でぼんやりしたり、ときどきお昼寝したり。眺めるだけで楽しめます。音はありません。\n\n使い方\n・初回はプレビューのみ。壁紙は「壁紙にする」で明示的にONにします。\n・壁紙は接続中のすべてのディスプレイへ同じ風景を同期表示し、クリック透過です。画面の追加・切断・配置変更にも追従します。\n・OFF・終了で元の壁紙に戻ります。元の壁紙設定は変更せず、ログイン自動起動も登録しません。\n・メニューバーの「くじら」からプレビュー・壁紙ON/OFF・背景・一時停止・省電力・作品についてを操作します。壁紙ON・一時停止は項目自体にも表示されます。\n・メニューを開いている間は風景も一休みし、閉じると再開します。\n\n楽しみ方\n・背景は夕凪・月夜・雨音・朝凪・雪あかりの5種。ツールバー／メニューバーから切り替え、選択は保存されます。\n・DeepSeekちゃんは、ぴょこんと跳ねる・くすくす笑う・小さく踊る・照れて手を振る・のび・自分の尾との戯れ、の6種類の仕草をときどき見せます。\n・待機75〜105秒後から、リュミエ・リツカ・ユメが1体ずつ静かに遊びに来て、歩いたり立ち止まったりして帰ります。以降は2〜3分の待機を挟みます。戦闘はありません。\n・省電力（15fps）・一時停止をメニューから選べます。OSの「視差効果を減らす」では静止します。非表示・スリープ中は進みません。\n\nこの作品について\n・「DeepSeekちゃん（クジラ娘）」をモチーフにした非公式のファン作品です。キャラクターの原案・デザインはファンコミュニティと原案者に帰属します。DeepSeek社との提携・承認はありません。\n・背景とキャラクターはこのプロジェクトのために制作したドット絵です。外部の画像・フォントは読み込みません。\n・Apple Silicon用・個人用のローカル試作、アドホック署名・未公証です。公開・第三者配布は未許諾。素材の公開・再配布許諾は未確認です。\n・通信・音声・通知・分析・ログイン自動起動はありません。\n\nBuild 17: ファイターズ（手動・自動の対戦、呼びかけ）はお蔵入りとなり、ボタン・説明・設定を画面から撤去しました。完全に静かな壁紙アプリです。来客の演出は戦闘ではないため残しています。作品についての文章を整理しました。");
 const executable = resolve(macos, 'KujiraWallpaper');
 await copyFile(sourceBinary, executable); await chmod(executable, 0o755);
 run('/usr/bin/strip', ['-S', executable]);
@@ -75,7 +75,7 @@ await writeFile(resolve(contents, 'Info.plist'), `<?xml version="1.0" encoding="
 <key>CFBundleDisplayName</key><string>くじらの散歩道（個人用試作）</string>
 <key>CFBundlePackageType</key><string>APPL</string>
 <key>CFBundleShortVersionString</key><string>${xml(version)}</string>
-<key>CFBundleVersion</key><string>15</string>
+<key>CFBundleVersion</key><string>17</string>
 <key>CFBundleIconFile</key><string>AppIcon</string>
 <key>LSMinimumSystemVersion</key><string>14.0</string>
 <key>LSUIElement</key><false/>
@@ -104,6 +104,11 @@ run('/usr/bin/codesign', ['--force', '--sign', '-', '--options', 'runtime', '--t
 run('/usr/bin/codesign', ['--verify', '--deep', '--strict', '--verbose=2', app]);
 run(executable, ['--self-test']);
 run(executable, ['--fighters-self-test']);
+// Startup smoke: preview + menus create, preview close releases its window/view, reopen works.
+// Wallpaper stays OFF; this is not visible-desktop acceptance.
+const smokeOutput = capture(executable, ['--smoke-test']);
+assert.ok(smokeOutput.includes('NATIVE_STARTUP_PASS'), `Startup smoke failed: ${smokeOutput}`);
+assert.ok(smokeOutput.includes('"previewCloseReopenVerified":true'), 'Preview close/reopen cleanup was not verified.');
 run(executable, ['--render-preview', resolve(output, 'native-preview.png'), '--time', '6']);
 run(executable, ['--render-preview', resolve(output, 'native-preview-wide.png'), '--time', '6', '--width', '2048', '--height', '864']);
 for (const variant of prepared.configuration.variants ?? []) {
@@ -136,7 +141,7 @@ assert.ok(files.every(file => !/(^|\/)(node_modules|production|concepts|research
 const architecture = capture('/usr/bin/lipo', ['-archs', executable]);
 const libraries = capture('/usr/bin/otool', ['-L', executable]);
 const systemLibraries = systemLibraryPaths(libraries);
-const zip = resolve(output, `KujiraWallpaper-MultiDisplay-B15-${architecture.replaceAll(' ', '-')}-local-preview.zip`);
+const zip = resolve(output, `KujiraWallpaper-QuietWallpaper-B17-${architecture.replaceAll(' ', '-')}-local-preview.zip`);
 run('/usr/bin/ditto', ['-c', '-k', '--sequesterRsrc', '--keepParent', app, zip]);
 // Legacy unzip console output can corrupt Japanese names under C locales.
 // Validate the real archive more strictly: extract, compare every byte, verify and execute.
@@ -159,7 +164,8 @@ const report = { schemaVersion: 1, app: relative(root, app), zip: relative(root,
   profile: prepared.layout.id, version, signing: 'ad-hoc hardened runtime, bundled-code JIT entitlement only', notarized: false,
   localPreviewOnly: true, published: false, thirdPartyRightsVerified: false, originalWallpaperChangedDuringBuild: false,
   archiveVerified: true, relocatedStandaloneSelfTest: true, relocatedFightersSelfTest: true,
-  gameplay: 'arena-v0.8 + endless-api + quiet-boss-visits + backgrounds-5 + heroine-life-24 + multi-display-wallpaper', bundleBuild: '15',
+  gameplay: 'quiet-wallpaper + peaceful-visitors + backgrounds-5 + heroine-life-24 + multi-display (fighters shelved: engine retained for regression, no combat UI)', bundleBuild: '17',
+  startupSmoke: 'preview-create-close-reopen verified; wallpaper stayed OFF',
   bundledLifeGestures: prepared.configuration.life ? ['hop', 'giggle', 'sway', 'peek', 'stretch', 'daydream'] : [],
   bundledCombatSheets: Object.keys(prepared.configuration.sprites ?? {}),
   gamePreviews: ['native-room-event.png', 'native-room-event-wide.png',

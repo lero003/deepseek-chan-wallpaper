@@ -148,18 +148,6 @@ struct FightersTests {
     }
 }
 
-struct GameKeysTests {
-    @Test(arguments: [(UInt16(38), "attack"), (6, "attack"), (40, "dodge"), (7, "dodge"), (37, "special"), (8, "special"), (53, "pause"), (123, "arrowleft"), (126, "arrowup")])
-    func explicitLocalKeys(pair: (UInt16, String)) {
-        #expect(GameKeys.name(for: pair.0) == pair.1)
-        #expect(GameKeys.name(for: 12) == nil)
-    }
-    @Test func releasingAndOppositeDirectionsNeverLeaveStickyMovement() {
-        var held = HeldGameKeys()
-        held.update(2, down: true); #expect(held.direction.x == 1)
-        held.update(0, down: true); #expect(held.direction.x == 0)
-        held.update(2, down: false); #expect(held.direction.x == -1)
-        held.update(13, down: true); #expect(held.direction.y == -1)
-        held.clear(); #expect(held.direction.x == 0 && held.direction.y == 0)
-    }
-}
+// GameKeysTests lived here until the fighters UI was shelved (2026-11-16):
+// the key mapping and its tests were removed together with the combat surface.
+// The shared engine's command/replay regressions above remain in force.

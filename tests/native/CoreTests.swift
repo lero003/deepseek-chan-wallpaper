@@ -237,6 +237,22 @@ struct PolicyTests {
         policy.systemLowPower = false
         #expect(policy.fps == 15)
     }
+    @Test func openMenusRestTheSceneLikeTheWebDialog() {
+        var policy = PlaybackPolicy()
+        policy.hasVisibleSurface = true
+        #expect(policy.shouldAnimate)
+        policy.menuOpen = true
+        #expect(policy.shouldAnimate == false)
+        #expect(policy.status == "メニューを開いている間は一休み")
+        policy.menuOpen = false
+        #expect(policy.shouldAnimate)
+        // An explicit pause still wins over the menu reason, and sleep over both.
+        policy.manuallyPaused = true
+        policy.menuOpen = true
+        #expect(policy.status == "ひと休みしています")
+        policy.sleeping = true
+        #expect(policy.status == "スリープ・非表示のため停止中")
+    }
     @Test func clockDropsResumeBackwardsAndInvalidTime() {
         var clock = FrameClock()
         #expect(clock.sample(1) == 0)

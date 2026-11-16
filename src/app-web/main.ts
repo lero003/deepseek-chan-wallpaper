@@ -4,12 +4,14 @@ import { createGame, advanceGame, command } from '../fighters/game.ts';
 import { gamePlan } from '../fighters/render-plan.ts';
 import { motesFor } from '../render/scene-plan.ts';
 import type { SpriteAtlas } from '../render/atlas.ts';
-import { FightersUI } from './fighters-ui.ts';
+import { companionLine } from '../companion/companion.ts';
 import { parseAtlas } from '../render/atlas.ts';
 import { loadImage, SceneRenderer } from '../render/renderer.ts';
 import type { SceneImages, VariantImages } from '../render/renderer.ts';
-import { AnimationLoop, shouldAnimate, shouldPaintFrame } from './playback.ts';
+import { AnimationLoop, shouldAnimate, shouldPaintFrame, stopNote } from './playback.ts';
 import type { PlaybackConditions } from './playback.ts';
+import { loadSettings, localSettingsStorage, readSettingsRaw, saveSettings } from './settings.ts';
+import type { PersonalSettings } from './settings.ts';
 
 const { backgroundUrl, characterUrl, atlas: atlasData, manifest } = art;
 
@@ -20,6 +22,7 @@ function element<T extends HTMLElement>(selector: string): T {
 }
 
 const scene = element<HTMLElement>('#scene');
+const sceneNumber = element<HTMLElement>('.scene-number');
 const canvas = element<HTMLCanvasElement>('#world');
 const dialog = element<HTMLDialogElement>('#about-dialog');
 const openButton = element<HTMLButtonElement>('#about-open');
@@ -44,12 +47,22 @@ const seedText = (new URL(window.location.href).searchParams.get('seed') || 'sea
 const game = createGame(seedFromText(seedText), art.scene);
 const world = game.world;
 const motes = motesFor(world.seed);
+// The fighters feature is shelved: this is a quiet wallpaper. Auto-bouts stay off
+// (the shared engine and its regression tests remain, but nothing schedules them);
+// peaceful visitors are part of the quiet life and keep coming.
+command(game, 'frequency', 'off');
+// The personal settings this browser remembers, restored before the first
+// synchronize; the background waits for its image.
+const settingsStorage = localSettingsStorage();
+const settingsRaw = readSettingsRaw(settingsStorage);
+const settings: PersonalSettings = loadSettings(settingsStorage);
+stillSetting.checked = settings.still;
 document.documentElement.dataset.art = art.kind;
 scene.dataset.artProfile = art.id;
+document.querySelector('meta[name="theme-color"]')?.setAttribute('content', art.kind === 'local-design' ? '#1a2030' : '#172c2e');
 canvas.setAttribute('aria-label', art.description);
 sceneName.textContent = art.label;
 backgroundStatic.textContent = art.label;
-element<HTMLElement>('#art-provenance').textContent = `${art.provenance} 戦闘の小物・パネル・エフェクトは独自コード描画です。ローカル版にはテラス背景・主人公戦闘8キー姿勢・既存敵2種の6姿勢×3バリエーションを別の生成シートとして追加し、生活16コマは不変です。画像のない環境は従来描画へ戻ります。連続動作・実機操作の受け入れとは別です。綴星リュミエは文章と思考を着想にした非公式のオリジナルライバルで、Claude／Anthropicの公式キャラクター・提携作品ではありません。ローカルボス画像がない場合も独自の仮描画で動きます。外部の画像・フォントは読み込みません。「DeepSeekちゃん（クジラ娘）」の原案・デザインは、これを生み出したファンコミュニティと原案者に帰属します。`;
 element<HTMLElement>('.static-scene').style.backgroundImage = `url("${art.matteUrl ?? backgroundUrl}")`;
 const conditions: PlaybackConditions = {
   ready: false, paused: false, hidden: document.hidden, suspended: false,
@@ -57,11 +70,11 @@ const conditions: PlaybackConditions = {
 };
 let renderer: SceneRenderer | null = null;
 let activeAtlas: SpriteAtlas | null = null;
-let fightersUI: FightersUI | null = null;
 let failed = false;
+const sceneThought = element<HTMLElement>('#scene-thought');
 
 // Read-only, explicit metadata. Never interpolate URL text or asset fields into HTML.
-element<HTMLElement>('#seed-value').textContent = seedText;
+// The ?seed= parameter still works for reproducibility; it is no longer displayed.
 const credits = element<HTMLDListElement>('#credit-list');
 for (const asset of manifest.assets) {
   const title = document.createElement('dt');
@@ -70,10 +83,19 @@ for (const asset of manifest.assets) {
   detail.textContent = `${asset.dimensions} · ${asset.license} · 公開・再配布は未設定`;
   credits.append(title, detail);
 }
+element<HTMLElement>('#credit-summary').textContent = `素材台帳 · ${manifest.assets.length}点（個別の許諾は未確認）`;
+
+/** The one quiet caption under the scene: the stop reason wins, else the shared
+ *  observation line (life, emotes, peaceful visitors). Never aria-live. */
+function updateCaption(): void {
+  const stop = stopNote(conditions, failed);
+  const line = stop ? stop.reason : companionLine(game);
+  if (sceneThought.textContent !== line) sceneThought.textContent = line;
+}
 
 function draw(reason: 'animation' | 'resize' = 'animation'): void {
   if (shouldPaintFrame(conditions, reason) && activeAtlas && renderer) renderer.drawPlan(gamePlan(game, activeAtlas, renderer.activeAppearance, !conditions.reducedMotion && !conditions.still, 'preview', motes));
-  fightersUI?.sync();
+  updateCaption();
 }
 
 const loop = new AnimationLoop({
@@ -83,21 +105,9 @@ const loop = new AnimationLoop({
 }, (delta) => { advanceGame(game, delta); draw(); });
 
 const connection = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection;
-powerSetting.checked = connection?.saveData === true;
+// A remembered choice wins; only a first visit follows the browser's save-data hint.
+powerSetting.checked = settingsRaw === null ? connection?.saveData === true : settings.power;
 loop.setFrameRate(powerSetting.checked ? 15 : 30);
-
-/** One honest stop reason plus a resume hint, in priority order; null while running. */
-function stopNote(): { reason: string; guidance: string } | null {
-  if (failed) return { reason: '静止背景を表示中', guidance: 'ページを再読み込みしてください' };
-  if (conditions.reducedMotion) return { reason: 'OSの視差効果を減らすに合わせて静止中', guidance: 'OS設定の変更で再開' };
-  if (conditions.still) return { reason: '静止画で眺めるがON', guidance: '設定でオフにすると再開' };
-  if (conditions.paused) return { reason: 'ひと休みしています', guidance: '再開' };
-  if (conditions.hidden) return { reason: 'タブが非表示のため停止中', guidance: '戻ると再開します' };
-  if (conditions.suspended) return { reason: 'ページ離脱中は停止中', guidance: '戻ると再開します' };
-  if (conditions.dialogOpen) return { reason: '設定を開いている間は一休み', guidance: '閉じると再開' };
-  if (!conditions.ready) return { reason: '準備中', guidance: '' };
-  return null;
-}
 
 function synchronize(): void {
   conditions.hidden = document.hidden;
@@ -105,10 +115,6 @@ function synchronize(): void {
   conditions.reducedMotion = media.matches;
   conditions.still = stillSetting.checked;
   const animate = shouldAnimate(conditions);
-  // A stopped preview discards any pending call so no stale reaction replays on resume.
-  if (!animate) { command(game, 'cancelCall'); fightersUI?.release(); }
-  else fightersUI?.input.syncFocus();
-  fightersUI?.sync();
   loop.setRunning(animate);
   pauseButton.disabled = !conditions.ready || conditions.reducedMotion || conditions.still;
   pauseButton.setAttribute('aria-pressed', String(conditions.paused));
@@ -117,24 +123,37 @@ function synchronize(): void {
   motionNote.textContent = conditions.reducedMotion
     ? 'OSの「視差効果を減らす」に合わせて静止表示中です。OS側の設定を変更すると再開できます。'
     : 'OSの「視差効果を減らす」設定にも自動で合わせます。';
-  const stop = stopNote();
+  const stop = stopNote(conditions, failed);
   const text = stop ? (stop.guidance ? `${stop.reason} — ${stop.guidance}` : stop.reason)
     : powerSetting.checked ? 'ゆっくり描画 · 15fps'
     : '音のない、小さな世界';
   // Do not repeatedly announce an unchanged status to assistive technology.
   if (status.textContent !== text) status.textContent = text;
   if (!animate) draw();
+  updateCaption();
 }
 
 function resize(): void {
-  if (!renderer) return;
-  const bounds = scene.getBoundingClientRect();
+  if (!renderer || conditions.suspended) return;
+  // clientWidth/clientHeight measure the canvas's own CSS box (the padding box).
+  // getBoundingClientRect would add the scene's 1px border and break the whole-number
+  // device-pixel grid that keeps the pixel art crisp.
   const dpr = window.devicePixelRatio || 1;
-  // Draw into the real device pixels so whole-number art scales stay crisp.
-  renderer.resize(Math.max(1, Math.round(bounds.width * dpr)), Math.max(1, Math.round(bounds.height * dpr)));
+  renderer.resize(Math.max(1, Math.round(scene.clientWidth * dpr)), Math.max(1, Math.round(scene.clientHeight * dpr)));
   // Prepare one stable frame after clearing the canvas; never advance the hidden world.
   draw('resize');
 }
+
+// Moving the window between displays with different device pixel ratios changes
+// neither the CSS size nor the ResizeObserver, so watch the resolution itself.
+let dprQuery: MediaQueryList | null = null;
+function onDevicePixelRatioChange(): void { resize(); watchDevicePixelRatio(); }
+function watchDevicePixelRatio(): void {
+  dprQuery?.removeEventListener('change', onDevicePixelRatioChange);
+  dprQuery = window.matchMedia(`(resolution: ${window.devicePixelRatio || 1}dppx)`);
+  dprQuery.addEventListener('change', onDevicePixelRatioChange, { signal });
+}
+watchDevicePixelRatio();
 
 openButton.addEventListener('click', () => {
   if (!dialog.open) dialog.showModal();
@@ -142,14 +161,20 @@ openButton.addEventListener('click', () => {
 }, { signal });
 closeButton.addEventListener('click', () => dialog.close(), { signal });
 dialog.addEventListener('close', synchronize, { signal });
+// Backdrop-click closes, but a text selection that merely ends on the backdrop must not.
+let dialogPressStartedInside = false;
+dialog.addEventListener('pointerdown', (event) => { dialogPressStartedInside = event.target !== dialog; }, { signal });
 dialog.addEventListener('click', (event) => {
-  if (event.target !== dialog) return;
+  if (event.target !== dialog || dialogPressStartedInside) return;
   const bounds = dialog.getBoundingClientRect();
   if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) dialog.close();
 }, { signal });
 pauseButton.addEventListener('click', () => { conditions.paused = !conditions.paused; synchronize(); }, { signal });
-stillSetting.addEventListener('change', synchronize, { signal });
-powerSetting.addEventListener('change', () => { loop.setFrameRate(powerSetting.checked ? 15 : 30); synchronize(); }, { signal });
+stillSetting.addEventListener('change', () => { settings.still = stillSetting.checked; saveSettings(settingsStorage, settings); synchronize(); }, { signal });
+powerSetting.addEventListener('change', () => {
+  settings.power = powerSetting.checked; saveSettings(settingsStorage, settings);
+  loop.setFrameRate(powerSetting.checked ? 15 : 30); synchronize();
+}, { signal });
 media.addEventListener('change', synchronize, { signal });
 document.addEventListener('visibilitychange', synchronize, { signal });
 document.addEventListener('freeze', () => { conditions.suspended = true; synchronize(); }, { signal });
@@ -210,14 +235,19 @@ async function bootstrap(): Promise<void> {
     ]);
     if (signal.aborted) return;
     drawAboutFace(images.character);
-    // Additional backgrounds are optional: a failed or mis-sized variant is simply not offered.
+    // Additional backgrounds are optional: a failed or mis-sized variant is simply not
+    // offered. Load them in parallel (one hung image must not delay the others), but
+    // keep the original order so indices and labels stay stable.
     const loadedVariants: { art: NonNullable<typeof art.variants>[number]; background: HTMLImageElement; matte: HTMLImageElement | null }[] = [];
-    for (const variant of art.variants ?? []) {
+    const variantLoads = await Promise.all((art.variants ?? []).map(async variant => {
       const [variantBackground, variantMatte] = await Promise.allSettled([
         loadImage(variant.backgroundUrl),
         variant.matteUrl ? loadImage(variant.matteUrl) : Promise.resolve(null),
       ]);
-      if (signal.aborted) return;
+      return { variant, variantBackground, variantMatte };
+    }));
+    if (signal.aborted) return;
+    for (const { variant, variantBackground, variantMatte } of variantLoads) {
       if (variantBackground.status !== 'fulfilled') {
         console.error('[kujira] Background variant failed to load; skipping.', variant.id, variantBackground.reason);
         continue;
@@ -255,7 +285,18 @@ async function bootstrap(): Promise<void> {
         option.textContent = label;
         backgroundSetting.append(option);
       }
+      // Restore the remembered background by id, not index: a variant that failed to
+      // load this time simply falls back to the standard room, and the saved id stays
+      // for a later visit (the same semantics as the Mac app).
+      const savedIndex = settings.background === 'sunset' ? 0
+        : loadedVariants.findIndex(variant => variant.art.id === settings.background) + 1;
+      if (savedIndex > 0 && savedIndex < renderer.variantCount) {
+        renderer.setVariant(savedIndex);
+        applyMood(world, renderer.activeAppearance.ambience?.mood);
+      }
       backgroundSetting.value = String(renderer.selectedVariant);
+      sceneName.textContent = backgroundLabels[renderer.selectedVariant] ?? art.label;
+      sceneNumber.textContent = String(renderer.selectedVariant + 1).padStart(2, '0');
       backgroundSetting.hidden = false;
       backgroundStatic.hidden = true;
       backgroundSetting.addEventListener('change', () => {
@@ -269,6 +310,9 @@ async function bootstrap(): Promise<void> {
         applyMood(world, renderer.activeAppearance.ambience?.mood);
         command(game, 'cancelCall');
         sceneName.textContent = backgroundLabels[index] ?? art.label;
+        sceneNumber.textContent = String(index + 1).padStart(2, '0');
+        settings.background = index === 0 ? 'sunset' : loadedVariants[index - 1]?.art.id ?? 'sunset';
+        saveSettings(settingsStorage, settings);
         draw('resize');
       }, { signal });
     } else {
@@ -276,6 +320,7 @@ async function bootstrap(): Promise<void> {
       backgroundSetting.hidden = true;
       backgroundStatic.hidden = false;
       backgroundStatic.textContent = art.label;
+      sceneNumber.textContent = '01';
     }
   } catch (error) {
     if (signal.aborted) return;
@@ -311,9 +356,6 @@ function drawAboutFace(character: HTMLImageElement | null): void {
   } catch { faceWrap.hidden = true; }
 }
 
-fightersUI = new FightersUI(game, scene,
-  () => conditions.ready && !failed && !conditions.paused && !conditions.reducedMotion && !conditions.still && !conditions.hidden && !conditions.suspended && !conditions.dialogOpen,
-  () => draw(), signal, () => stopNote()?.reason ?? '');
 synchronize();
 void bootstrap();
 
@@ -322,9 +364,15 @@ if (import.meta.hot) {
     controller.abort();
     observer.disconnect();
     loop.dispose();
+    dprQuery?.removeEventListener('change', onDevicePixelRatioChange);
     if (dialog.open) dialog.close();
     credits.replaceChildren();
     backgroundSetting.hidden = true;
     backgroundStatic.hidden = false;
+    // A hot re-bootstrap starts clean: no stale error banner or half-ready scene.
+    errorNote.hidden = true;
+    loading.hidden = false;
+    scene.setAttribute('aria-busy', 'true');
+    scene.dataset.ready = 'false';
   });
 }

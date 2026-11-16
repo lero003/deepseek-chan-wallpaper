@@ -6,7 +6,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let assets: Assets
     private let smokeTest: Bool
     private var owner: AppController?
-    private var smokeTimer: Timer?
+    private var smokeTimers: [Timer] = []
+    private var smokeClosedCleanly = false
     var exitCode: Int32 = 0
     init(assets: Assets, smokeTest: Bool) { self.assets = assets; self.smokeTest = smokeTest }
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -15,9 +16,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self.owner = owner
             owner.start(activate: !smokeTest)
             if smokeTest {
-                let timer = Timer(timeInterval: 1.5, target: self, selector: #selector(finishSmoke), userInfo: nil, repeats: false)
-                smokeTimer = timer
-                RunLoop.main.add(timer, forMode: .common)
+                // Startup → close the preview (release its window/view) → reopen it → report.
+                scheduleSmoke(0.8, #selector(smokeClosePreview))
+                scheduleSmoke(1.6, #selector(smokeReopenPreview))
+                scheduleSmoke(2.4, #selector(finishSmoke))
             }
         } catch {
             exitCode = 1
@@ -29,12 +31,32 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
     }
+    private func scheduleSmoke(_ delay: TimeInterval, _ selector: Selector) {
+        let timer = Timer(timeInterval: delay, target: self, selector: selector, userInfo: nil, repeats: false)
+        smokeTimers.append(timer)
+        RunLoop.main.add(timer, forMode: .common)
+    }
+    @objc private func smokeClosePreview() {
+        owner?.smokeClosePreview()
+        let summary = owner?.smokeSummary
+        smokeClosedCleanly = summary?["previewCreated"] as? Bool == false
+            && summary?["captionCreated"] as? Bool == false
+    }
+    @objc private func smokeReopenPreview() { owner?.showPreview(activate: false) }
     @objc private func finishSmoke() {
-        smokeTimer?.invalidate(); smokeTimer = nil
+        for timer in smokeTimers { timer.invalidate() }
+        smokeTimers.removeAll()
         if let owner {
+            var summary = owner.smokeSummary
+            summary["previewCloseReopenVerified"] = smokeClosedCleanly && summary["previewCreated"] as? Bool == true
             do {
-                let json = try JSONSerialization.data(withJSONObject: owner.smokeSummary, options: [.sortedKeys])
-                print("NATIVE_STARTUP_PASS: " + (String(data: json, encoding: .utf8) ?? "{}"))
+                let json = try JSONSerialization.data(withJSONObject: summary, options: [.sortedKeys])
+                if summary["previewCloseReopenVerified"] as? Bool == true {
+                    print("NATIVE_STARTUP_PASS: " + (String(data: json, encoding: .utf8) ?? "{}"))
+                } else {
+                    print("NATIVE_STARTUP_FAIL: preview close/reopen cleanup was not verified. " + (String(data: json, encoding: .utf8) ?? "{}"))
+                    exitCode = 1
+                }
             } catch { print("NATIVE_STARTUP_FAIL: \(error)"); exitCode = 1 }
         } else { exitCode = 1 }
         owner?.shutdown(); owner = nil
@@ -51,7 +73,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return true
     }
     func applicationWillTerminate(_ notification: Notification) {
-        smokeTimer?.invalidate(); smokeTimer = nil
+        for timer in smokeTimers { timer.invalidate() }
+        smokeTimers.removeAll()
         owner?.shutdown(); owner = nil
     }
 }

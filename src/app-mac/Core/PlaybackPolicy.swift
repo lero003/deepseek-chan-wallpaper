@@ -8,17 +8,21 @@ public struct PlaybackPolicy: Equatable, Sendable {
     public var sleeping = false
     public var sessionActive = true
     public var hasVisibleSurface = false
+    /// Any open NSMenu (status item, settings popup, main menu) rests the scene,
+    /// matching the Web preview, which rests while its settings dialog is open.
+    public var menuOpen = false
     public var terminating = false
     public init() {}
     public var fps: Int { userLowPower || systemLowPower ? 15 : 30 }
     public var shouldAnimate: Bool {
-        hasVisibleSurface && !manuallyPaused && !reducedMotion && !sleeping && sessionActive && !terminating
+        hasVisibleSurface && !manuallyPaused && !reducedMotion && !sleeping && sessionActive && !menuOpen && !terminating
     }
     public var status: String {
         if terminating { return "終了しています" }
         if sleeping || !sessionActive { return "スリープ・非表示のため停止中" }
         if reducedMotion { return "OS設定に合わせて静止中" }
         if manuallyPaused { return "ひと休みしています" }
+        if menuOpen { return "メニューを開いている間は一休み" }
         if !hasVisibleSurface { return "表示されるまで一休み" }
         return fps == 15 ? "ゆっくり描画 · 15fps" : "音のない、小さな世界"
     }

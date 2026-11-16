@@ -81,7 +81,7 @@ export async function prepareMacResources({ localPreview = false, output } = {})
   const paths = ['character/sheet.png', 'character/atlas.json', 'scene/seaside-room.png'];
   // The optional wide wallpaper matte is bundled only for the local production profile.
   if (layout.matte) paths.push('scene/seaside-room-matte.png');
-  // Optional selectable backgrounds (night/rain) are listed in the ignored local runtime.
+  // Optional selectable backgrounds (night/rain/dawn/snow) are listed in the ignored local runtime.
   const variants = [];
   const variantsPath = resolve(source, 'variants.json');
   if (localPreview && layout.matte && existsSync(variantsPath)) {
@@ -187,7 +187,7 @@ export async function prepareMacResources({ localPreview = false, output } = {})
     paths.push(candidate.sheet, candidate.atlas);
   }
   if (Object.keys(sprites).length) layout = { ...layout,
-    provenance: `${layout.provenance} 主人公戦闘8キー姿勢と既存雑魚2種の6姿勢×3バリエーションは、GPT Image生成・二値透過・足元整列・共有80色による別シートです。手動アリーナ専用で、生活16コマ・背景3種・各マットは不変。途中のデザイン確認はユーザーが省略して制作統合を委任しましたが、公開再配布の権利確認や連続動作・実機操作の受け入れではありません。` };
+    provenance: `${layout.provenance} 主人公戦闘8キー姿勢と既存雑魚2種の6姿勢×3バリエーションは、GPT Image生成・二値透過・足元整列・共有80色による別シートです。手動アリーナ専用で、生活16コマ・背景${variants.length + 1}種・各マットは不変。途中のデザイン確認はユーザーが省略して制作統合を委任しましたが、公開再配布の権利確認や連続動作・実機操作の受け入れではありません。` };
   const assets = [];
   for (const name of paths) {
     const input = resolve(source, name);
