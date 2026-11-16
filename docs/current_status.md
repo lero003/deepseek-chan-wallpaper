@@ -36,9 +36,19 @@
 - **Build17アプリ**: [アプリ](<../private-art/macos-out/20261116094145-5f1190f8/くじらの散歩道.app>)／[ZIP](<../private-art/macos-out/20261116094145-5f1190f8/KujiraWallpaper-QuietWallpaper-B17-arm64-local-preview.zip>)、SHA-256 `5721a6838d7da0c4f8e02fd96b6557b518dbe39705fd749377fd606fbc290725`。CFBundleVersion17、署名検証・自己テスト2種・ZIP展開後byte一致・移設後自己テスト2種成功。
 - **起動スモークPASS**: `autoBoutsScheduled:false`・`captionCreated:true`・`previewCloseReopenVerified:true`・`wallpaperEnabled:false`・`originalWallpaperChanged:false`。
 
-### 葉桜ラボサイトでの紹介（別リポジトリ・PR）
+### 葉桜ラボサイトでの紹介とWeb公開（別リポジトリ・PR）
 
-ユーザー依頼により、[hazakura-labo-web](https://github.com/lero003/hazakura-labo-web) の `/kujira-no-sanpomichi/` 紹介ページを静かな壁紙の内容へ刷新し、[PR #19](https://github.com/lero003/hazakura-labo-web/pull/19) として提出（2026-11-16・origin/main最新ベース）。構成は猫の散歩道に準拠。戦闘キャプチャを撤去し、Build17のネイティブワイド描画から五背景のキャプチャ（800/1600w webp）を生成して掲載。**非配布・帰属表示の方針は維持**（配布導線なし・アプリ本体は非公開のまま）。 Astroビルド255ページ成功。マージ後の本番表示はユーザー目視確認。なおpush時にdefault branchのDependabot脆弱性通知（49件・既存）あり——本PRは依存不変更。
+ユーザー依頼により、[hazakura-labo-web](https://github.com/lero003/hazakura-labo-web) の `/kujira-no-sanpomichi/` 紹介ページを静かな壁紙の内容へ刷新し、[PR #19](https://github.com/lero003/hazakura-labo-web/pull/19) として提出→**ユーザーがマージ済み**。構成は猫の散歩道に準拠。戦闘キャプチャを撤去し、Build17のネイティブワイド描画から五背景のキャプチャ（800/1600w webp）を生成して掲載。
+
+続いてユーザー指示「**非配布ではなくWeb版は公開したい。.appは公開しない**」を受け、制作アートでのWeb公開を明示承認のうえで [PR #20](https://github.com/lero003/hazakura-labo-web/pull/20) を提出（最新mainベース）:
+
+- `/kujira/` にWeb版を同期（`scripts/sync-kujira.sh`・猫の散歩道と同じ方式・source-manifest.json付き）。
+- アプリ側に **mode public**（`private-art/runtime/art-public.ts`・`build:public`）を追加: 承認済み主人公/生活/背景5種/来客3体のみを公開バンドルへ。**お蔵入りの戦闘専用アセットは非同梱**（台帳PNG数照合で検証）。
+- 紹介ページに入口セクション（WEB公開中/MAC非配布）・CTA・FAQ・JSON-LD無料Offer。`llms.txt`/`products.js`/`AGENTS.md`も公開方針へ同期。
+- **帰属表示・再配布不許は維持**。Macアプリ・素材原本・ソースは非公開のまま。このリポジトリのコミット（4428083・e1fa1cc）はローカルのみで未push（明示同期依頼なし）。
+- 検証: アプリ側check 257件+型+素材再現+build:public成功、Astroビルド255ページ、dist/kujiraはnoindexなし・PNG16点・戦闘アセットなし。実ブラウザー確認はマージ後の本番（https://hazakura.dev/kujira/）でユーザー目視。
+- 経緯: 一度スタックPRを試みたが#19マージでbaseブランチが消えたため、最新mainへのcherry-pickでPR #20を作成。旧ブランチ`feat/kujira-web-publish`は未PR・削除可。
+- なおpush時にdefault branchのDependabot脆弱性通知（49件・既存）あり——本PRは依存不変更。
 
 ### 残る手動受入（実機・目視はユーザー）
 
