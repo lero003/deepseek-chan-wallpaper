@@ -16,16 +16,16 @@ const run = (command, args, options = {}) => {
 };
 const capture = (command, args, options = {}) => run(command, args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'], ...options }).stdout.trim();
 
-export const RELEASE_SOURCE_TAG = 'multi-display-build15';
+export const RELEASE_SOURCE_TAG = 'sparring-build19';
 export function dmgFileName(architecture) {
   assert.equal(architecture, 'arm64', 'This personal preview is Apple Silicon only.');
-  return `KujiraWallpaper-MultiDisplay-B15-${architecture}.dmg`;
+  return `KujiraWallpaper-Sparring-B19-${architecture}.dmg`;
 }
 
 /** Reject stale/placeholder/unverified builds before copying or mounting anything. */
 export function validateDmgSource(report) {
   assert.equal(report.schemaVersion, 1);
-  assert.equal(report.bundleBuild, '15', 'Build15 DMG requires the sealed Build15 app.');
+  assert.equal(report.bundleBuild, '19', 'Build19 DMG requires the sealed Build19 app.');
   assert.equal(report.profile, 'whale-maid-sunset-v1', 'Do not label the placeholder as the local-art release.');
   dmgFileName(report.architecture);
   assert.equal(report.minimumMacOS, '14.0');
@@ -41,7 +41,7 @@ export function validateDmgSource(report) {
     assert.ok(path.startsWith('private-art/macos-out/') && !path.includes('\\') && !path.split('/').some(part => part === '..' || part === '.' || part === ''), 'Unsafe build report path.');
   }
   assert.match(report.app, /\.app$/);
-  assert.match(report.zip, /KujiraWallpaper-MultiDisplay-B15-arm64-local-preview\.zip$/);
+  assert.match(report.zip, /KujiraWallpaper-Sparring-B19-arm64-local-preview\.zip$/);
   assert.match(report.zipSha256, /^[a-f0-9]{64}$/);
   assert.ok(Array.isArray(report.files) && report.files.length > 0);
   for (const file of report.files) {
@@ -57,7 +57,7 @@ export function releaseReadme({ version, zipSha256, architecture, sourceTag = RE
   assert.match(zipSha256, /^[a-f0-9]{64}$/);
   assert.equal(sourceTag, RELEASE_SOURCE_TAG);
   assert.match(sourceCommit, /^[a-f0-9]{40,64}$/);
-  return `くじらの散歩道 — 全ディスプレイ同期 Build 15（個人テスト用）
+  return `くじらの散歩道 — ゆっくり対戦 Build 19（個人テスト用）
 ==================================================================
 
 これは個人検証用の非公開リリースです。公開配布物・正式リリースではありません。
@@ -74,38 +74,40 @@ export function releaseReadme({ version, zipSha256, architecture, sourceTag = RE
 1. 「くじらの散歩道.app」を Applications へドラッグ（任意）。
 2. 起動するとプレビューが開きます。壁紙は「壁紙にする」を選んだときだけ表示。
 3. 元の壁紙設定は変更しません。OFF・終了でアプリのウィンドウが消えます。
-4. シーン下の「背景」で夕凪・月夜・雨音・朝凪・雪あかりを切り替え（「雨音」は景色で音は鳴りません）。
-   「呼んでみる」で、書斎で休んでいるDeepSeekちゃんが小さく応えます。
-5. 手動操作: WASD／矢印で移動、J/Zで3段コンボ、K/Xで回避、L/Cで必殺、
-   Escでポーズ。メニューバーから「書斎へ戻る」「もう一度遊ぶ」。
-6. 音は常時無音。通信・解析・ログイン自動起動はありません。
+4. モード選択:「書斎で過ごす」は静かな生活と来客。「リュミエとゆっくり対戦」は
+   固定テラスで続く眺める専用の練習試合（HP・勝敗・スコアなし、誰も倒れない）。
+5. 手動対戦は壁紙がOFFのときだけ: WASD／矢印で移動、J/Zで3段コンボ、
+   K/Xで回避、L/Cで必殺、Escでポーズ。壁紙をONにすると書斎かゆっくり対戦へ戻ります。
+6. シーン下の「背景」で夕凪・月夜・雨音・朝凪・雪あかりを切り替え（「雨音」は景色で音は鳴りません）。
+7. 音は常時無音。通信・解析・ログイン自動起動はありません。
 
-今回の変更（Build 15）
-- 壁紙をメインディスプレイだけでなく、接続中のすべてのディスプレイへ同期表示。
-  各ディスプレイに独立した整数倍の描画面を置き、同じDeepSeekちゃんの生活を映す。
-- ディスプレイの追加・切断・配置変更を検知してパネルを張り直す。
-  ミラーリングで同じ座標になる画面は重複ウィンドウを作らない。
-- Build 14の6種類の仕草（小さなジャンプ・くすくす笑い・小さなダンス・
-  照れ覗きと手振り・のび・尾との戯れ）と専用24コマを引き継ぎ。
-- 承認済み生活16コマ、背景5種、広い壁紙、戦闘8姿勢、複数ライバルを引き継ぎ。
+今回の変更（Build 19）
+- 「リュミエとゆっくり対戦」（mode: sparring）を追加。固定テラスでリュミエ1人と
+  穏やかに打ち合い続ける眺める専用モード。HP・HUD・スコア・勝敗なし、双方倒れない。
+- 壁紙がOFFのときだけ手動3連戦（雑魚2ラウンド＋リュミエ、90秒・SCORE・RANK）を復元。
+  壁紙をONにすると手動対戦は終わり、選んでいた書斎／ゆっくり対戦へ戻る。
+- 書斎の生活6仕草・来客・背景5種・全ディスプレイ同期壁紙はそのまま維持。
 - 壁紙・元の背景設定・ログイン自動起動は変更しない。クリックは全画面で透過。
 
-Build 12までの主な内容
-- 通常待機中に3ボスが1体ずつ遊びに来て、歩き・会釈し・帰る（Build 12）
+Build 18までの主な内容
+- 接続中のすべてのディスプレイへ壁紙を同期表示、追加・切断・配置変更にも追従（Build 15）
+- 承認済み生活16コマと、6種類の生活仕草（小さなジャンプ・くすくす笑い・小さなダンス・照れ覗きと手振り・
+  のび・尾との戯れ）専用24コマ（Build 14）
+- 来客のリツカ／ユメが歩き・会釈し・帰る（Build 12）
 - 16:9以外の戦闘背景を単色の額で囲み、端を引き伸ばさない（Build 11）
-- 「呼んでみる」、生活キャプション、背景選択（Build 10まで）
 
 検証済み（このDMGの作成時）
 - 署名検証、DMGの読取専用マウント、DMG外へコピー後の単体起動
 - 同梱素材のハッシュ、自己テスト2種、元ZIPとのbyte一致
-- Node 257テスト、Swift 43テスト×2プロファイル、Webビルド（通常・placeholder）
+- Node 264テスト、Swift 44テスト×2プロファイル、Webビルド（通常・placeholder・public）
+- 15/30/60fpsで30分のゆっくり対戦の決定性・HP不減・勝敗ゼロ・敵1体
 未確認
-- 実画面での複数ディスプレイ同期、6仕草の見え方・頻度・キー切替、キー操作の感触
+- 実画面での複数ディスプレイ同期、ゆっくり対戦の間合い・頻度、キー操作の感触
 - 壁紙ON/OFF、Space、スリープ復帰、30分のCPU・メモリ・発熱
 - 別のMac／OS、異なる画面解像度・配置、Gatekeeperの挙動、実時間の連続動作
 
 記録
-- アプリ版: ${version}（bundle build 15）
+- アプリ版: ${version}（bundle build 19）
 - 元ソース: ${sourceTag} / ${sourceCommit}
 - 元ZIP SHA-256: ${zipSha256}
 - DMGのSHA-256はリリースの SHA256SUMS.txt を参照してください。
@@ -122,7 +124,7 @@ async function main() {
   const report = JSON.parse(await readFile(resolve(privateRoot, 'macos-out/latest.json'), 'utf8'));
   validateDmgSource(report);
   const sourceCommit = capture('git', ['rev-parse', `${RELEASE_SOURCE_TAG}^{}`], { cwd: root });
-  assert.match(sourceCommit, /^[a-f0-9]{40,64}$/, 'The sealed app must come from the recorded Build15 source tag.');
+  assert.match(sourceCommit, /^[a-f0-9]{40,64}$/, 'The sealed app must come from the recorded Build19 source tag.');
   const app = resolve(root, report.app);
   const zip = resolve(root, report.zip);
   const appName = appDirectoryName(await readdir(dirname(app)));
