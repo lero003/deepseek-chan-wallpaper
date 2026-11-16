@@ -1,6 +1,6 @@
 # 現在の状態 / 引き継ぎ
 
-更新: 2026-11-17 · Build19 リュミエとのゆっくり対戦＋手動3連戦復元 · Web公開用dist準備済み／本番未反映 · Macは個人用ローカル試作
+更新: 2026-11-17 · Build19 リュミエとのゆっくり対戦＋手動3連戦復元 · **Build19個人用プレリリース発行済み（タグ/Releaseはクリーン化）** · Web公開用dist準備済み／本番未反映 · Macは個人用ローカル試作
 
 ## 現在：書斎／ゆっくり対戦／手動3連戦（Build19 / 2026-11-17）
 
@@ -18,7 +18,9 @@
 - `npm run mac:test -- --local-preview`: **44件・8 suites成功**。JavaScriptCoreでも30分のsparring・3分間の離脱再接近の反復・壁紙ゲート・描画を検証。
 - `npm run mac:build -- --local-preview`: Build19アプリ／ZIP作成。署名・自己テスト・プレビュー作成/閉じる/再作成の起動スモーク・ZIP展開後の全byte一致と移設後自己テスト成功。壁紙はテスト中OFF。`--render-sparring`でワイドPNGを書き出し目視確認（デスクトップ実機確認とは別）。Build19でも署名・起動スモーク・ZIP再展開・移設後自己テスト成功。後ろ跳び＋リュミエ背向き歩行のnative PNGを追加書き出し・目視確認。成果物はignored `private-art/macos-out/latest.json`参照。
 - Build19はアプリ内ブラウザーで、ゆっくり対戦の間合いと選択UIを目視確認。モードの本体・全optionの実適用色も確認（明るい背景＋濃い文字）。前回Build18は既存SafariのローカルWebで、ゆっくり対戦のHP/HUDなし表示、手動切替、移動・攻撃、Esc停止/再開、書斎への復帰を操作・目視確認。ブラウザーE2E・Chrome・タッチ端末・全画面幅は未実施。Mac実機のキー入力／壁紙切替／Spaces／スリープは未受入。
-- **今回のGitHub同期・Release・本番サイト反映は未実施**。Web公開用distはローカル準備済み。旧タグ・既存Release・起動中の旧Macアプリは変更していない。サイトへの同期は次の明示依頼で、labo側紹介文もモードに合わせて更新する。
+- **Build19のGitHub Releaseを発行した**（2026-11-17・ユーザー依頼・本人の別Macでの個人利用のみが目的）。[Release `sparring-build19-dmg`](<https://github.com/lero003/deepseek-chan-wallpaper/releases/tag/sparring-build19-dmg>)をPublished／Prereleaseで発行し、DMG 4,939,327 bytes／SHA-256 `5ae4468e2e6dbcb8a83520214745af933629b6e83cd7d47f7a4f165f1c5531a4`、ZIP 4,882,624 bytes／SHA-256 `b3bffe384ede4bbd072c5708964b430b09dbafe43862cc725eda1145b5bd442c`、SHA256SUMS.txtを添付。ソースタグ`sparring-build19`はBuild19アプリのビルド入力`c9d3e83`。発行後に再ダウンロードして`shasum -a 256 -c`、DMGの読取専用マウント・署名検証・自己テスト2種、ZIP展開アプリの署名・自己テストまで成功。配布セットは`private-art/macos-out/release-b19/`。本文は[リリースノート](<release-notes-sparring-build19.md>)。
+- **タグ・Releaseのクリーン化**（同依頼）: 古いRelease 9本（build11系・build12〜15系・ドラフト）と旧タグをリモート／ローカルから全削除し、タグは`sparring-build19`／`sparring-build19-dmg`の2つ、ReleaseはBuild19の1本だけにした。履歴コミットはmainに残るため、必要なら旧コミットSHAから復活可能。リポジトリはPRIVATEのまま・Pages無効・可視性不変更。
+- 本番サイトへの同期は次の明示依頼。Web公開用distはローカル準備済み。起動中の旧Macアプリは不変更。
 
 ## 履歴：静かな壁紙アプリ — ファイターズお蔵入り（Build17 / 2026-11-16）
 
