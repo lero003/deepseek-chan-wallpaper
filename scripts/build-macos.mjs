@@ -4,6 +4,7 @@ import { mkdir, copyFile, chmod, readFile, writeFile, readdir, lstat, realpath }
 import { resolve, dirname, relative, sep } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { prepareMacResources, projectRoot, hash } from './prepare-macos.mjs';
+import { BUNDLE_BUILD } from './build-info.mjs';
 import { systemLibraryPaths } from './macos-dependencies.mjs';
 import { appDirectoryName } from './macos-archive.mjs';
 
@@ -76,7 +77,7 @@ for (const name of ['world.js', 'configuration.json', 'manifest.json', 'characte
 const bundledReadmeFooter = developerId
   ? '非公式ファン作品。キャラクター原案・デザインはファンコミュニティと原案者に帰属します。DeepSeek社との提携・承認はありません。\nApple Silicon用。Developer ID署名・Hardened Runtime。公開はプロジェクト所有者の許諾確認が完了した配布物に限ります。素材の再配布ライセンスは付与していません。\n'
   : '非公式ファン作品。キャラクター原案・デザインはファンコミュニティと原案者に帰属します。DeepSeek社との提携・承認はありません。\nApple Silicon用・個人用ローカル試作。アドホック署名・未公証。Macアプリの公開・第三者配布は未許諾。素材の再配布ライセンスは付与していません。\n';
-await writeFile(resolve(resources, 'README.txt'), `くじらの散歩道 — Build 19
+await writeFile(resolve(resources, 'README.txt'), `くじらの散歩道 — Build ${BUNDLE_BUILD}
 
 海辺の書斎と、勝ち負けのないリュミエとの対戦を眺めるドット絵の壁紙アプリです。
 
@@ -111,7 +112,7 @@ await writeFile(resolve(contents, 'Info.plist'), `<?xml version="1.0" encoding="
 <key>CFBundleDisplayName</key><string>${xml(displayName)}</string>
 <key>CFBundlePackageType</key><string>APPL</string>
 <key>CFBundleShortVersionString</key><string>${xml(version)}</string>
-<key>CFBundleVersion</key><string>19</string>
+<key>CFBundleVersion</key><string>${xml(BUNDLE_BUILD)}</string>
 <key>CFBundleIconFile</key><string>AppIcon</string>
 <key>LSMinimumSystemVersion</key><string>14.0</string>
 <key>LSUIElement</key><false/>
@@ -197,8 +198,8 @@ const architecture = capture('/usr/bin/lipo', ['-archs', executable]);
 const libraries = capture('/usr/bin/otool', ['-L', executable]);
 const systemLibraries = systemLibraryPaths(libraries);
 const zip = resolve(output, developerId
-  ? `KujiraWallpaper-B19-${architecture}-developer-id.zip`
-  : `KujiraWallpaper-Sparring-B19-${architecture.replaceAll(' ', '-')}-local-preview.zip`);
+  ? `KujiraWallpaper-B${BUNDLE_BUILD}-${architecture}-developer-id.zip`
+  : `KujiraWallpaper-Sparring-B${BUNDLE_BUILD}-${architecture.replaceAll(' ', '-')}-local-preview.zip`);
 run('/usr/bin/ditto', ['-c', '-k', '--sequesterRsrc', '--keepParent', app, zip]);
 // Legacy unzip console output can corrupt Japanese names under C locales.
 // Validate the real archive more strictly: extract, compare every byte, verify and execute.
@@ -223,7 +224,7 @@ const report = { schemaVersion: 1, app: relative(root, app), zip: relative(root,
   signingIdentityHash: developerId ? signingIdentity.hash : 'ad-hoc', notarized: false,
   localPreviewOnly: !developerId, published: false, thirdPartyRightsVerified: false, originalWallpaperChangedDuringBuild: false,
   archiveVerified: true, relocatedStandaloneSelfTest: true, relocatedFightersSelfTest: true,
-  gameplay: 'quiet-life + no-result Lumie sparring + manual arena only with wallpaper OFF + multi-display', bundleBuild: '19',
+  gameplay: 'quiet-life + no-result Lumie sparring + manual arena only with wallpaper OFF + multi-display', bundleBuild: BUNDLE_BUILD,
   startupSmoke: 'preview-create-close-reopen verified; wallpaper stayed OFF',
   bundledLifeGestures: prepared.configuration.life ? ['hop', 'giggle', 'sway', 'peek', 'stretch', 'daydream'] : [],
   bundledCombatSheets: Object.keys(prepared.configuration.sprites ?? {}),

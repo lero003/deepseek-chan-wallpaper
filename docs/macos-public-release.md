@@ -26,11 +26,19 @@ npm run mac:release
 - App Store / TestFlight 用の `Apple Distribution` 設定はこの経路では使わない。`--developer-id` は `Developer ID Application` のみを要求する。
 - 旧個人用プレリリース `sparring-build19`（Prerelease）はそのまま。公開Releaseは別タグ・別名義にする。
 
-## 公開前に所有者が確認すべきこと（未解決）
+## 公開前の確認事項（2026-11-17更新）
 
-- **素材の再配布許諾**。`ART-LICENSE.md` 記載のとおり、キャラクター原案・生成・加工素材を**一般配布するMacアプリへ同梱する許諾は未確認**のまま。Web公開の可否とは別枠で、公開前に原案者・権利者への確認が必要。確認完了までReleaseはDraftのまま。
-- 公開先リポジトリの方針（privateリポジトリのまま公開Releaseするか、公開専用リポジトリを別に作るか）。**既存privateリポジトリの可視性は勝手に変更しない。**
+- **素材の再配布許諾**: 2026-11-17にプロジェクト所有者が「素材及び生成素材の許諾は問題なし」と確認済み。公開配布のブロッカーは解消した（`ART-LICENSE.md`の歴史的記述は参照として残る）。
+- 公開先: 所有者方針で現行privateリポジトリのまま。**注意: GitHub Releasesはリポジトリの可視性を継承するため、privateのまま公開Releaseを発行しても一般ユーザーはダウンロードできない**。一般配布には①リポジトリのpublic化、または②公開専用リポジトリ／別ホストへの成果物公開が必要。可視性変更は所有者の明示指示待ち。
+- **Bundle ID `local.kujira.walkway`** を公開後も継続するか要確認。変更するなら公開前（発行後は設定ファイル`~/Library/Preferences/local.kujira.walkway.plist`の引き継ぎ問題が出る）。
 - 別Mac・新規ダウンロード環境でのGatekeeper初回起動試験（この環境では未実施）。
+
+## レビュー対応（2026-11-17）
+
+- ビルド番号は`scripts/build-info.mjs`の`BUNDLE_BUILD`単一定義へ集約（`build-macos.mjs`/`release-macos.mjs`が参照。個人用`build-dmg.mjs`はBuild19個人用固定のまま）。
+- DMGからコピー出したアプリへの`spctl --assess --type execute`（Gatekeeper判定）をパイプラインに追加。
+- READMEの「お蔵入り」説明をBuild 19の実態に整合。
+- `allow-jit`検証: entitlementsなしで再署名したコピーで`--self-test`成功（インタプリタフォールバック）。ただしJSCのJIT起動はOS・実行時間依存のため、長時間壁紙動作でのW^Xクラッシュ回避に**`allow-jit`維持**が安全（最小限で公証も通過）。
 
 ## 検証状況（2026-11-17）
 

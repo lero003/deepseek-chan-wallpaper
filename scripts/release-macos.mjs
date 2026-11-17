@@ -10,6 +10,7 @@ import { randomUUID, createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { projectRoot } from './prepare-macos.mjs';
 import { appDirectoryName } from './macos-archive.mjs';
+import { BUNDLE_BUILD } from './build-info.mjs';
 
 const NOTARY_PROFILE = 'kujira-release';
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
@@ -24,13 +25,13 @@ const capture = (command, args, options = {}) => run(command, args, { encoding: 
 export function dmgFileName(version, architecture) {
   assert.match(version, /^[0-9]+\.[0-9]+\.[0-9]+$/);
   assert.equal(architecture, 'arm64', 'The public release is Apple Silicon only for now.');
-  return `KujiraWalkway-${version}-B19-${architecture}.dmg`;
+  return `KujiraWalkway-${version}-B${BUNDLE_BUILD}-${architecture}.dmg`;
 }
 
 /** Accept only a freshly sealed Developer ID build report for the public path. */
 export function validateReleaseSource(report) {
   assert.equal(report.schemaVersion, 1);
-  assert.equal(report.bundleBuild, '19');
+  assert.equal(report.bundleBuild, BUNDLE_BUILD);
   assert.equal(report.architecture, 'arm64');
   assert.equal(report.minimumMacOS, '14.0');
   assert.match(report.signing, /^Developer ID Application: .+hardened runtime, secure timestamp/);
@@ -41,7 +42,7 @@ export function validateReleaseSource(report) {
   assert.equal(report.autoStartEnabled, false);
   assert.equal(report.originalWallpaperChangedDuringBuild, false);
   for (const key of ['archiveVerified', 'relocatedStandaloneSelfTest', 'relocatedFightersSelfTest']) assert.equal(report[key], true, key);
-  assert.match(report.zip, /KujiraWallpaper-B19-arm64-developer-id\.zip$/);
+  assert.match(report.zip, new RegExp(`KujiraWallpaper-B${BUNDLE_BUILD}-arm64-developer-id\\.zip$`));
   assert.match(report.zipSha256, /^[a-f0-9]{64}$/);
   assert.ok(report.app.startsWith('private-art/macos-out/') && report.app.endsWith('.app'));
 }
@@ -49,7 +50,7 @@ export function validateReleaseSource(report) {
 export function releaseReadme({ version, architecture, sourceCommit, zipSha256 }) {
   assert.match(zipSha256, /^[a-f0-9]{64}$/);
   assert.match(sourceCommit, /^[a-f0-9]{40,64}$/);
-  return `くじらの散歩道 ${version}（Build 19）
+  return `くじらの散歩道 ${version}（Build ${BUNDLE_BUILD}）
 ==================================================
 
 夕暮れの海を望む書斎を、すべてのディスプレイに静かに表示する壁紙アプリです。
@@ -84,7 +85,7 @@ export function releaseReadme({ version, architecture, sourceCommit, zipSha256 }
   プロジェクト所有者の許諾確認が完了した配布物に限ってください。
 
 検証情報
--  version ${version}（bundle build 19）/ commit ${sourceCommit}
+-  version ${version}（bundle build ${BUNDLE_BUILD}）/ commit ${sourceCommit}
 - 同梱ZIP SHA-256: ${zipSha256}
 - DMGのSHA-256はリリースの SHA256SUMS.txt を確認してください。
 - 不具合報告: GitHub リポジトリの Issue（公開後はリリースページ参照）
@@ -164,6 +165,9 @@ async function main() {
   }
   const copiedApp = resolve(verification, appName);
   run('/usr/bin/codesign', ['--verify', '--deep', '--strict', '--verbose=2', copiedApp]);
+  // The user actually runs the app after dragging it out of the DMG, so Gatekeeper
+  // must accept the copied-out bundle, not just the read-only image copy.
+  run('/usr/sbin/spctl', ['--assess', '--type', 'execute', '--verbose=4', copiedApp]);
   run(resolve(copiedApp, 'Contents/MacOS/KujiraWallpaper'), ['--self-test'], { cwd: verification, env: { PATH: '/usr/bin:/bin', LANG: 'ja_JP.UTF-8' } });
   run(resolve(copiedApp, 'Contents/MacOS/KujiraWallpaper'), ['--fighters-self-test'], { cwd: verification, env: { PATH: '/usr/bin:/bin', LANG: 'ja_JP.UTF-8' } });
 
