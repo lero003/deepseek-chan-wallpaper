@@ -9,10 +9,13 @@ import { appDirectoryName } from './macos-archive.mjs';
 
 if (process.platform !== 'darwin') throw new Error('Build this private app on macOS with an existing Swift 6.2+ toolchain.');
 const flags = process.argv.slice(2);
-if (flags.some(flag => !['--local-preview', '--placeholder'].includes(flag)) || (flags.includes('--local-preview') && flags.includes('--placeholder'))) {
-  throw new Error('Use --local-preview for the authorized local art, or --placeholder for the fallback. No publishing mode exists.');
+if (flags.some(flag => !['--local-preview', '--placeholder', '--developer-id'].includes(flag))
+  || (flags.includes('--local-preview') && flags.includes('--placeholder'))
+  || (flags.includes('--developer-id') && !flags.includes('--local-preview'))) {
+  throw new Error('Use --local-preview for the authorized local art, --placeholder for the fallback. --developer-id additionally signs the Release build with the Developer ID Application certificate for the owner-approved public release path.');
 }
 const localPreview = flags.includes('--local-preview');
+const developerId = flags.includes('--developer-id');
 const root = await realpath(projectRoot);
 const privateRoot = resolve(root, 'private-art');
 await mkdir(privateRoot, { recursive: true });
@@ -27,6 +30,16 @@ const capture = (command, args) => {
   const result = run(command, args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'] });
   return result.stdout.trim();
 };
+// Developer ID signing identity for the GitHub Releases path. Ad-hoc signing is never a substitute.
+let signingIdentity = null;
+if (developerId) {
+  const identities = capture('/usr/bin/security', ['find-identity', '-v', '-p', 'codesigning']);
+  const matches = identities.split('\n')
+    .map(line => line.trim().match(/^\d+\) ([0-9A-F]{40}) "(Developer ID Application: [^"]+)"$/))
+    .filter(Boolean);
+  assert.equal(matches.length, 1, `Expected exactly one Developer ID Application identity, found ${matches.length}.`);
+  signingIdentity = { hash: matches[0][1], name: matches[0][2] };
+}
 run('npm', ['run', 'check']);
 const prepared = await prepareMacResources({ localPreview });
 run('swift', ['test', '--disable-sandbox', '--scratch-path', resolve(privateRoot, 'swift-build')], { env: { ...process.env, KUJIRA_TEST_RESOURCES: prepared.resources } });
@@ -60,6 +73,9 @@ for (const name of ['world.js', 'configuration.json', 'manifest.json', 'characte
   await mkdir(dirname(destination), { recursive: true });
   await copyFile(resolve(prepared.resources, name), destination);
 }
+const bundledReadmeFooter = developerId
+  ? '非公式ファン作品。キャラクター原案・デザインはファンコミュニティと原案者に帰属します。DeepSeek社との提携・承認はありません。\nApple Silicon用。Developer ID署名・Hardened Runtime。公開はプロジェクト所有者の許諾確認が完了した配布物に限ります。素材の再配布ライセンスは付与していません。\n'
+  : '非公式ファン作品。キャラクター原案・デザインはファンコミュニティと原案者に帰属します。DeepSeek社との提携・承認はありません。\nApple Silicon用・個人用ローカル試作。アドホック署名・未公証。Macアプリの公開・第三者配布は未許諾。素材の再配布ライセンスは付与していません。\n';
 await writeFile(resolve(resources, 'README.txt'), `くじらの散歩道 — Build 19
 
 海辺の書斎と、勝ち負けのないリュミエとの対戦を眺めるドット絵の壁紙アプリです。
@@ -75,22 +91,24 @@ await writeFile(resolve(resources, 'README.txt'), `くじらの散歩道 — Bui
 ・OSの「視差効果を減らす」、スリープ・非表示・メニュー表示中は停止します。
 ・通信・音声・通知・分析・ログイン自動起動はありません。
 
-非公式ファン作品。キャラクター原案・デザインはファンコミュニティと原案者に帰属します。DeepSeek社との提携・承認はありません。
-Apple Silicon用・個人用ローカル試作。アドホック署名・未公証。Macアプリの公開・第三者配布は未許諾。素材の再配布ライセンスは付与していません。
-`);
+${bundledReadmeFooter}`);
 
 const executable = resolve(macos, 'KujiraWallpaper');
 await copyFile(sourceBinary, executable); await chmod(executable, 0o755);
 run('/usr/bin/strip', ['-S', executable]);
 const version = JSON.parse(await readFile(resolve(root, 'package.json'), 'utf8')).version;
 const xml = value => String(value).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;');
+const displayName = developerId ? 'くじらの散歩道' : 'くじらの散歩道（個人用試作）';
+const copyright = developerId
+  ? '非公式ファン作品。キャラクター原案・デザインはファンコミュニティと原案者に帰属します。DeepSeek社との提携・承認はありません。'
+  : '非公式ファン作品・個人用ローカル試作。公開・再配布許諾未確認。';
 await writeFile(resolve(contents, 'Info.plist'), `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
 <key>CFBundleExecutable</key><string>KujiraWallpaper</string>
 <key>CFBundleIdentifier</key><string>local.kujira.walkway</string>
 <key>CFBundleName</key><string>くじらの散歩道</string>
-<key>CFBundleDisplayName</key><string>くじらの散歩道（個人用試作）</string>
+<key>CFBundleDisplayName</key><string>${xml(displayName)}</string>
 <key>CFBundlePackageType</key><string>APPL</string>
 <key>CFBundleShortVersionString</key><string>${xml(version)}</string>
 <key>CFBundleVersion</key><string>19</string>
@@ -99,7 +117,7 @@ await writeFile(resolve(contents, 'Info.plist'), `<?xml version="1.0" encoding="
 <key>LSUIElement</key><false/>
 <key>NSHighResolutionCapable</key><true/>
 <key>NSPrincipalClass</key><string>NSApplication</string>
-<key>NSHumanReadableCopyright</key><string>非公式ファン作品・個人用ローカル試作。公開・再配布許諾未確認。</string>
+<key>NSHumanReadableCopyright</key><string>${xml(copyright)}</string>
 </dict></plist>\n`);
 await writeFile(resolve(contents, 'PkgInfo'), 'APPL????');
 // strip can invalidate the linker's ad-hoc signature. Sign before executing the icon tool.
@@ -118,8 +136,25 @@ manifest.assets.push({ id: 'A04-mac', path: 'AppIcon.icns', name: 'Mac用の個�
   modifications: [{ description: '選択プロファイルの待機フレームを使い、独自の角丸タイルと波を合成。' }] });
 await writeFile(manifestPath, JSON.stringify(manifest, null, 2) + '\n');
 run('/usr/bin/plutil', ['-lint', resolve(contents, 'Info.plist')]);
-run('/usr/bin/codesign', ['--force', '--sign', '-', '--options', 'runtime', '--timestamp=none', '--entitlements', resolve(root, 'src/app-mac/Entitlements.plist'), app]);
+// Final seal. The ad-hoc path keeps the personal-preview settings; the Developer ID path
+// uses the real certificate, a secure timestamp and Hardened Runtime. Nothing changes after this.
+const finalSign = developerId
+  ? ['--force', '--sign', signingIdentity.hash, '--options', 'runtime', '--timestamp', '--entitlements', resolve(root, 'src/app-mac/Entitlements.plist')]
+  : ['--force', '--sign', '-', '--options', 'runtime', '--timestamp=none', '--entitlements', resolve(root, 'src/app-mac/Entitlements.plist')];
+run('/usr/bin/codesign', [...finalSign, app]);
 run('/usr/bin/codesign', ['--verify', '--deep', '--strict', '--verbose=2', app]);
+if (developerId) {
+  // codesign diagnostic output goes to stderr; capture it explicitly.
+  const inspect = (args) => { const r = spawnSync('/usr/bin/codesign', args, { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }); return `${r.stdout}\n${r.stderr}`; };
+  const detail = inspect(['-dvv', app]);
+  assert.ok(detail.includes(`Authority=${signingIdentity.name}`), 'The final signature must be issued by the Developer ID Application certificate, not ad-hoc.');
+  assert.ok(/flags=.*runtime|flags=.*0x10000/.test(detail), `Hardened Runtime flag missing: ${detail}`);
+  assert.ok(detail.includes('Timestamp='), 'Secure timestamp missing on the release signature.');
+  assert.ok(detail.includes('TeamIdentifier=8BNUB2R9C8'), 'Unexpected TeamIdentifier.');
+  const entitlements = inspect(['-d', '--entitlements', '-', '--xml', app]);
+  assert.ok(entitlements.includes('com.apple.security.cs.allow-jit'), 'Expected the JIT entitlement.');
+  assert.ok(!/get-task-allow|allow-unsigned|disable-library/.test(entitlements), 'Debug or unsafe entitlements must not ship.');
+}
 run(executable, ['--self-test']);
 run(executable, ['--fighters-self-test']);
 // Startup smoke: preview + menus create, preview close releases its window/view, reopen works.
@@ -161,7 +196,9 @@ assert.ok(files.every(file => !/(^|\/)(node_modules|production|concepts|research
 const architecture = capture('/usr/bin/lipo', ['-archs', executable]);
 const libraries = capture('/usr/bin/otool', ['-L', executable]);
 const systemLibraries = systemLibraryPaths(libraries);
-const zip = resolve(output, `KujiraWallpaper-Sparring-B19-${architecture.replaceAll(' ', '-')}-local-preview.zip`);
+const zip = resolve(output, developerId
+  ? `KujiraWallpaper-B19-${architecture}-developer-id.zip`
+  : `KujiraWallpaper-Sparring-B19-${architecture.replaceAll(' ', '-')}-local-preview.zip`);
 run('/usr/bin/ditto', ['-c', '-k', '--sequesterRsrc', '--keepParent', app, zip]);
 // Legacy unzip console output can corrupt Japanese names under C locales.
 // Validate the real archive more strictly: extract, compare every byte, verify and execute.
@@ -181,8 +218,10 @@ run(resolve(restoredApp, 'Contents/MacOS/KujiraWallpaper'), ['--fighters-self-te
 });
 const report = { schemaVersion: 1, app: relative(root, app), zip: relative(root, zip), zipSha256: hash(await readFile(zip)),
   preview: relative(root, resolve(output, 'native-preview.png')), architecture, minimumMacOS: '14.0', testedMacOS: 'current-build-machine-only',
-  profile: prepared.layout.id, version, signing: 'ad-hoc hardened runtime, bundled-code JIT entitlement only', notarized: false,
-  localPreviewOnly: true, published: false, thirdPartyRightsVerified: false, originalWallpaperChangedDuringBuild: false,
+  profile: prepared.layout.id, version,
+  signing: developerId ? `${signingIdentity.name}, hardened runtime, secure timestamp, allow-jit entitlement only` : 'ad-hoc hardened runtime, bundled-code JIT entitlement only',
+  signingIdentityHash: developerId ? signingIdentity.hash : 'ad-hoc', notarized: false,
+  localPreviewOnly: !developerId, published: false, thirdPartyRightsVerified: false, originalWallpaperChangedDuringBuild: false,
   archiveVerified: true, relocatedStandaloneSelfTest: true, relocatedFightersSelfTest: true,
   gameplay: 'quiet-life + no-result Lumie sparring + manual arena only with wallpaper OFF + multi-display', bundleBuild: '19',
   startupSmoke: 'preview-create-close-reopen verified; wallpaper stayed OFF',
