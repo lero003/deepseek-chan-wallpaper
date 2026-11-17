@@ -39,9 +39,11 @@ npm run mac:build -- --placeholder
 
 **Apple Silicon向けの個人用試作・未公証です。** 署名・同梱素材・展開後の単体起動は検証しますが、可視アニメーション・Space・実機スリープ・長時間負荷の受け入れは別です。[Mac版のビルドと操作手順](<docs/macos.md>)を参照してください。
 
-非公開リポジトリの**個人テスト用リリース**に、他のMacで試せるDMGとZIPを添付しています。一般公開リリースではありません。最新は[全ディスプレイ同期 Build 15](<https://github.com/lero003/deepseek-chan-wallpaper/releases/tag/multi-display-build15-dmg>)。DMGの取得・起動・Gatekeeper・制限は[リリースDMGの試用](<docs/dmg-release.md>)を参照してください。
+**一般配布リリースを発行した**（2026-11-17・Prerelease）。[Release `public-preview-v0.1.0`](<https://github.com/lero003/deepseek-chan-wallpaper/releases/tag/public-preview-v0.1.0>)から公証済みDMG（`KujiraWalkway-0.1.0-B19-arm64.dmg`／SHA-256 `cd42bab9bf566429e76675ff1f15470f1caa89dcca89c10955adaed2cf80b4f0`）とSHA256SUMS.txtを取得できる。開発機外の実機でも初回起動・Gatekeeper確認済み。ビルド・公証・検証は `npm run mac:release` で再現。[一般配布リリースの運用](<docs/macos-public-release.md>)を参照。
 
-**一般配布リリース（準備完了・未公開）**: `npm run mac:release` で、Developer ID署名・Hardened Runtime・Secure Timestamp・Apple公証・staple・Gatekeeper検証（DMG内・コピー後両方）・SHA-256・manifestまでを1回で再現できます。素材の許諾は所有者確認済み。公開（Publish）は所有者の明示的な指示待ちです。[一般配布リリースの準備状態と公開前確認](<docs/macos-public-release.md>)を参照してください。
+過去の個人テスト用リリース（アドホック署名・未公証）は本人の別Mac検証用で、一般配布は上記の公証済みReleaseのみを使う。[リリースDMGの試用](<docs/dmg-release.md>)は歴史文書。
+
+**一般配布リリース（公開済み）**: `npm run mac:release` で、Developer ID署名・Hardened Runtime・Secure Timestamp・Apple公証・staple・Gatekeeper検証（DMG内・コピー後両方）・SHA-256・manifestまでを1回で再現できます。
 
 ## Web版の起動
 

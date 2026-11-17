@@ -1,6 +1,6 @@
-# macOS一般配布リリース（Developer ID・公証）— 準備状態と公開前確認
+# macOS一般配布リリース（Developer ID・公証）— 公開済み（2026-11-17）
 
-2026-11-17に、GitHub Releasesからの一般配布を目指し、**Developer ID署名・Apple公証・stapleまでを1回で再現できるパイプライン**を追加した。公開（ReleaseのPublish・リポジトリ可視化）は**所有者の明示的な確認が終わるまで行わない**。現状はDraft作成まで。
+Release `public-preview-v0.1.0`（Prerelease）を発行済み。リポジトリはpublic、Pagesは無効のまま。以下は運用・再現手順と経緯の記録。
 
 ## パイプライン
 

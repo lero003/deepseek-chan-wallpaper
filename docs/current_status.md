@@ -1,8 +1,10 @@
 # 現在の状態 / 引き継ぎ
 
-更新: 2026-11-17 · Build19 リュミエとのゆっくり対戦＋手動3連戦復元 · **macOS一般配布リリースはDeveloper ID署名・公証済みDMGがDraftまで完了（Publishは所有者確認待ち）** · Web公開用dist準備済み／本番未反映
+更新: 2026-11-17 · Build19 リュミエとのゆっくり対戦＋手動3連戦復元 · **リポジトリpublic化・macOS一般配布Release `public-preview-v0.1.0` 発行済み（Prerelease）** · Web公開用dist準備済み／本番未反映
 
-## 現在：macOS一般配布リリース準備（Developer ID・公証・Draftまで / 2026-11-17）
+## 現在：macOS一般配布リリース公開済み（2026-11-17）
+
+- **公開完了**: リポジトリpublic化（データチェック・ライセンス整備後）、Release `public-preview-v0.1.0` をPrereleaseでPublish（target `b7f5e51`・アノテーションタグ同コミット）。未認証curlでDMG取得→`shasum -c` OK・staple有効・隔離属性付きでGatekeeper `source=Notarized Developer ID`。実機初回起動はユーザー確認済み。LICENSE新設（コードAll rights reserved）、ART-LICENSE/CREDITS/READMEを公開ファン作品の実態へ更新。GitHubのlicense検出も確認。詳細は[macos-public-release.md](<macos-public-release.md>)。
 
 - ユーザー依頼によりGitHub Releases一般配布向けパイプライン`npm run mac:release`（`scripts/release-macos.mjs`）を追加。Releaseビルド→Developer ID署名→DMG→公証（既存キーチェーンプロファイル`kujira-release`・認証情報は非表示）→staple→検証→SHA-256→manifestまでを1回で再現。
 - `scripts/build-macos.mjs --developer-id`（`--local-preview`必須）: `Developer ID Application: Keitaro Matsukura (8BNUB2R9C8)`・Hardened Runtime・Secure Timestamp・entitlementsは`allow-jit`のみ。アドホック拒否・debug entitlement拒否・TeamIdentifier/Timestamp検査をスクリプト化。**個人用経路（mac:build/mac:dmg・アドホック）とApp Store経路は不変で、両者は互いのレポートを明示的に拒否**する。
