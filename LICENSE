@@ -1,0 +1,31 @@
+# ライセンス / License
+
+Copyright (c) 2026 lero003（プロジェクト所有者）. All rights reserved.
+（著作権はプロジェクト所有者に帰属します。無断での再配布・再公開は禁止です。）
+
+## コード
+
+本リポジトリのソースコードは**プロプライエタリ（All rights reserved）**です。
+プロジェクト所有者の明示的な書面許可なく、コピー・再配布・再公開・再ライセンスは
+できません。公式に配布されるmacOSアプリ・Webビルドの実行は可能です。
+オープンライセンスへの変更は今後の所有者判断で検討されます。
+
+コードのライセンスは、画像・音声・キャラクター表現には一切適用されません。
+
+## 画像・アセット
+
+同梱・公開される画像（承認済み基準絵に基づく生成・加工素材、ドット絵、背景、
+アイコンを含む）は**再配布ライセンスが付与されていません**。
+詳細と素材台帳の読み方は [ART-LICENSE.md](ART-LICENSE.md) と [CREDITS.md](CREDITS.md) を参照してください。
+
+## キャラクター原案
+
+「DeepSeekちゃん（クジラ娘）」のキャラクター原案・デザイン・世界観は、
+これを生み出したファンコミュニティと原案者に帰属します。
+本プロジェクトはキャラクターや原案に対する権利を主張せず、
+それらについていかなるライセンスも付与しません。
+DeepSeek社とは無関係で、提携・承認はありません。
+
+This is an unofficial, non-commercial fan project. It is not affiliated with,
+endorsed by, or sponsored by DeepSeek. Character design rights belong to the
+original fan community and creators. No artwork redistribution license is granted.
