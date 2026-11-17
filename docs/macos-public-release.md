@@ -34,5 +34,5 @@ npm run mac:release
 
 ## 検証状況（2026-11-17）
 
-- 実行済み・結果: `docs/current_status.md` のBuild19公開準備セクションに記録する。
+- 実行済み: 公証`Accepted`・staple/validate・`hdiutil verify`・`shasum -c`・Gatekeeper`accepted source=Notarized Developer ID`・DMG内外での自己テスト・起動スモーク（壁紙OFF）・リモートDraft資産の再DL照合。成果物とSHA-256は`docs/current_status.md`と`release-manifest.json`。
 - 未実施: 開発機以外での初回起動、実画面での壁紙/Space/スリープ受け入れ、公開後のRemote検証。
