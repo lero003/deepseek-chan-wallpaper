@@ -31,7 +31,7 @@ npm run mac:release
 - **素材の再配布許諾**: 2026-11-17にプロジェクト所有者が「素材及び生成素材の許諾は問題なし」と確認済み。公開配布のブロッカーは解消した（`ART-LICENSE.md`の歴史的記述は参照として残る）。
 - 公開先: 所有者方針で現行privateリポジトリのまま。**注意: GitHub Releasesはリポジトリの可視性を継承するため、privateのまま公開Releaseを発行しても一般ユーザーはダウンロードできない**。一般配布には①リポジトリのpublic化、または②公開専用リポジトリ／別ホストへの成果物公開が必要。可視性変更は所有者の明示指示待ち。
 - **Bundle ID `local.kujira.walkway`** を公開後も継続するか要確認。変更するなら公開前（発行後は設定ファイル`~/Library/Preferences/local.kujira.walkway.plist`の引き継ぎ問題が出る）。
-- 別Mac・新規ダウンロード環境でのGatekeeper初回起動試験（この環境では未実施）。
+- 別Mac・新規ダウンロード環境でのGatekeeper初回起動試験は**2026-11-17にユーザーの実機確認で「問題なし」**。
 
 ## レビュー対応（2026-11-17）
 
@@ -43,4 +43,4 @@ npm run mac:release
 ## 検証状況（2026-11-17）
 
 - 実行済み: 公証`Accepted`・staple/validate・`hdiutil verify`・`shasum -c`・Gatekeeper`accepted source=Notarized Developer ID`・DMG内外での自己テスト・起動スモーク（壁紙OFF）・リモートDraft資産の再DL照合。成果物とSHA-256は`docs/current_status.md`と`release-manifest.json`。
-- 未実施: 開発機以外での初回起動、実画面での壁紙/Space/スリープ受け入れ、公開後のRemote検証。
+- 未実施（残）: 実画面での壁紙/Space/スリープ受け入れ・長時間負荷（任意）、公開後のRemote検証。実機初回起動はユーザー確認済み。

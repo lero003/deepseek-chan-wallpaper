@@ -11,7 +11,8 @@
 - **GitHub Release Draft更新済み・未公開**: `public-preview-v0.1.0`（target `b7f5e51`）に現行DMGとSHA256SUMS.txtを添付。リモート再DL→`shasum -c`一致確認済。Publish・タグ実体化・可視性変更は**未実施（明示依頼待ち）**。ソースpushは承認済みのprivate repo向けreviewed source pushの範囲。
 - **許諾・公開可否（2026-11-17更新）**: 素材・生成素材の再配布許諾は**所有者確認済み**。ただしリポジトリはprivateのまま（所有者方針）。**private repoのReleaseは一般ユーザーがダウンロードできない**ため、一般配布にはpublic化または公開専用リポジトリの判断が必要。
 - データチェック: git追跡132ファイル・全48コミット履歴に秘密鍵・トークン・メール・個人パス・`.env`・private-art混入なし。コミット作者はnoreplyのみ。アプリバンドル・同梱テキスト・バイナリ文字列に個人パス／認証情報なし。Pages無効・private維持確認。実名・TeamIDは署名証明書の性質上アプリ本体には不可避だが、スクリプトのハードコードは`b7f5e51`で証明書からの導出に変更。
-- **公開前の残確認**: ①リポジトリ可視性の方針判断。②Bundle ID `local.kujira.walkway` 継続可否（変更なら公開前）。③開発機以外での初回起動試験。詳細は[macos-public-release.md](<macos-public-release.md>)。レビュー対応（BUNDLE_BUILD集約・コピー後spctl・README整合・allow-jit検証維持）済み。
+- **実機確認（2026-11-17・ユーザー）**: 配布想定DMGの実機での確認済み。「特に問題なし」の報告を得た。これにより開発機外での初回起動・Gatekeeper挙動の実機未実施項目は解消。実画面での壁紙/Space/スリープ・長時間負荷の細かい受け入れは引き続き任意項目。
+- **公開前の残判断**: ①リポジトリ可視性方針（privateのままでは公開Releaseは一般DL不可）。②Bundle ID `local.kujira.walkway` 継続可否（変更なら公開前）。③Publish指示。詳細は[macos-public-release.md](<macos-public-release.md>)。レビュー対応（BUNDLE_BUILD集約・コピー後spctl・README整合・allow-jit検証維持）済み。
 - 中間生成物（バグ修正前の`20261117010259`・`20261117005827`系・staple前ハッシュ記録）は配布対象外。公式成果物は上記`20261117011454`のみ。
 
 ## 現在：書斎／ゆっくり対戦／手動3連戦（Build19 / 2026-11-17）
