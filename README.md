@@ -2,7 +2,7 @@
 
 夕暮れの海を望む小さな書斎で、DeepSeekちゃんをモチーフにしたクジラ娘が歩き、立ち止まり、ときどき眠る。音のない、眺めるための壁紙アプリ（Web／Mac）です。広い画面では書斎の続きが左右へ静かに広がり、海面のきらめきや光の粒がゆっくり動きます。背景は「夕凪」「月夜」「雨音」「朝凪」「雪あかり」の5つから切り替えられます。
 
-**Web版は hazakura.dev/kujira/ 向け、Mac版は個人用ローカル試作です。Build 19では「リュミエとゆっくり対戦」と「手動で3連戦」を追加・復元しました。個人用ビルドは従来どおりアドホック署名・非配布。一般配布向け（Developer ID署名・Apple公証）は許諾確認中につき未公開です。**
+**Web版は hazakura.dev/kujira/ 向け、Mac版は個人用ローカル試作です。Build 19では「リュミエとゆっくり対戦」と「手動で3連戦」を追加・復元しました。個人用ビルドは従来どおりアドホック署名・非配布。一般配布向け（Developer ID署名・Apple公証）はDMG・Draft Release準備済み。公開指示待ちで、privateリポジトリのままでは一般ユーザーはダウンロードできない（[参照](<docs/macos-public-release.md>)）。**
 
 モードは「書斎で過ごす」「リュミエとゆっくり対戦」「手動で3連戦」。ゆっくり対戦はテラスの固定カメラでリュミエだけを相手に、HP表示・スコア・勝敗なしで戦い続けます。主人公は単発攻撃の間に約2〜3秒休み、リュミエも通常より長く間を置きます。打ち合った後は、両キャラが後ろ跳び・後ろ歩き・背を向けた歩行で離れ、一呼吸してから近づきます。Macでは壁紙OFF時だけ手動対戦ができ、壁紙ONにすると選んでいた書斎／ゆっくり対戦へ戻ります。Webは手動対戦に対応します。矢印/WASDで移動、Jで攻撃、Kで回避、Lで必殺技、Escで一時停止。Webには画面下の操作ボタンもあります。最新の検証と未確認項目は[現在の状態](docs/current_status.md)を参照してください。
 
@@ -41,7 +41,7 @@ npm run mac:build -- --placeholder
 
 非公開リポジトリの**個人テスト用リリース**に、他のMacで試せるDMGとZIPを添付しています。一般公開リリースではありません。最新は[全ディスプレイ同期 Build 15](<https://github.com/lero003/deepseek-chan-wallpaper/releases/tag/multi-display-build15-dmg>)。DMGの取得・起動・Gatekeeper・制限は[リリースDMGの試用](<docs/dmg-release.md>)を参照してください。
 
-**一般配布リリース（準備中・未公開）**: `npm run mac:release` で、Developer ID署名・Hardened Runtime・Secure Timestamp・Apple公証・staple・Gatekeeper検証・SHA-256・manifestまでを1回で再現できます。公開は素材の許諾確認と所有者の明示的な確認完了後で、現在はDraft作成までです。[一般配布リリースの準備状態と公開前確認](<docs/macos-public-release.md>)を参照してください。
+**一般配布リリース（準備完了・未公開）**: `npm run mac:release` で、Developer ID署名・Hardened Runtime・Secure Timestamp・Apple公証・staple・Gatekeeper検証（DMG内・コピー後両方）・SHA-256・manifestまでを1回で再現できます。素材の許諾は所有者確認済み。公開（Publish）は所有者の明示的な指示待ちです。[一般配布リリースの準備状態と公開前確認](<docs/macos-public-release.md>)を参照してください。
 
 ## Web版の起動
 

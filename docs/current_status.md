@@ -6,10 +6,12 @@
 
 - ユーザー依頼によりGitHub Releases一般配布向けパイプライン`npm run mac:release`（`scripts/release-macos.mjs`）を追加。Releaseビルド→Developer ID署名→DMG→公証（既存キーチェーンプロファイル`kujira-release`・認証情報は非表示）→staple→検証→SHA-256→manifestまでを1回で再現。
 - `scripts/build-macos.mjs --developer-id`（`--local-preview`必須）: `Developer ID Application: Keitaro Matsukura (8BNUB2R9C8)`・Hardened Runtime・Secure Timestamp・entitlementsは`allow-jit`のみ。アドホック拒否・debug entitlement拒否・TeamIdentifier/Timestamp検査をスクリプト化。**個人用経路（mac:build/mac:dmg・アドホック）とApp Store経路は不変で、両者は互いのレポートを明示的に拒否**する。
-- 成果物（コミット`112cbba`からビルド）: `private-art/macos-out/20261117011454-3a890db1/KujiraWalkway-0.1.0-B19-arm64.dmg` 4,945,497 bytes／SHA-256 `0c1e491095b6c4e58f62f020c86132d3e93f2d70e911665b83a0cd5be1399170`。Bundle ID `local.kujira.walkway`・v0.1.0（bundle build 19）・arm64・macOS 14+。
+- 成果物（コミット`b7f5e51`からビルド・現行版）: `private-art/macos-out/20261117021026-fc103316/KujiraWalkway-0.1.0-B19-arm64.dmg` 4,945,591 bytes／SHA-256 `cd42bab9bf566429e76675ff1f15470f1caa89dcca89c10955adaed2cf80b4f0`。Bundle ID `local.kujira.walkway`・v0.1.0（bundle build 19）・arm64・macOS 14+。旧`112cbba`ビルド（`0c1e49…`）はレビュー対応前の中間版として差し替え済み。
 - 検証済み: 公証`Accepted`・`stapler validate` OK・`hdiutil verify` VALID・`shasum -a 256 -c` OK・Gatekeeper`accepted source=Notarized Developer ID`（DMG内／外コピー両方）・自己テスト2種・起動スモーク（壁紙OFFのまま・残プロセスなし）。リモートDraftから再DLして`shasum -c`一致。
-- **GitHub Release Draft作成済み・未公開**: `public-preview-v0.1.0`（untagged-563f0e68b3061120be32・target `112cbba`）にDMGとSHA256SUMS.txtを添付。Publish・タグ実体化・privateリポジトリの可視性変更は**未実施（明示依頼待ち）**。ソースpushは2026-11-12承認済みのprivateリポジトリへのreviewed source pushの範囲。
-- **公開前の未解決**: ①キャラクター・生成素材の第三者再配布許諾が未確認（`ART-LICENSE.md`）。これが最重要の公開前確認事項。②公開先リポジトリ方針（privateのまま公開Releaseか、公開専用リポジトリ新設か）。③開発機以外のMacでの初回起動/Gatekeeper実機試験未実施。詳細は[macos-public-release.md](<macos-public-release.md>)。
+- **GitHub Release Draft更新済み・未公開**: `public-preview-v0.1.0`（target `b7f5e51`）に現行DMGとSHA256SUMS.txtを添付。リモート再DL→`shasum -c`一致確認済。Publish・タグ実体化・可視性変更は**未実施（明示依頼待ち）**。ソースpushは承認済みのprivate repo向けreviewed source pushの範囲。
+- **許諾・公開可否（2026-11-17更新）**: 素材・生成素材の再配布許諾は**所有者確認済み**。ただしリポジトリはprivateのまま（所有者方針）。**private repoのReleaseは一般ユーザーがダウンロードできない**ため、一般配布にはpublic化または公開専用リポジトリの判断が必要。
+- データチェック: git追跡132ファイル・全48コミット履歴に秘密鍵・トークン・メール・個人パス・`.env`・private-art混入なし。コミット作者はnoreplyのみ。アプリバンドル・同梱テキスト・バイナリ文字列に個人パス／認証情報なし。Pages無効・private維持確認。実名・TeamIDは署名証明書の性質上アプリ本体には不可避だが、スクリプトのハードコードは`b7f5e51`で証明書からの導出に変更。
+- **公開前の残確認**: ①リポジトリ可視性の方針判断。②Bundle ID `local.kujira.walkway` 継続可否（変更なら公開前）。③開発機以外での初回起動試験。詳細は[macos-public-release.md](<macos-public-release.md>)。レビュー対応（BUNDLE_BUILD集約・コピー後spctl・README整合・allow-jit検証維持）済み。
 - 中間生成物（バグ修正前の`20261117010259`・`20261117005827`系・staple前ハッシュ記録）は配布対象外。公式成果物は上記`20261117011454`のみ。
 
 ## 現在：書斎／ゆっくり対戦／手動3連戦（Build19 / 2026-11-17）

@@ -184,7 +184,7 @@ async function main() {
     notarization: 'submitted with keychain profile kujira-release; notarytool --wait returned Accepted',
     stapled: true, staplerValidated: true, gatekeeperAssessed: true,
     mountedReadOnlyVerified: true, copiedOutSelfTest: true,
-    published: false, notes: 'Awaiting owner confirmation of art redistribution rights before publishing the Release.',
+    published: false, notes: 'Art redistribution rights confirmed by the project owner (2026-11-17). Publishing still requires an explicit owner action; the repo is currently private, so the Release is not publicly downloadable.',
   };
   await writeFile(resolve(output, 'release-manifest.json'), JSON.stringify(manifest, null, 2) + '\n');
   console.log(`DMG_READY: ${manifest.dmg}`);
