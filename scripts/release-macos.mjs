@@ -4,7 +4,7 @@
 // publishing stays a separate, explicit owner action.
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdir, readFile, writeFile, symlink, rm, readdir, lstat, realpath, copyFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile, symlink, rm, readdir, lstat, realpath } from 'node:fs/promises';
 import { resolve, dirname, relative } from 'node:path';
 import { randomUUID, createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
@@ -134,14 +134,15 @@ async function main() {
   ].join('\n'));
   run('/usr/bin/hdiutil', ['create', '-volname', 'くじらの散歩道', '-srcfolder', staging, '-ov', '-format', 'UDZO', '-fs', 'HFS+', dmg]);
   await rm(staging, { recursive: true, force: true });
-  const dmgSha = hash(await readFile(dmg));
 
   // 3) Notarize the DMG with the pre-existing keychain profile. Never print credentials.
   run('/usr/bin/xcrun', ['notarytool', 'submit', dmg, '--keychain-profile', NOTARY_PROFILE, '--wait']);
 
-  // 4) Staple the notarization ticket and validate it.
+  // 4) Staple the notarization ticket and validate it. Stapling rewrites the DMG,
+  // so every published checksum must be computed only after this point.
   run('/usr/bin/xcrun', ['stapler', 'staple', dmg]);
   run('/usr/bin/xcrun', ['stapler', 'validate', dmg]);
+  const dmgSha = hash(await readFile(dmg));
 
   // 5) Distribution verification: mount read-only, assess, run self-tests, copy out.
   const mount = resolve(output, 'mount');
@@ -166,8 +167,7 @@ async function main() {
   run(resolve(copiedApp, 'Contents/MacOS/KujiraWallpaper'), ['--self-test'], { cwd: verification, env: { PATH: '/usr/bin:/bin', LANG: 'ja_JP.UTF-8' } });
   run(resolve(copiedApp, 'Contents/MacOS/KujiraWallpaper'), ['--fighters-self-test'], { cwd: verification, env: { PATH: '/usr/bin:/bin', LANG: 'ja_JP.UTF-8' } });
 
-  // 6) Release assets: DMG, checksums, notes, manifest.
-  await copyFile(dmg, resolve(output, dmgName));
+  // 6) Release assets: checksums, notes, manifest. The DMG already lives in the output directory.
   await writeFile(resolve(output, 'SHA256SUMS.txt'), `${dmgSha}  ${dmgName}\n`);
   await writeFile(resolve(output, 'release-notes.txt'), readmeText);
   const stat = await lstat(dmg);
